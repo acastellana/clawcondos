@@ -1537,11 +1537,11 @@
           <div class="auto-archive-setting" title="Auto-archive inactive sessions">
             <span>⏰</span>
             <select id="autoArchiveSelect" onchange="setAutoArchiveDays(this.value)">
+              <option value="0.01">15m</option>
+              <option value="0.042">1h</option>
               <option value="0.25">6h</option>
-              <option value="0.5">12h</option>
               <option value="1">1d</option>
               <option value="3">3d</option>
-              <option value="7">7d</option>
               <option value="never">Off</option>
             </select>
           </div>
