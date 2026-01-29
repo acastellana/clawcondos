@@ -1836,6 +1836,65 @@
       }
     }
     
+    async function generateSessionTitle(key, event) {
+      if (event) event.stopPropagation();
+      const session = state.sessions.find(s => s.key === key);
+      if (!session) return;
+      
+      showToast('Generating title...', 'info', 2000);
+      
+      try {
+        // Get first few messages from this session
+        const historyResult = await rpcCall('chat.history', { sessionKey: key, limit: 5 });
+        const messages = historyResult?.messages || [];
+        
+        if (messages.length === 0) {
+          showToast('No messages to summarize', 'warning');
+          return;
+        }
+        
+        // Extract first user message as context
+        const firstUserMsg = messages.find(m => m.role === 'user');
+        let context = '';
+        if (firstUserMsg) {
+          if (typeof firstUserMsg.content === 'string') {
+            context = firstUserMsg.content.slice(0, 300);
+          } else if (Array.isArray(firstUserMsg.content)) {
+            context = firstUserMsg.content
+              .filter(c => c.type === 'text')
+              .map(c => c.text)
+              .join(' ')
+              .slice(0, 300);
+          }
+        }
+        
+        if (!context) {
+          showToast('No user message to summarize', 'warning');
+          return;
+        }
+        
+        // Use tools endpoint if available, otherwise use a quick title extraction
+        // For now, create a simple title from first ~5 words of the message
+        const words = context.split(/\s+/).filter(w => w.length > 0);
+        let title = words.slice(0, 5).join(' ');
+        if (words.length > 5) title += '...';
+        
+        // Clean up the title
+        title = title.replace(/^[@#\-*_]+/, '').trim();
+        if (title.length > 40) title = title.slice(0, 40) + '...';
+        
+        if (title) {
+          setCustomSessionName(key, title);
+          showToast(`Titled: "${title}"`, 'success');
+        } else {
+          showToast('Could not generate title', 'warning');
+        }
+      } catch (err) {
+        console.error('Failed to generate title:', err);
+        showToast('Failed to generate title', 'error');
+      }
+    }
+    
     // ═══════════════════════════════════════════════════════════════
     // SESSION SEARCH
     // ═══════════════════════════════════════════════════════════════
@@ -2568,6 +2627,11 @@
                       onclick="promptRenameSession('${escapeHtml(s.key)}', event)" 
                       title="Rename">
                 ✏️
+              </button>
+              <button class="session-action-btn" 
+                      onclick="generateSessionTitle('${escapeHtml(s.key)}', event)" 
+                      title="Auto-generate title">
+                ✨
               </button>
               <button class="session-action-btn ${isArchived ? 'archived' : ''}" 
                       onclick="event.stopPropagation(); toggleArchiveSession('${escapeHtml(s.key)}')" 
