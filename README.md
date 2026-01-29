@@ -74,8 +74,7 @@ See [Backend API Documentation](docs/BACKEND-API.md) for the full protocol speci
 ```
 apps/
 ├── index.html          # Main dashboard
-├── shell.html          # App embedding shell
-├── app.html            # Legacy app shell
+├── app.html            # App view with assistant panel
 ├── lib/
 │   └── gateway-ws.js   # WebSocket client library
 ├── .registry/
