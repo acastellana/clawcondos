@@ -1,0 +1,34 @@
+{
+  "_comment": "Example apps registry. Copy to apps.json and customize.",
+  "apps": [
+    {
+      "id": "example-app",
+      "name": "Example App",
+      "description": "An example application entry",
+      "port": 8080,
+      "path": "/path/to/your/app",
+      "startCommand": "npm start",
+      "icon": "🚀",
+      "files": {
+        "entry": "index.js",
+        "config": "config.json"
+      },
+      "logs": "/tmp/example-app.log",
+      "docs": "README.md",
+      "stack": "Node.js"
+    },
+    {
+      "id": "python-service",
+      "name": "Python Service",
+      "description": "A Python Flask/FastAPI service",
+      "port": 5000,
+      "path": "/path/to/python-service",
+      "startCommand": "python -m flask run",
+      "icon": "🐍",
+      "files": {
+        "entry": "app.py"
+      },
+      "stack": "Python, Flask"
+    }
+  ]
+}

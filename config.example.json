@@ -1,0 +1,22 @@
+{
+  "_comment": "Sharp Dashboard Configuration Example",
+  "_usage": "Copy to config.json and customize. Load via: window.SHARP_CONFIG = await fetch('/config.json').then(r => r.json())",
+  
+  "gatewayWsUrl": "wss://your-domain.com/",
+  "gatewayHttpUrl": "https://your-domain.com",
+  "appsUrl": "/api/apps",
+  
+  "branding": {
+    "name": "My Dashboard",
+    "logo": null,
+    "favicon": null
+  },
+  
+  "defaultSessionKey": "agent:main:main",
+  
+  "features": {
+    "chat": true,
+    "apps": true,
+    "shell": true
+  }
+}

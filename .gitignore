@@ -1,0 +1,26 @@
+# Sharp .gitignore
+
+# User-specific configuration (contains secrets)
+config.json
+Caddyfile
+
+# Apps registry (user-specific)
+.registry/apps.json
+
+# Keep example files
+!config.example.json
+!Caddyfile.example
+!.registry/apps.example.json
+
+# Logs
+*.log
+
+# Editor files
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Node modules (if any)
+node_modules/
+start-gateway.sh

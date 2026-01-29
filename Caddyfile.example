@@ -1,0 +1,128 @@
+# Sharp Dashboard - Caddyfile Example
+# 
+# This file configures Caddy to serve Sharp and proxy requests to Clawdbot Gateway.
+# Copy to Caddyfile and customize for your environment.
+#
+# Requirements:
+# - Caddy 2.x (https://caddyserver.com)
+# - Clawdbot Gateway running on localhost:18789 (or your configured port)
+# - Sharp files in /path/to/sharp
+#
+# Usage:
+#   cp Caddyfile.example Caddyfile
+#   # Edit Caddyfile with your values
+#   caddy run --config Caddyfile
+
+# Listen on port 9000 (change as needed)
+# For HTTPS with a domain: your-domain.com { ... }
+:9000 {
+    # ═══════════════════════════════════════════════════════════════
+    # GATEWAY PROXY
+    # These routes proxy to Clawdbot Gateway with authentication
+    # ═══════════════════════════════════════════════════════════════
+    
+    # WebSocket proxy to Gateway
+    # Replace YOUR_GATEWAY_TOKEN with your actual gateway bearer token
+    handle /ws {
+        reverse_proxy localhost:18789 {
+            header_up Authorization "Bearer YOUR_GATEWAY_TOKEN"
+            header_up Origin "http://localhost:18789"
+            header_up Host "localhost:18789"
+        }
+    }
+    
+    # Gateway REST API proxy
+    handle /api/gateway/* {
+        uri strip_prefix /gateway
+        reverse_proxy localhost:18789 {
+            header_up Authorization "Bearer YOUR_GATEWAY_TOKEN"
+        }
+    }
+    
+    # Tools API proxy (for apps using gateway tools)
+    handle /tools/* {
+        reverse_proxy localhost:18789 {
+            header_up Authorization "Bearer YOUR_GATEWAY_TOKEN"
+        }
+    }
+    
+    # ═══════════════════════════════════════════════════════════════
+    # CLAWDBOT CONTROL UI (optional)
+    # Proxy to Gateway's built-in control interface
+    # ═══════════════════════════════════════════════════════════════
+    
+    handle /control/* {
+        uri strip_prefix /control
+        reverse_proxy localhost:18789
+    }
+    handle /control {
+        redir /control/ permanent
+    }
+    
+    # ═══════════════════════════════════════════════════════════════
+    # SHARP STATIC FILES
+    # Serve the Sharp dashboard and supporting files
+    # ═══════════════════════════════════════════════════════════════
+    
+    # App page (assistant chat interface)
+    handle /app {
+        root * /path/to/sharp
+        header Cache-Control "no-cache, no-store, must-revalidate"
+        rewrite * /app.html
+        file_server
+    }
+    
+    # Dashboard root
+    handle / {
+        root * /path/to/sharp
+        header Cache-Control "no-cache, no-store, must-revalidate"
+        file_server
+        try_files {path} /index.html
+    }
+    
+    # Library files (JS modules)
+    handle /lib/* {
+        root * /path/to/sharp
+        file_server
+    }
+    
+    # ═══════════════════════════════════════════════════════════════
+    # APPS REGISTRY
+    # Serve the apps.json file that lists available apps
+    # ═══════════════════════════════════════════════════════════════
+    
+    handle /api/apps {
+        root * /path/to/sharp/.registry
+        rewrite * /apps.json
+        file_server
+    }
+    
+    # ═══════════════════════════════════════════════════════════════
+    # YOUR APPS (add your own proxies here)
+    # Example: proxy /myapp to localhost:8080
+    # ═══════════════════════════════════════════════════════════════
+    
+    # handle /myapp/* {
+    #     uri strip_prefix /myapp
+    #     reverse_proxy localhost:8080
+    # }
+    # handle /myapp {
+    #     redir /myapp/ permanent
+    # }
+    
+    # ═══════════════════════════════════════════════════════════════
+    # FALLBACK
+    # Serve static files for any unmatched paths
+    # ═══════════════════════════════════════════════════════════════
+    
+    handle {
+        root * /path/to/sharp
+        file_server
+    }
+    
+    # Logging (optional - adjust path as needed)
+    log {
+        output file /tmp/sharp-caddy.log
+        format console
+    }
+}
