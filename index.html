@@ -1444,9 +1444,10 @@
         el = document.createElement('div');
         el.id = `streaming-${runId}`;
         el.className = 'message assistant streaming';
+        el.dataset.startTime = Date.now();
         container.appendChild(el);
       }
-      el.innerHTML = formatMessage(text) + '<span class="streaming-cursor">▊</span>';
+      el.innerHTML = `<div class="message-content">${formatMessage(text)}<span class="streaming-cursor">▊</span></div>`;
       scrollChatToBottom();
     }
     
@@ -1454,7 +1455,8 @@
       const el = document.getElementById(`streaming-${runId}`);
       if (el) {
         el.classList.remove('streaming');
-        el.innerHTML = formatMessage(text);
+        const timeStr = formatMessageTime(new Date());
+        el.innerHTML = `<div class="message-content">${formatMessage(text)}</div><div class="message-time">${timeStr}</div>`;
       } else if (text) {
         // No streaming element, add final message
         const thinking = document.querySelector('.message.thinking');
@@ -2405,11 +2407,13 @@
         if (m.role === 'user') {
           const text = extractText(m.content);
           if (!text) return '';
-          return `<div class="message user">${escapeHtml(text)}</div>`;
+          const timeHtml = m.timestamp ? `<div class="message-time">${formatMessageTime(new Date(m.timestamp))}</div>` : '';
+          return `<div class="message user"><div class="message-content">${escapeHtml(text)}</div>${timeHtml}</div>`;
         } else if (m.role === 'assistant') {
           const text = extractText(m.content);
           if (!text) return '';
-          return `<div class="message assistant">${formatMessage(text)}</div>`;
+          const timeHtml = m.timestamp ? `<div class="message-time">${formatMessageTime(new Date(m.timestamp))}</div>` : '';
+          return `<div class="message assistant"><div class="message-content">${formatMessage(text)}</div>${timeHtml}</div>`;
         }
         return '';
       }).filter(Boolean).join('');
@@ -2521,20 +2525,46 @@
       updateQueueIndicator();
     }
     
-    function addChatMessage(role, content) {
+    function addChatMessage(role, content, timestamp = null) {
       const container = document.getElementById('chatMessages');
       const msg = document.createElement('div');
       msg.className = `message ${role}`;
       
+      // Format content
+      let contentHtml;
       if (role === 'assistant' && !role.includes('thinking')) {
-        msg.innerHTML = formatMessage(content);
+        contentHtml = formatMessage(content);
       } else {
-        msg.textContent = content;
+        contentHtml = escapeHtml(content);
       }
+      
+      // Add timestamp
+      const time = timestamp ? new Date(timestamp) : new Date();
+      const timeStr = formatMessageTime(time);
+      
+      msg.innerHTML = `<div class="message-content">${contentHtml}</div><div class="message-time">${timeStr}</div>`;
       
       container.appendChild(msg);
       scrollChatToBottom();
       return msg;
+    }
+    
+    function formatMessageTime(date) {
+      const now = new Date();
+      const isToday = date.toDateString() === now.toDateString();
+      const yesterday = new Date(now);
+      yesterday.setDate(yesterday.getDate() - 1);
+      const isYesterday = date.toDateString() === yesterday.toDateString();
+      
+      const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      
+      if (isToday) {
+        return timeStr;
+      } else if (isYesterday) {
+        return `Yesterday ${timeStr}`;
+      } else {
+        return date.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ' ' + timeStr;
+      }
     }
     
     function scrollChatToBottom() {

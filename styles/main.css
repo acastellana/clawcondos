@@ -835,6 +835,21 @@
       padding: 8px 16px;
     }
     
+    .message-content {
+      word-break: break-word;
+    }
+    
+    .message-time {
+      font-size: 0.65rem;
+      color: var(--text-dim);
+      opacity: 0.5;
+      margin-top: 6px;
+      text-align: right;
+    }
+    .message.assistant .message-time {
+      text-align: left;
+    }
+    
     .message pre {
       background: var(--bg);
       padding: 12px;
