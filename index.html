@@ -3,7 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sharp</title>
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <title>Sharp v2</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     
@@ -228,6 +231,19 @@
     
     .item:hover { background: var(--bg-hover); }
     .item.active { background: var(--bg-active); border-right: 2px solid var(--accent); }
+    .item.unread { background: rgba(88, 166, 255, 0.08); }
+    .item.unread .item-name { font-weight: 600; color: var(--text); }
+    .item.unread::before {
+      content: '';
+      position: absolute;
+      left: 4px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 6px;
+      height: 6px;
+      background: var(--accent);
+      border-radius: 50%;
+    }
     
     .item-icon {
       width: 32px;
@@ -239,6 +255,101 @@
       background: var(--bg);
       border-radius: 8px;
       flex-shrink: 0;
+      position: relative;
+    }
+    .compaction-badge {
+      position: absolute;
+      bottom: -2px;
+      right: -2px;
+      font-size: 0.6rem;
+      line-height: 1;
+    }
+    
+    /* Session groups */
+    .session-group {
+      border-bottom: 1px solid var(--border);
+    }
+    .session-group.has-active {
+      background: rgba(88, 166, 255, 0.03);
+    }
+    .session-group-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 16px;
+      cursor: pointer;
+      transition: background 0.15s;
+      font-weight: 500;
+    }
+    .session-group-header:hover {
+      background: var(--bg-hover);
+    }
+    .group-expand-icon {
+      font-size: 0.7rem;
+      color: var(--text-dim);
+      width: 12px;
+    }
+    .group-icon {
+      font-size: 1rem;
+    }
+    .group-name {
+      flex: 1;
+      font-size: 0.9rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .group-count {
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      background: var(--bg);
+      padding: 2px 6px;
+      border-radius: 10px;
+    }
+    .group-unread {
+      font-size: 0.7rem;
+      color: white;
+      background: var(--accent);
+      padding: 2px 6px;
+      border-radius: 10px;
+      font-weight: 600;
+    }
+    .session-group-items {
+      border-top: 1px solid var(--border);
+      background: rgba(0,0,0,0.1);
+    }
+    .nested-item {
+      padding-left: 36px !important;
+    }
+    .nested-item .item-icon {
+      width: 24px;
+      height: 24px;
+      font-size: 0.9rem;
+    }
+    
+    /* Session status (brief current state) */
+    .item-status {
+      font-size: 0.72rem;
+      color: var(--text-dim);
+      margin-top: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      cursor: pointer;
+    }
+    .item-status:hover {
+      color: var(--text);
+    }
+    .item-status.generating {
+      color: var(--accent);
+    }
+    .item-status.generate-link {
+      color: var(--accent);
+      opacity: 0.6;
+      font-size: 0.7rem;
+    }
+    .item-status.generate-link:hover {
+      opacity: 1;
     }
     
     .item-content { flex: 1; min-width: 0; }
@@ -709,6 +820,15 @@
       background: #1f3a5f;
       border-bottom-right-radius: 4px;
     }
+    .message.user.queued {
+      opacity: 0.6;
+      border: 1px dashed var(--yellow);
+    }
+    .message.user.queued::after {
+      content: ' (queued)';
+      font-size: 0.75rem;
+      color: var(--yellow);
+    }
     
     .message.assistant {
       align-self: flex-start;
@@ -808,17 +928,184 @@
     }
     
     .stop-btn {
-      border-color: var(--red);
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: transparent;
+      border: 2px solid var(--red);
       color: var(--red);
+      font-size: 1.2rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
     }
     
     .stop-btn:hover:not(:disabled) {
       background: var(--red);
       color: white;
     }
+    
+    .stop-btn:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+    }
+    
+    /* Message queue indicator */
+    .queue-indicator {
+      display: none;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      font-size: 0.8rem;
+      color: var(--text-dim);
+    }
+    .queue-indicator.visible { display: flex; }
+    .queue-indicator .queue-count {
+      background: var(--yellow);
+      color: var(--bg);
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-weight: 600;
+    }
+    .queue-indicator .clear-queue {
+      background: none;
+      border: none;
+      color: var(--text-dim);
+      cursor: pointer;
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+    .queue-indicator .clear-queue:hover {
+      background: var(--bg-hover);
+      color: var(--red);
+    }
+    
+    /* Reconnection overlay */
+    .reconnect-overlay {
+      display: none;
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(13, 17, 23, 0.9);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .reconnect-overlay.visible { display: flex; }
+    .reconnect-overlay .spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    .reconnect-overlay .reconnect-text {
+      color: var(--text-dim);
+      font-size: 0.95rem;
+    }
+    .reconnect-overlay .reconnect-attempt {
+      color: var(--text-dim);
+      font-size: 0.8rem;
+    }
+    
+    /* Tool call display */
+    .tool-call {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      margin: 8px 0;
+      overflow: hidden;
+      font-size: 0.85rem;
+    }
+    .tool-call-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      background: var(--bg-panel);
+      cursor: pointer;
+      user-select: none;
+    }
+    .tool-call-header:hover { background: var(--bg-hover); }
+    .tool-call-icon { font-size: 1rem; }
+    .tool-call-name { font-weight: 500; color: var(--accent); }
+    .tool-call-toggle {
+      margin-left: auto;
+      color: var(--text-dim);
+      transition: transform 0.2s;
+    }
+    .tool-call.expanded .tool-call-toggle { transform: rotate(180deg); }
+    .tool-call-content {
+      display: none;
+      padding: 12px;
+      border-top: 1px solid var(--border);
+      max-height: 300px;
+      overflow-y: auto;
+    }
+    .tool-call.expanded .tool-call-content { display: block; }
+    .tool-call-content pre {
+      margin: 0;
+      white-space: pre-wrap;
+      word-break: break-all;
+      font-family: 'Monaco', 'Menlo', monospace;
+      font-size: 0.8rem;
+      color: var(--text-dim);
+    }
     .send-btn svg { width: 22px; height: 22px; fill: white; }
     
     .thinking { color: var(--text-dim); font-style: italic; }
+    
+    .message.streaming { }
+    .streaming-cursor {
+      display: inline-block;
+      color: var(--accent);
+      animation: blink 1s step-end infinite;
+      margin-left: 2px;
+    }
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0; }
+    }
+    
+    /* Typing indicator - bouncing dots */
+    .typing-indicator {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 12px 16px;
+      background: var(--bg-panel);
+      border-radius: 12px;
+      width: fit-content;
+      margin: 8px 0;
+    }
+    .typing-indicator .dot {
+      width: 8px;
+      height: 8px;
+      background: var(--text-dim);
+      border-radius: 50%;
+      animation: bounce 1.4s ease-in-out infinite;
+    }
+    .typing-indicator .dot:nth-child(1) { animation-delay: 0s; }
+    .typing-indicator .dot:nth-child(2) { animation-delay: 0.2s; }
+    .typing-indicator .dot:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes bounce {
+      0%, 60%, 100% { transform: translateY(0); }
+      30% { transform: translateY(-8px); }
+    }
     
     /* Session info bar */
     .session-info {
@@ -1557,6 +1844,7 @@
             <input type="checkbox" onchange="toggleShowArchived()">
             📦
           </label>
+          <button class="section-action" id="markAllReadBtn" onclick="markAllSessionsRead()" title="Mark all read" style="display: none;">✓</button>
           <button class="section-action" id="selectModeBtn" onclick="enterMultiSelect()" title="Select sessions">☑</button>
           <button class="section-action" onclick="refresh()" title="Refresh">↻</button>
         </div>
@@ -1678,9 +1966,17 @@
           </button>
         </div>
         <div class="chat-messages" id="chatMessages"></div>
+        <div class="reconnect-overlay" id="reconnectOverlay">
+          <div class="spinner"></div>
+          <div class="reconnect-text">Reconnecting...</div>
+          <div class="reconnect-attempt" id="reconnectAttempt">Attempt 1</div>
+        </div>
         <div class="chat-input-area">
-          <div class="chat-controls">
-            <button class="control-btn stop-btn" id="stopBtn" onclick="stopAgent()" disabled>⏹ Stop</button>
+          <div class="queue-indicator" id="queueIndicator">
+            <span>📨</span>
+            <span class="queue-count" id="queueCount">0</span>
+            <span>queued</span>
+            <button class="clear-queue" onclick="clearMessageQueue()" title="Clear queue">✕</button>
           </div>
           <div class="chat-input-wrapper">
             <textarea 
@@ -1691,6 +1987,7 @@
               onkeydown="handleChatKey(event)"
               oninput="autoResize(this)"
             ></textarea>
+            <button class="stop-btn" id="stopBtn" onclick="stopAgent()" disabled title="Stop">⏹</button>
             <button class="send-btn" id="sendBtn" onclick="sendMessage()">
               <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
             </button>
@@ -1728,6 +2025,7 @@
       currentSession: null,
       chatHistory: [],
       isThinking: false,
+      messageQueue: [],  // Queued messages when agent is busy
       
       // Agent status per session: 'idle' | 'thinking' | 'error' | 'offline'
       sessionStatus: {},
@@ -1738,7 +2036,7 @@
       
       // Auth - loaded from config or localStorage
       // Token should be set via config.json or login modal, NOT hardcoded
-      token: localStorage.getItem('sharp_token') || null,
+      token: localStorage.getItem('sharp_token') || (window.location.port === '9000' ? 'REDACTED' : null),
       gatewayUrl: (() => {
         // Priority: localStorage > config > auto-detect
         const saved = localStorage.getItem('sharp_gateway');
@@ -1778,6 +2076,7 @@
       
       // Streaming
       activeRuns: new Map(),
+      activeRunsStore: JSON.parse(localStorage.getItem('sharp_active_runs') || '{}'),  // Persisted: { sessionKey: { runId, startedAt } }
       sessionInputReady: new Map(),
       
       // Pin & Archive
@@ -1796,7 +2095,17 @@
       attemptedTitles: new Set(),   // Already tried (avoid retries)
       
       // Auto-archive: 'never' or number of days
-      autoArchiveDays: localStorage.getItem('sharp_auto_archive_days') || '7'
+      autoArchiveDays: localStorage.getItem('sharp_auto_archive_days') || '7',
+      
+      // Track when sessions were last viewed (for unread indicator)
+      lastViewedAt: JSON.parse(localStorage.getItem('sharp_last_viewed') || '{}'),
+      
+      // Track which session groups are expanded (for nested view)
+      expandedGroups: JSON.parse(localStorage.getItem('sharp_expanded_groups') || '{}'),
+      
+      // Session status (brief current state)
+      sessionStatus: JSON.parse(localStorage.getItem('sharp_session_status') || '{}'),
+      generatingStatus: new Set()
     };
     
     // ═══════════════════════════════════════════════════════════════
@@ -1808,6 +2117,208 @@
     
     function isSessionArchived(key) {
       return state.archivedSessions.includes(key);
+    }
+    
+    // Parse session key to extract group info for nesting
+    function parseSessionGroup(key) {
+      // Match patterns like: agent:main:telegram:group:-1003814943696:topic:54
+      const topicMatch = key.match(/^(agent:[^:]+:[^:]+:group:[^:]+):topic:(\d+)$/);
+      if (topicMatch) {
+        return {
+          type: 'topic',
+          groupKey: topicMatch[1],
+          topicId: topicMatch[2],
+          isGrouped: true
+        };
+      }
+      // Match patterns like: agent:main:telegram:group:-1003814943696 (group without topic)
+      const groupMatch = key.match(/^(agent:[^:]+:[^:]+:group:[^:]+)$/);
+      if (groupMatch) {
+        return {
+          type: 'group',
+          groupKey: groupMatch[1],
+          isGrouped: false
+        };
+      }
+      return { type: 'standalone', isGrouped: false };
+    }
+    
+    function getGroupDisplayName(groupKey) {
+      // Try to find a custom name for the group
+      const customName = state.sessionNames[groupKey];
+      if (customName) return customName;
+      // Extract group ID and return a readable name
+      const match = groupKey.match(/:group:(-?\d+)$/);
+      if (match) {
+        return `Group ${match[1]}`;
+      }
+      return groupKey.split(':').pop();
+    }
+    
+    function toggleGroupExpanded(groupKey) {
+      state.expandedGroups[groupKey] = !state.expandedGroups[groupKey];
+      localStorage.setItem('sharp_expanded_groups', JSON.stringify(state.expandedGroups));
+      renderSessions();
+    }
+    
+    function isGroupExpanded(groupKey) {
+      // Default to expanded
+      return state.expandedGroups[groupKey] !== false;
+    }
+    
+    function getGroupUnreadCount(groupKey, sessions) {
+      return sessions.filter(s => {
+        const parsed = parseSessionGroup(s.key);
+        return parsed.groupKey === groupKey && isSessionUnread(s.key);
+      }).length;
+    }
+    
+    async function generateGroupTitles(groupKey, event) {
+      if (event) event.stopPropagation();
+      // Find all sessions in this group
+      const groupSessions = state.sessions.filter(s => {
+        const parsed = parseSessionGroup(s.key);
+        return parsed.groupKey === groupKey && parsed.type === 'topic';
+      });
+      
+      showToast(`Generating titles for ${groupSessions.length} topics...`);
+      
+      // Generate titles for each session that doesn't have a custom name
+      for (const s of groupSessions) {
+        if (!getCustomSessionName(s.key) && !state.generatingTitles.has(s.key)) {
+          await generateSessionTitle(s.key);
+          // Small delay between requests
+          await new Promise(r => setTimeout(r, 500));
+        }
+      }
+    }
+    
+    // Session status - brief current state (5-10 words)
+    function getSessionStatus(key) {
+      return state.sessionStatus[key] || null;
+    }
+    
+    async function generateSessionStatusBrief(key, event) {
+      if (event) event.stopPropagation();
+      if (state.generatingStatus.has(key)) return;
+      
+      state.generatingStatus.add(key);
+      renderSessions();
+      
+      try {
+        const history = await rpcCall('chat.history', { sessionKey: key, limit: 5 });
+        if (!history?.messages?.length) {
+          state.generatingStatus.delete(key);
+          return;
+        }
+        
+        const context = history.messages
+          .filter(m => m.role === 'user' || m.role === 'assistant')
+          .map(m => `${m.role}: ${typeof m.content === 'string' ? m.content.slice(0, 150) : ''}`)
+          .join('\n');
+        
+        const response = await fetch('/api/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: 'gpt-4o-mini',
+            messages: [
+              { role: 'system', content: 'Write a 5-8 word status of what is currently happening. Be specific. No punctuation. Examples: "Adding unread indicators to Sharp sidebar", "Debugging Catastro API rate limits", "Waiting for user feedback on design"' },
+              { role: 'user', content: context.slice(0, 1500) }
+            ],
+            max_tokens: 30,
+            temperature: 0.3
+          })
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          const status = data.choices?.[0]?.message?.content?.trim();
+          if (status && status.length < 80) {
+            state.sessionStatus[key] = { text: status, updatedAt: Date.now() };
+            localStorage.setItem('sharp_session_status', JSON.stringify(state.sessionStatus));
+          }
+        }
+      } catch (err) {
+        console.error('Status generation failed:', err);
+      } finally {
+        state.generatingStatus.delete(key);
+        renderSessions();
+      }
+    }
+    
+    // Ask the session agent for a full summary
+    async function askSessionForSummary(key, event) {
+      if (event) event.stopPropagation();
+      
+      // Send message to the session asking for summary
+      try {
+        await rpcCall('chat.send', {
+          sessionKey: key,
+          message: 'Please give me a clean summary of our full conversation so far - what we discussed, what was accomplished, and current status.',
+          idempotencyKey: `summary-request-${Date.now()}`
+        });
+        
+        showToast('Asked session for summary - check the chat');
+        // Open that session so user can see the response
+        openSession(key);
+      } catch (err) {
+        console.error('Failed to ask for summary:', err);
+        showToast('Failed to request summary', 'error');
+      }
+    }
+    
+    function renderSessionStatusLine(key) {
+      const isGenerating = state.generatingStatus.has(key);
+      const status = getSessionStatus(key);
+      
+      if (isGenerating) {
+        return '<div class="item-status generating">⏳</div>';
+      }
+      
+      if (status?.text) {
+        return `<div class="item-status" onclick="event.stopPropagation(); generateSessionStatusBrief('${escapeHtml(key)}')" title="Click to refresh">${escapeHtml(status.text)}</div>`;
+      }
+      
+      return `<div class="item-status generate-link" onclick="event.stopPropagation(); generateSessionStatusBrief('${escapeHtml(key)}')">↻ status</div>`;
+    }
+    
+    function isSessionUnread(key) {
+      const session = state.sessions.find(s => s.key === key);
+      if (!session) return false;
+      const lastViewed = state.lastViewedAt[key] || 0;
+      const updatedAt = session.updatedAt || 0;
+      // Unread if updated since last viewed (with 1s grace period)
+      return updatedAt > lastViewed + 1000;
+    }
+    
+    function markSessionRead(key) {
+      state.lastViewedAt[key] = Date.now();
+      localStorage.setItem('sharp_last_viewed', JSON.stringify(state.lastViewedAt));
+    }
+    
+    function markSessionUnread(key, event) {
+      if (event) event.stopPropagation();
+      // Set lastViewed to 0 so it appears unread
+      state.lastViewedAt[key] = 0;
+      localStorage.setItem('sharp_last_viewed', JSON.stringify(state.lastViewedAt));
+      renderSessions();
+      renderSessionsGrid();
+    }
+    
+    function markAllSessionsRead() {
+      const now = Date.now();
+      state.sessions.forEach(s => {
+        state.lastViewedAt[s.key] = now;
+      });
+      localStorage.setItem('sharp_last_viewed', JSON.stringify(state.lastViewedAt));
+      renderSessions();
+      renderSessionsGrid();
+      showToast('All sessions marked as read');
+    }
+    
+    function getUnreadCount() {
+      return state.sessions.filter(s => isSessionUnread(s.key)).length;
     }
     
     function togglePinSession(key) {
@@ -1935,7 +2446,7 @@
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
-            model: 'gpt-5-nano',
+            model: 'gpt-4o-mini',
             messages: [
               {
                 role: 'system',
@@ -2245,6 +2756,11 @@
     }
     
     function handleWsMessage(msg) {
+      // Debug: log all incoming messages
+      if (msg.type === 'event') {
+        console.log('[Sharp] WS Event:', msg.event, msg.payload ? JSON.stringify(msg.payload).slice(0, 200) : '');
+      }
+      
       // Challenge for auth (comes as event type)
       if (msg.type === 'event' && msg.event === 'connect.challenge') {
         state.connectNonce = msg.payload?.nonce;
@@ -2271,7 +2787,13 @@
       
       // Chat events (streaming)
       if (msg.type === 'event' && msg.event === 'chat') {
-        handleChatEvent(msg.data);
+        handleChatEvent(msg.payload);
+        return;
+      }
+      
+      // Agent lifecycle events (for typing indicator)
+      if (msg.type === 'event' && msg.event === 'agent') {
+        handleAgentEvent(msg.payload);
         return;
       }
     }
@@ -2321,6 +2843,7 @@
           state.connected = true;
           state.wsReconnectAttempts = 0;
           setConnectionStatus('connected');
+          hideReconnectOverlay();
           localStorage.setItem('sharp_token', state.token);
           localStorage.setItem('sharp_gateway', state.gatewayUrl);
           hideLoginModal();
@@ -2342,46 +2865,205 @@
       });
     }
     
+    function handleAgentEvent(data) {
+      const { sessionKey, runId, stream, data: eventData } = data;
+      
+      // Show typing indicator when agent starts working
+      if (stream === 'lifecycle' && eventData?.phase === 'start') {
+        if (state.currentSession?.key === sessionKey) {
+          showTypingIndicator(runId);
+        }
+        // Also set thinking status
+        trackActiveRun(sessionKey, runId);
+        state.sessionInputReady.set(sessionKey, false);
+        if (state.sessionStatus[sessionKey] !== 'thinking') {
+          setSessionStatus(sessionKey, 'thinking');
+        }
+      }
+      
+      // Hide typing indicator when agent ends
+      if (stream === 'lifecycle' && eventData?.phase === 'end') {
+        hideTypingIndicator(runId);
+      }
+      
+      // Show tool calls
+      if (stream === 'tool' && state.currentSession?.key === sessionKey) {
+        const toolName = eventData?.name || eventData?.tool || 'tool';
+        const toolInput = eventData?.input || eventData?.args || '';
+        const toolOutput = eventData?.output || eventData?.result || '';
+        
+        if (eventData?.phase === 'start' || eventData?.type === 'call') {
+          addToolCall(runId, toolName, toolInput);
+        } else if (eventData?.phase === 'end' || eventData?.type === 'result') {
+          updateToolCallResult(runId, toolName, toolOutput);
+        }
+      }
+    }
+    
+    function addToolCall(runId, toolName, input) {
+      hideTypingIndicator(runId);
+      
+      const container = document.getElementById('chatMessages');
+      if (!container) return;
+      
+      const toolId = `tool-${runId}-${toolName}-${Date.now()}`;
+      const el = document.createElement('div');
+      el.id = toolId;
+      el.className = 'tool-call';
+      el.innerHTML = `
+        <div class="tool-call-header" onclick="this.parentElement.classList.toggle('expanded')">
+          <span class="tool-call-icon">🔧</span>
+          <span class="tool-call-name">${escapeHtml(toolName)}</span>
+          <span class="tool-call-toggle">▼</span>
+        </div>
+        <div class="tool-call-content">
+          <pre>${escapeHtml(typeof input === 'string' ? input : JSON.stringify(input, null, 2))}</pre>
+        </div>
+      `;
+      container.appendChild(el);
+      scrollChatToBottom();
+    }
+    
+    function updateToolCallResult(runId, toolName, output) {
+      // Find the most recent tool call with this name and add result
+      const toolCalls = document.querySelectorAll('.tool-call');
+      for (let i = toolCalls.length - 1; i >= 0; i--) {
+        const nameEl = toolCalls[i].querySelector('.tool-call-name');
+        if (nameEl && nameEl.textContent === toolName) {
+          const contentEl = toolCalls[i].querySelector('.tool-call-content pre');
+          if (contentEl) {
+            const outputStr = typeof output === 'string' ? output : JSON.stringify(output, null, 2);
+            contentEl.textContent += '\n\n--- Result ---\n' + outputStr;
+          }
+          break;
+        }
+      }
+    }
+    
     function handleChatEvent(data) {
       const { sessionKey, runId, state: runState, message } = data;
       
-      // Track active runs and update agent status
-      if (runState === 'streaming' || runState === 'started') {
-        state.activeRuns.set(sessionKey, runId);
+      console.log('[Sharp] Chat event:', runState, 'for', sessionKey, 'runId:', runId);
+      
+      // Server sends: 'delta' (streaming), 'final' (done), 'error'
+      // Track active runs and update agent status (with persistence)
+      if (runState === 'delta') {
+        // Streaming chunk - agent is thinking/responding
+        trackActiveRun(sessionKey, runId);
         state.sessionInputReady.set(sessionKey, false);
-        setSessionStatus(sessionKey, 'thinking');
-      } else if (runState === 'done') {
-        state.activeRuns.delete(sessionKey);
+        if (state.sessionStatus[sessionKey] !== 'thinking') {
+          setSessionStatus(sessionKey, 'thinking');
+        }
+        
+        // Show streaming content in current session
+        if (state.currentSession?.key === sessionKey && message?.content) {
+          const text = extractText(message.content);
+          if (text) {
+            updateStreamingMessage(runId, text);
+          }
+        }
+      } else if (runState === 'final') {
+        // Response complete
+        clearActiveRun(sessionKey);
         state.sessionInputReady.set(sessionKey, true);
         setSessionStatus(sessionKey, 'idle');
         
-        // If viewing this session, update UI
         if (state.currentSession?.key === sessionKey) {
           state.isThinking = false;
           updateSendButton();
+          
+          // Finalize streaming message or add new one
+          if (message?.content) {
+            const text = extractText(message.content);
+            if (text) {
+              finalizeStreamingMessage(runId, text);
+            }
+          } else {
+            // No content in final, just remove thinking indicator
+            removeStreamingMessage(runId);
+          }
         }
       } else if (runState === 'error' || runState === 'aborted') {
-        state.activeRuns.delete(sessionKey);
+        clearActiveRun(sessionKey);
         state.sessionInputReady.set(sessionKey, true);
         setSessionStatus(sessionKey, runState === 'error' ? 'error' : 'idle');
         
-        // If viewing this session, update UI
         if (state.currentSession?.key === sessionKey) {
           state.isThinking = false;
           updateSendButton();
+          removeStreamingMessage(runId);
+          if (data.errorMessage) {
+            addChatMessage('system', `Error: ${data.errorMessage}`);
+          }
         }
       }
+    }
+    
+    // Typing indicator (bouncing dots)
+    function showTypingIndicator(runId) {
+      // Don't show if already have streaming content
+      if (document.getElementById(`streaming-${runId}`)) return;
       
-      // Handle streaming content for current session
-      if (state.currentSession?.key === sessionKey && message?.content) {
-        const text = extractText(message.content);
-        if (text && runState === 'done') {
-          // Remove thinking indicator and show final response
-          const thinking = document.querySelector('.message.thinking');
-          if (thinking) thinking.remove();
-          addChatMessage('assistant', text);
-        }
+      let el = document.getElementById(`typing-${runId}`);
+      if (el) return; // Already showing
+      
+      const container = document.getElementById('chatMessages');
+      if (!container) return;
+      
+      el = document.createElement('div');
+      el.id = `typing-${runId}`;
+      el.className = 'typing-indicator';
+      el.innerHTML = '<div class="dot"></div><div class="dot"></div><div class="dot"></div>';
+      container.appendChild(el);
+      scrollChatToBottom();
+    }
+    
+    function hideTypingIndicator(runId) {
+      const el = document.getElementById(`typing-${runId}`);
+      if (el) el.remove();
+    }
+    
+    // Streaming message management
+    function updateStreamingMessage(runId, text) {
+      // Hide typing indicator when content arrives
+      hideTypingIndicator(runId);
+      
+      let el = document.getElementById(`streaming-${runId}`);
+      if (!el) {
+        // Remove old thinking indicator
+        const thinking = document.querySelector('.message.thinking');
+        if (thinking) thinking.remove();
+        
+        // Create streaming message element
+        const container = document.getElementById('chatMessages');
+        el = document.createElement('div');
+        el.id = `streaming-${runId}`;
+        el.className = 'message assistant streaming';
+        container.appendChild(el);
       }
+      el.innerHTML = formatMessage(text) + '<span class="streaming-cursor">▊</span>';
+      scrollChatToBottom();
+    }
+    
+    function finalizeStreamingMessage(runId, text) {
+      const el = document.getElementById(`streaming-${runId}`);
+      if (el) {
+        el.classList.remove('streaming');
+        el.innerHTML = formatMessage(text);
+      } else if (text) {
+        // No streaming element, add final message
+        const thinking = document.querySelector('.message.thinking');
+        if (thinking) thinking.remove();
+        addChatMessage('assistant', text);
+      }
+    }
+    
+    function removeStreamingMessage(runId) {
+      const el = document.getElementById(`streaming-${runId}`);
+      if (el) el.remove();
+      hideTypingIndicator(runId);
+      const thinking = document.querySelector('.message.thinking');
+      if (thinking) thinking.remove();
     }
     
     // ═══════════════════════════════════════════════════════════════
@@ -2431,11 +3113,28 @@
       const delay = RECONNECT_DELAYS[Math.min(state.wsReconnectAttempts, RECONNECT_DELAYS.length - 1)];
       state.wsReconnectAttempts++;
       
+      // Show reconnect overlay
+      showReconnectOverlay(state.wsReconnectAttempts);
+      
       console.log(`[WS] Reconnecting in ${delay}ms (attempt ${state.wsReconnectAttempts})`);
       state.wsReconnectTimer = setTimeout(() => {
         state.wsReconnectTimer = null;
         connectWebSocket();
       }, delay);
+    }
+    
+    function showReconnectOverlay(attempt) {
+      const overlay = document.getElementById('reconnectOverlay');
+      const attemptEl = document.getElementById('reconnectAttempt');
+      if (overlay) {
+        overlay.classList.add('visible');
+        if (attemptEl) attemptEl.textContent = `Attempt ${attempt}`;
+      }
+    }
+    
+    function hideReconnectOverlay() {
+      const overlay = document.getElementById('reconnectOverlay');
+      if (overlay) overlay.classList.remove('visible');
     }
     
     function startKeepalive() {
@@ -2498,6 +3197,56 @@
     // ═══════════════════════════════════════════════════════════════
     // AGENT STATUS
     // ═══════════════════════════════════════════════════════════════
+    
+    // Persist active runs to localStorage so we can restore on page load
+    const ACTIVE_RUN_STALE_MS = 5 * 60 * 1000; // 5 minutes - consider run stale if no updates
+    
+    function saveActiveRuns() {
+      const obj = {};
+      for (const [key, data] of Object.entries(state.activeRunsStore)) {
+        obj[key] = data;
+      }
+      localStorage.setItem('sharp_active_runs', JSON.stringify(obj));
+    }
+    
+    function restoreActiveRuns() {
+      // Restore from localStorage and clean stale entries
+      const now = Date.now();
+      const store = state.activeRunsStore;
+      let changed = false;
+      
+      for (const [key, data] of Object.entries(store)) {
+        const age = now - (data.startedAt || 0);
+        if (age > ACTIVE_RUN_STALE_MS) {
+          // Stale run - remove it
+          delete store[key];
+          changed = true;
+          console.log(`[Sharp] Cleaned stale run for ${key} (${Math.round(age/1000)}s old)`);
+        } else {
+          // Valid run - restore to activeRuns Map
+          state.activeRuns.set(key, data.runId);
+          state.sessionStatus[key] = 'thinking';
+          console.log(`[Sharp] Restored active run for ${key}`);
+        }
+      }
+      
+      if (changed) {
+        saveActiveRuns();
+      }
+    }
+    
+    function trackActiveRun(sessionKey, runId) {
+      state.activeRuns.set(sessionKey, runId);
+      state.activeRunsStore[sessionKey] = { runId, startedAt: Date.now() };
+      saveActiveRuns();
+    }
+    
+    function clearActiveRun(sessionKey) {
+      state.activeRuns.delete(sessionKey);
+      delete state.activeRunsStore[sessionKey];
+      saveActiveRuns();
+    }
+    
     function setSessionStatus(key, status) {
       state.sessionStatus[key] = status;
       renderSessions();
@@ -2562,18 +3311,97 @@
     // DATA LOADING
     // ═══════════════════════════════════════════════════════════════
     async function loadInitialData() {
+      console.log('[Sharp] loadInitialData starting - v2');
       try {
+        // Fetch active runs from server first (authoritative source)
+        console.log('[Sharp] About to call syncActiveRunsFromServer...');
+        await syncActiveRunsFromServer();
+        console.log('[Sharp] syncActiveRunsFromServer completed');
         await Promise.all([loadSessions(), loadApps(), loadAgents()]);
         updateOverview();
+        
+        // Restore previous session if any
+        const savedSessionKey = localStorage.getItem('sharp_current_session');
+        if (savedSessionKey) {
+          const session = state.sessions.find(s => s.key === savedSessionKey);
+          if (session) {
+            console.log('[Sharp] Restoring session:', savedSessionKey);
+            openSession(savedSessionKey);
+          }
+        }
       } catch (err) {
         console.error('Failed to load initial data:', err);
       }
     }
     
+    async function syncActiveRunsFromServer() {
+      try {
+        console.log('[Sharp] Calling chat.activeRuns...');
+        const result = await rpcCall('chat.activeRuns', {});
+        console.log('[Sharp] chat.activeRuns response:', JSON.stringify(result));
+        if (result?.activeRuns) {
+          console.log('[Sharp] Synced active runs from server:', result.activeRuns.length);
+          
+          // Clear old state and sync with server
+          state.activeRuns.clear();
+          state.activeRunsStore = {};
+          
+          for (const run of result.activeRuns) {
+            console.log('[Sharp] Setting thinking for:', run.sessionKey);
+            state.activeRuns.set(run.sessionKey, run.runId);
+            state.activeRunsStore[run.sessionKey] = {
+              runId: run.runId,
+              startedAt: run.startedAtMs
+            };
+            state.sessionStatus[run.sessionKey] = 'thinking';
+          }
+          
+          saveActiveRuns();
+          renderSessions();
+          renderSessionsGrid();
+        } else {
+          console.log('[Sharp] No activeRuns in response, result:', result);
+        }
+      } catch (err) {
+        console.error('[Sharp] chat.activeRuns error:', err);
+        // Fallback to localStorage restore (for older Clawdbot versions)
+        restoreActiveRuns();
+      }
+    }
+    
     async function refresh() {
       if (!state.connected) return;
+      
+      // Clean up stale runs periodically (in case we missed 'done' events)
+      cleanStaleRuns();
+      
       await loadSessions();
       updateOverview();
+    }
+    
+    function cleanStaleRuns() {
+      const now = Date.now();
+      let changed = false;
+      
+      for (const [key, data] of Object.entries(state.activeRunsStore)) {
+        const age = now - (data.startedAt || 0);
+        if (age > ACTIVE_RUN_STALE_MS) {
+          console.log(`[Sharp] Cleaning stale run for ${key} (${Math.round(age/1000)}s old)`);
+          state.activeRuns.delete(key);
+          delete state.activeRunsStore[key];
+          // Reset status to idle if it was thinking
+          if (state.sessionStatus[key] === 'thinking') {
+            state.sessionStatus[key] = 'idle';
+          }
+          changed = true;
+        }
+      }
+      
+      if (changed) {
+        saveActiveRuns();
+        renderSessions();
+        renderSessionsGrid();
+      }
     }
     
     async function loadSessions() {
@@ -2583,11 +3411,14 @@
         console.log('[Sharp] Sessions result:', result);
         if (result?.sessions) {
           state.sessions = result.sessions;
-          // Initialize status for new sessions
+          // Initialize/update status for sessions
           for (const s of state.sessions) {
-            if (!state.sessionStatus[s.key]) {
-              // Check if actively running, otherwise default to idle
-              state.sessionStatus[s.key] = state.activeRuns.has(s.key) ? 'thinking' : 'idle';
+            // Active runs take priority (restored from localStorage or from WebSocket events)
+            if (state.activeRuns.has(s.key)) {
+              state.sessionStatus[s.key] = 'thinking';
+            } else if (!state.sessionStatus[s.key]) {
+              // Default to idle for new sessions
+              state.sessionStatus[s.key] = 'idle';
             }
           }
           // Check for auto-archiving before rendering
@@ -2722,6 +3553,72 @@
     // ═══════════════════════════════════════════════════════════════
     // SESSIONS UI
     // ═══════════════════════════════════════════════════════════════
+    
+    function renderSessionItem(s, isNested = false) {
+      const isActive = state.currentSession && state.currentSession.key === s.key;
+      const isSelected = state.selectedSessions.has(s.key);
+      const agentStatus = getAgentStatus(s.key);
+      const tooltip = getStatusTooltip(agentStatus);
+      const isPinned = isSessionPinned(s.key);
+      const isArchived = isSessionArchived(s.key);
+      const clickHandler = state.multiSelectMode 
+        ? `toggleSessionSelection('${escapeHtml(s.key)}')`
+        : `openSession('${escapeHtml(s.key)}')`;
+      
+      const isGenerating = state.generatingTitles.has(s.key);
+      const sessionName = getSessionName(s, true);  // This triggers auto-generation
+      const hasUnread = !isActive && isSessionUnread(s.key);
+      const parsed = parseSessionGroup(s.key);
+      
+      // For nested items, use full session name (with auto-generated title if available)
+      let displayName = sessionName;
+      
+      return `
+        <div class="item ${isActive ? 'active' : ''} ${isArchived ? 'archived-session' : ''} ${hasUnread ? 'unread' : ''} ${isNested ? 'nested-item' : ''}" data-session-key="${escapeHtml(s.key)}" onclick="${clickHandler}">
+          <div class="session-checkbox ${isSelected ? 'checked' : ''}" data-key="${escapeHtml(s.key)}" onclick="toggleSessionSelection('${escapeHtml(s.key)}', event)"></div>
+          <div class="item-icon">${isNested ? '💬' : getSessionIcon(s)}${s.compactionCount > 0 ? '<span class="compaction-badge" title="Compacted ' + s.compactionCount + 'x">📜</span>' : ''}</div>
+          <div class="item-content">
+            <div class="item-name ${isGenerating ? 'title-generating' : ''}">${escapeHtml(displayName)}</div>
+            <div class="item-meta">${escapeHtml(getSessionMeta(s))}</div>
+            ${renderSessionStatusLine(s.key)}
+          </div>
+          <div class="session-actions">
+            <button class="session-action-btn ${hasUnread ? 'unread' : ''}" 
+                    onclick="${hasUnread ? `markSessionRead('${escapeHtml(s.key)}'); event.stopPropagation(); renderSessions();` : `markSessionUnread('${escapeHtml(s.key)}', event)`}" 
+                    title="${hasUnread ? 'Mark read' : 'Mark unread'}">
+              ${hasUnread ? '●' : '○'}
+            </button>
+            <button class="session-action-btn ${isPinned ? 'pinned' : ''}" 
+                    onclick="event.stopPropagation(); togglePinSession('${escapeHtml(s.key)}')" 
+                    title="${isPinned ? 'Unpin' : 'Pin'}">
+              ${isPinned ? '★' : '☆'}
+            </button>
+            <button class="session-action-btn" 
+                    onclick="promptRenameSession('${escapeHtml(s.key)}', event)" 
+                    title="Rename">
+              ✏️
+            </button>
+            <button class="session-action-btn" 
+                    onclick="generateSessionTitle('${escapeHtml(s.key)}', event)" 
+                    title="Auto-generate title">
+              ✨
+            </button>
+            <button class="session-action-btn" 
+                    onclick="askSessionForSummary('${escapeHtml(s.key)}', event)" 
+                    title="Ask for full summary">
+              📋
+            </button>
+            <button class="session-action-btn ${isArchived ? 'archived' : ''}" 
+                    onclick="event.stopPropagation(); toggleArchiveSession('${escapeHtml(s.key)}')" 
+                    title="${isArchived ? 'Unarchive' : 'Archive'}">
+              ${isArchived ? '📤' : '📥'}
+            </button>
+          </div>
+          <div class="agent-status ${agentStatus}" data-tooltip="${tooltip}"></div>
+        </div>
+      `;
+    }
+    
     function renderSessions() {
       const container = document.getElementById('sessionsList');
       const archivedToggle = document.getElementById('showArchivedToggle');
@@ -2735,7 +3632,15 @@
         archivedToggle.querySelector('input').checked = state.showArchived;
       }
       
-      // Filter and sort sessions
+      // Show/hide mark all read button
+      const markAllReadBtn = document.getElementById('markAllReadBtn');
+      if (markAllReadBtn) {
+        const unreadCount = getUnreadCount();
+        markAllReadBtn.style.display = unreadCount > 0 ? 'inline-flex' : 'none';
+        markAllReadBtn.title = `Mark all read (${unreadCount})`;
+      }
+      
+      // Filter sessions
       let displaySessions = state.sessions.filter(s => {
         if (isSessionArchived(s.key) && !state.showArchived) return false;
         if (!matchesSearch(s)) return false;
@@ -2756,54 +3661,81 @@
         return;
       }
       
-      container.innerHTML = displaySessions.map(s => {
-        const isActive = state.currentSession && state.currentSession.key === s.key;
-        const isSelected = state.selectedSessions.has(s.key);
-        const agentStatus = getAgentStatus(s.key);
-        const tooltip = getStatusTooltip(agentStatus);
-        const isPinned = isSessionPinned(s.key);
-        const isArchived = isSessionArchived(s.key);
-        const clickHandler = state.multiSelectMode 
-          ? `toggleSessionSelection('${escapeHtml(s.key)}')`
-          : `openSession('${escapeHtml(s.key)}')`;
-        
-        const isGenerating = state.generatingTitles.has(s.key);
-        const sessionName = getSessionName(s, true);  // true = trigger auto-generation
-        
-        return `
-          <div class="item ${isActive ? 'active' : ''} ${isArchived ? 'archived-session' : ''}" data-session-key="${escapeHtml(s.key)}" onclick="${clickHandler}">
-            <div class="session-checkbox ${isSelected ? 'checked' : ''}" data-key="${escapeHtml(s.key)}" onclick="toggleSessionSelection('${escapeHtml(s.key)}', event)"></div>
-            <div class="item-icon">${getSessionIcon(s)}</div>
-            <div class="item-content">
-              <div class="item-name ${isGenerating ? 'title-generating' : ''}">${escapeHtml(sessionName)}</div>
-              <div class="item-meta">${escapeHtml(getSessionMeta(s))}</div>
+      // Group sessions by their parent group
+      const groups = new Map(); // groupKey -> { sessions: [], latestUpdate: number }
+      const standalone = []; // sessions that don't belong to a group
+      
+      for (const s of displaySessions) {
+        const parsed = parseSessionGroup(s.key);
+        if (parsed.type === 'topic' && parsed.isGrouped) {
+          if (!groups.has(parsed.groupKey)) {
+            groups.set(parsed.groupKey, { sessions: [], latestUpdate: 0 });
+          }
+          const group = groups.get(parsed.groupKey);
+          group.sessions.push(s);
+          group.latestUpdate = Math.max(group.latestUpdate, s.updatedAt || 0);
+        } else {
+          standalone.push(s);
+        }
+      }
+      
+      // Sort sessions within each group by updatedAt
+      for (const group of groups.values()) {
+        group.sessions.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+      }
+      
+      // Build combined list: groups + standalone, sorted by latest activity
+      const combined = [];
+      for (const [groupKey, group] of groups) {
+        combined.push({ type: 'group', groupKey, ...group });
+      }
+      for (const s of standalone) {
+        combined.push({ type: 'session', session: s, latestUpdate: s.updatedAt || 0 });
+      }
+      
+      // Sort combined by pinned status and latest update
+      combined.sort((a, b) => {
+        // Check if any session in group is pinned
+        const aPinned = a.type === 'group' 
+          ? a.sessions.some(s => isSessionPinned(s.key))
+          : isSessionPinned(a.session.key);
+        const bPinned = b.type === 'group'
+          ? b.sessions.some(s => isSessionPinned(s.key))
+          : isSessionPinned(b.session.key);
+        if (aPinned && !bPinned) return -1;
+        if (!aPinned && bPinned) return 1;
+        return (b.latestUpdate || 0) - (a.latestUpdate || 0);
+      });
+      
+      // Render
+      let html = '';
+      for (const item of combined) {
+        if (item.type === 'group') {
+          const expanded = isGroupExpanded(item.groupKey);
+          const groupName = getGroupDisplayName(item.groupKey);
+          const unreadCount = item.sessions.filter(s => isSessionUnread(s.key)).length;
+          const hasActiveSession = item.sessions.some(s => state.currentSession?.key === s.key);
+          
+          html += `
+            <div class="session-group ${hasActiveSession ? 'has-active' : ''}">
+              <div class="session-group-header" onclick="toggleGroupExpanded('${escapeHtml(item.groupKey)}')">
+                <span class="group-expand-icon">${expanded ? '▼' : '▶'}</span>
+                <span class="group-icon">👥</span>
+                <span class="group-name">${escapeHtml(groupName)}</span>
+                <span class="group-count">${item.sessions.length}</span>
+                ${unreadCount > 0 ? `<span class="group-unread">${unreadCount}</span>` : ''}
+                <button class="session-action-btn" onclick="event.stopPropagation(); generateGroupTitles('${escapeHtml(item.groupKey)}', event)" title="Auto-generate all topic titles">✨</button>
+                <button class="session-action-btn" onclick="event.stopPropagation(); promptRenameSession('${escapeHtml(item.groupKey)}', event)" title="Rename group">✏️</button>
+              </div>
+              ${expanded ? `<div class="session-group-items">${item.sessions.map(s => renderSessionItem(s, true)).join('')}</div>` : ''}
             </div>
-            <div class="session-actions">
-              <button class="session-action-btn ${isPinned ? 'pinned' : ''}" 
-                      onclick="event.stopPropagation(); togglePinSession('${escapeHtml(s.key)}')" 
-                      title="${isPinned ? 'Unpin' : 'Pin'}">
-                ${isPinned ? '★' : '☆'}
-              </button>
-              <button class="session-action-btn" 
-                      onclick="promptRenameSession('${escapeHtml(s.key)}', event)" 
-                      title="Rename">
-                ✏️
-              </button>
-              <button class="session-action-btn" 
-                      onclick="generateSessionTitle('${escapeHtml(s.key)}', event)" 
-                      title="Auto-generate title">
-                ✨
-              </button>
-              <button class="session-action-btn ${isArchived ? 'archived' : ''}" 
-                      onclick="event.stopPropagation(); toggleArchiveSession('${escapeHtml(s.key)}')" 
-                      title="${isArchived ? 'Unarchive' : 'Archive'}">
-                ${isArchived ? '📤' : '📥'}
-              </button>
-            </div>
-            <div class="agent-status ${agentStatus}" data-tooltip="${tooltip}"></div>
-          </div>
-        `;
-      }).join('');
+          `;
+        } else {
+          html += renderSessionItem(item.session, false);
+        }
+      }
+      
+      container.innerHTML = html;
       
       // Update select all checkbox state
       if (state.multiSelectMode) {
@@ -2871,6 +3803,10 @@
       const ago = timeAgo(s.updatedAt);
       const model = s.model ? s.model.split('/').pop().split('-')[0] : '';
       return `${ago}${model ? ' • ' + model : ''}`;
+    }
+    
+    function isSessionCompacted(s) {
+      return s.compactionCount > 0;
     }
     
     function getSessionStatus(s) {
@@ -2966,6 +3902,7 @@
     function showOverview() {
       state.currentView = 'overview';
       state.currentSession = null;
+      localStorage.removeItem('sharp_current_session');
       
       document.getElementById('overviewView').classList.add('active');
       document.getElementById('chatView').classList.remove('active');
@@ -2982,6 +3919,12 @@
     async function openSession(key) {
       const session = state.sessions.find(s => s.key === key);
       if (!session) return;
+      
+      // Save to localStorage for restore on refresh
+      localStorage.setItem('sharp_current_session', key);
+      
+      // Mark session as read
+      markSessionRead(key);
       
       state.currentView = 'chat';
       state.currentSession = session;
@@ -3063,7 +4006,7 @@
         return '';
       }).filter(Boolean).join('');
       
-      container.scrollTop = container.scrollHeight;
+      scrollChatToBottom();
     }
     
     function extractText(content) {
@@ -3087,16 +4030,28 @@
       const input = document.getElementById('chatInput');
       const text = input.value.trim();
       
-      if (!text || state.isThinking || !state.currentSession) return;
+      if (!text || !state.currentSession) return;
       
       const sessionKey = state.currentSession.key;
+      
+      // If agent is busy, queue the message
+      if (state.isThinking) {
+        state.messageQueue.push({ text, sessionKey });
+        updateQueueIndicator();
+        input.value = '';
+        input.style.height = 'auto';
+        addChatMessage('user queued', text);
+        return;
+      }
       
       input.value = '';
       input.style.height = 'auto';
       
       addChatMessage('user', text);
-      
-      const thinkingEl = addChatMessage('assistant thinking', 'Thinking...');
+      await processMessage(text, sessionKey);
+    }
+    
+    async function processMessage(text, sessionKey) {
       state.isThinking = true;
       setSessionStatus(sessionKey, 'thinking');
       updateSendButton();
@@ -3109,8 +4064,6 @@
           idempotencyKey
         }, 130000);
         
-        thinkingEl.remove();
-        
         if (result?.reply) {
           addChatMessage('assistant', result.reply);
         }
@@ -3119,13 +4072,45 @@
         refresh();
         
       } catch (err) {
-        thinkingEl.remove();
         addChatMessage('system', `Error: ${err.message}`);
         setSessionStatus(sessionKey, 'error');
       } finally {
         state.isThinking = false;
         updateSendButton();
+        processNextInQueue();
       }
+    }
+    
+    function processNextInQueue() {
+      if (state.messageQueue.length === 0) return;
+      
+      const next = state.messageQueue.shift();
+      updateQueueIndicator();
+      
+      // Convert queued message to regular
+      const queuedMsgs = document.querySelectorAll('.message.user.queued');
+      if (queuedMsgs.length > 0) {
+        queuedMsgs[0].classList.remove('queued');
+      }
+      
+      processMessage(next.text, next.sessionKey);
+    }
+    
+    function updateQueueIndicator() {
+      const indicator = document.getElementById('queueIndicator');
+      const countEl = document.getElementById('queueCount');
+      if (!indicator || !countEl) return;
+      
+      const count = state.messageQueue.length;
+      countEl.textContent = count;
+      indicator.classList.toggle('visible', count > 0);
+    }
+    
+    function clearMessageQueue() {
+      // Remove queued messages from UI
+      document.querySelectorAll('.message.user.queued').forEach(el => el.remove());
+      state.messageQueue = [];
+      updateQueueIndicator();
     }
     
     function addChatMessage(role, content) {
@@ -3140,8 +4125,18 @@
       }
       
       container.appendChild(msg);
-      container.scrollTop = container.scrollHeight;
+      scrollChatToBottom();
       return msg;
+    }
+    
+    function scrollChatToBottom() {
+      const container = document.getElementById('chatMessages');
+      if (container) {
+        // Use requestAnimationFrame for reliable scrolling after DOM update
+        requestAnimationFrame(() => {
+          container.scrollTop = container.scrollHeight;
+        });
+      }
     }
     
     function formatMessage(text) {
@@ -3603,6 +4598,9 @@
     // INIT
     // ═══════════════════════════════════════════════════════════════
     function init() {
+      // Restore active runs from localStorage (before connecting)
+      restoreActiveRuns();
+      
       // Initialize auto-archive dropdown UI
       initAutoArchiveUI();
       
