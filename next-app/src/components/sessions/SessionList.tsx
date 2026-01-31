@@ -39,11 +39,15 @@ const writeLocalMap = (key: string, value: Record<string, unknown>): void => {
 type SessionListProps = {
   onSessionSelect?: (sessionKey: SessionKey) => void;
   selectedSession?: SessionKey | null;
+  searchQuery?: string;
+  channelFilter?: string;
 };
 
 export function SessionList({ 
   onSessionSelect, 
-  selectedSession: _selectedSession 
+  selectedSession: _selectedSession,
+  searchQuery = '',
+  channelFilter = 'all',
 }: SessionListProps): React.ReactElement {
   const { isConnected, listSessions, subscribe, gateway, abort } = useGateway();
   const [sessions, setSessions] = useState<Session[]>([]);
@@ -201,7 +205,24 @@ export function SessionList({
 
   // Sort sessions: active first, then by last message time
   // But keep subagents grouped after their potential parents
-  const sortedSessions = [...sessions].sort((a, b) => {
+  const normalizedSearch = searchQuery.trim().toLowerCase();
+  const normalizedChannel = channelFilter.trim().toLowerCase();
+
+  const filteredSessions = sessions.filter((session) => {
+    const sessionChannel = (session.channel || getSessionChannel(session.key)).toLowerCase();
+    if (normalizedChannel && normalizedChannel !== 'all' && sessionChannel !== normalizedChannel) {
+      return false;
+    }
+
+    if (!normalizedSearch) return true;
+
+    const lastMessageContent = session.messages?.[0]?.content ?? '';
+    const haystackKey = session.key.toLowerCase();
+    const haystackMessage = lastMessageContent.toLowerCase();
+    return haystackKey.includes(normalizedSearch) || haystackMessage.includes(normalizedSearch);
+  });
+
+  const sortedSessions = [...filteredSessions].sort((a, b) => {
     const aActive = activeRuns.has(a.key);
     const bActive = activeRuns.has(b.key);
     const aSubagent = isSubagent(a.key);
@@ -359,6 +380,18 @@ export function SessionList({
   }
 
   if (sortedSessions.length === 0) {
+    if (sessions.length > 0) {
+      return (
+        <div className="flex flex-col items-center justify-center py-12 px-6 text-[var(--text-dim)]">
+          <div className="text-5xl mb-4 opacity-40">🔍</div>
+          <div className="font-medium mb-1">No sessions match your filters</div>
+          <div className="text-sm text-[var(--text-muted)]">
+            Try clearing the search or adjusting the channel
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="flex flex-col items-center justify-center py-12 px-6 text-[var(--text-dim)]">
         <div className="text-5xl mb-4 opacity-40">🤖</div>

@@ -9,7 +9,7 @@
  * - Click to select session
  */
 
-import { useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { SessionList } from '@/components/sessions';
 import { useGateway } from '@/hooks/use-gateway';
@@ -18,6 +18,17 @@ import type { SessionKey } from '@/lib/types';
 export default function SessionsPage(): React.ReactElement {
   const { isConnected } = useGateway();
   const router = useRouter();
+  const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
+  const [channelFilter, setChannelFilter] = useState('all');
+
+  useEffect(() => {
+    const handle = window.setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 300);
+
+    return () => window.clearTimeout(handle);
+  }, [searchQuery]);
 
   const handleSessionSelect = useCallback((sessionKey: SessionKey) => {
     const encoded = encodeURIComponent(sessionKey);
@@ -55,6 +66,8 @@ export default function SessionsPage(): React.ReactElement {
             <input
               type="search"
               placeholder="Search sessions..."
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
               className="
                 flex-1 bg-[var(--bg-input)] border border-[var(--border-subtle)]
                 rounded-[var(--radius-sm)] px-3 py-2 text-sm
@@ -71,7 +84,8 @@ export default function SessionsPage(): React.ReactElement {
                 focus:outline-none focus:border-[var(--accent)]
                 transition-colors cursor-pointer
               "
-              defaultValue="all"
+              value={channelFilter}
+              onChange={(event) => setChannelFilter(event.target.value)}
             >
               <option value="all">All Channels</option>
               <option value="telegram">Telegram</option>
@@ -82,7 +96,11 @@ export default function SessionsPage(): React.ReactElement {
 
           {/* Sessions list */}
           <div className="flex-1 overflow-y-auto">
-            <SessionList onSessionSelect={handleSessionSelect} />
+            <SessionList
+              onSessionSelect={handleSessionSelect}
+              searchQuery={debouncedSearchQuery}
+              channelFilter={channelFilter}
+            />
           </div>
         </div>
       </div>
