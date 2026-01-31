@@ -57,6 +57,8 @@ export default function SessionChatPage({ params }: SessionPageProps): React.Rea
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [historyHasMore, setHistoryHasMore] = useState(false);
+  const HISTORY_LIMIT = 1000;
 
   const loadHistory = useCallback(async (): Promise<void> => {
     if (!isConnected) return;
@@ -64,15 +66,17 @@ export default function SessionChatPage({ params }: SessionPageProps): React.Rea
     setLoadError(null);
 
     try {
-      const history = await getHistory(sessionKey, 200);
+      const history = await getHistory(sessionKey, HISTORY_LIMIT);
       setMessages(history.messages ?? []);
+      setHistoryHasMore(Boolean(history.hasMore));
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to load history';
       setLoadError(message);
+      setHistoryHasMore(false);
     } finally {
       setIsLoading(false);
     }
-  }, [getHistory, isConnected, sessionKey]);
+  }, [getHistory, HISTORY_LIMIT, isConnected, sessionKey]);
 
   useEffect(() => {
     if (!isConnected) return;
@@ -211,13 +215,22 @@ export default function SessionChatPage({ params }: SessionPageProps): React.Rea
             </button>
           </div>
         ) : (
-          <ChatWindow
-            messages={messages}
-            onSend={handleSend}
-            disabled={!isConnected}
-            isSending={isSending}
-            isLoading={isLoading}
-          />
+          <div className="h-full flex flex-col">
+            {historyHasMore && (
+              <div className="mb-2 text-xs text-[var(--text-muted)]">
+                Showing the most recent {HISTORY_LIMIT} messages. Older messages are not loaded.
+              </div>
+            )}
+            <div className="flex-1 min-h-0">
+              <ChatWindow
+                messages={messages}
+                onSend={handleSend}
+                disabled={!isConnected}
+                isSending={isSending}
+                isLoading={isLoading}
+              />
+            </div>
+          </div>
         )}
       </div>
 

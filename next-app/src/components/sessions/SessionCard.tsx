@@ -11,6 +11,7 @@ type SessionCardProps = {
   session: Session;
   isActive?: boolean;
   isChild?: boolean;
+  isSelectable?: boolean;
   onClick?: (sessionKey: SessionKey) => void;
   onAbort?: (sessionKey: SessionKey) => void | Promise<void>;
 };
@@ -74,13 +75,17 @@ export function SessionCard({
   session,
   isActive = false,
   isChild = false,
+  isSelectable = true,
   onClick,
   onAbort,
 }: SessionCardProps): React.ReactElement {
   const { agent, channel, details } = parseSessionKey(session.key);
+  const displayAgent = session.label ?? agent;
   const lastMessage = session.messages?.[0];
+  const isInteractive = Boolean(onClick) && isSelectable;
   
   const handleClick = (): void => {
+    if (!isInteractive) return;
     console.log('Session selected:', session.key);
     onClick?.(session.key);
   };
@@ -93,14 +98,14 @@ export function SessionCard({
   
   return (
     <div
-      role="button"
-      tabIndex={0}
-      onClick={handleClick}
-      onKeyDown={(e) => e.key === 'Enter' && handleClick()}
+      role={isInteractive ? 'button' : undefined}
+      tabIndex={isInteractive ? 0 : -1}
+      onClick={isInteractive ? handleClick : undefined}
+      onKeyDown={isInteractive ? (e) => e.key === 'Enter' && handleClick() : undefined}
       className={`
-        group p-4 border-b border-[var(--border-subtle)] cursor-pointer
+        group p-4 border-b border-[var(--border-subtle)]
         transition-all duration-[var(--transition-fast)]
-        hover:bg-[var(--bg-hover)]
+        ${isInteractive ? 'cursor-pointer hover:bg-[var(--bg-hover)]' : 'cursor-default'}
         ${isActive ? 'bg-[var(--bg-active)] border-l-2 border-l-[var(--accent)]' : ''}
         ${isChild ? 'py-3 bg-[var(--bg-elevated)]/50' : ''}
       `}
@@ -117,7 +122,7 @@ export function SessionCard({
         />
         
         {/* Agent name */}
-        <span className="font-medium text-[var(--text)]">{agent}</span>
+        <span className="font-medium text-[var(--text)]">{displayAgent}</span>
         
         {/* Channel badge */}
         <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${getChannelColor(channel)}`}>
@@ -179,9 +184,11 @@ export function SessionCard({
         </span>
         
         {/* Hover action hint */}
-        <span className="text-xs text-[var(--text-muted)] opacity-0 group-hover:opacity-100 transition-opacity">
-          Click to open →
-        </span>
+        {isInteractive && (
+          <span className="text-xs text-[var(--text-muted)] opacity-0 group-hover:opacity-100 transition-opacity">
+            Click to open →
+          </span>
+        )}
       </div>
     </div>
   );
