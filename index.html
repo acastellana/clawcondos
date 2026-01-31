@@ -101,6 +101,26 @@
           </div>
           <div class="session-search-hint">⌘K to focus</div>
         </div>
+        <!-- Filters -->
+        <div class="session-filters" style="display: flex; gap: 8px; padding: 0 12px 8px 12px;">
+          <select id="filterChannel" onchange="setFilterChannel(this.value)" style="flex: 1; padding: 6px 8px; background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-secondary); font-size: 12px; cursor: pointer;">
+            <option value="all">All channels</option>
+            <option value="telegram">📱 Telegram</option>
+            <option value="discord">🎮 Discord</option>
+            <option value="signal">💬 Signal</option>
+            <option value="whatsapp">📞 WhatsApp</option>
+            <option value="cron">⏰ Cron</option>
+            <option value="subagent">⚡ Subagent</option>
+          </select>
+          <select id="filterStatus" onchange="setFilterStatus(this.value)" style="flex: 1; padding: 6px 8px; background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-secondary); font-size: 12px; cursor: pointer;">
+            <option value="all">All status</option>
+            <option value="running">🔴 Running</option>
+            <option value="unread">🟠 Unread</option>
+            <option value="error">🟡 Error</option>
+            <option value="recent">🟢 Recent</option>
+            <option value="idle">⚪ Idle</option>
+          </select>
+        </div>
         <div class="bulk-action-bar" id="bulkActionBar">
           <span class="bulk-count" id="bulkCount">0 selected</span>
           <div class="bulk-actions">
@@ -325,8 +345,10 @@
       // Custom session names
       sessionNames: JSON.parse(localStorage.getItem('sharp_session_names') || '{}'),
       
-      // Search
+      // Search & Filters
       searchQuery: '',
+      filterChannel: 'all',  // all, telegram, discord, signal, whatsapp, cron
+      filterStatus: 'all',   // all, running, unread, error, recent, idle
       
       // Auto-title generation tracking
       generatingTitles: new Set(),  // Currently generating
@@ -832,14 +854,73 @@
     }
     
     function matchesSearch(session) {
-      if (!state.searchQuery) return true;
-      const q = state.searchQuery;
-      // Match against name, key, label, displayName
-      const name = getSessionName(session).toLowerCase();
-      const key = session.key.toLowerCase();
-      const label = (session.label || '').toLowerCase();
-      const displayName = (session.displayName || '').toLowerCase();
-      return name.includes(q) || key.includes(q) || label.includes(q) || displayName.includes(q);
+      // Text search
+      if (state.searchQuery) {
+        const q = state.searchQuery;
+        const name = getSessionName(session).toLowerCase();
+        const key = session.key.toLowerCase();
+        const label = (session.label || '').toLowerCase();
+        const displayName = (session.displayName || '').toLowerCase();
+        if (!name.includes(q) && !key.includes(q) && !label.includes(q) && !displayName.includes(q)) {
+          return false;
+        }
+      }
+      
+      // Channel filter
+      if (state.filterChannel !== 'all') {
+        const key = session.key.toLowerCase();
+        if (state.filterChannel === 'cron' && !key.includes('cron')) return false;
+        if (state.filterChannel === 'subagent' && !key.includes('subagent')) return false;
+        if (state.filterChannel === 'telegram' && !key.includes('telegram')) return false;
+        if (state.filterChannel === 'discord' && !key.includes('discord')) return false;
+        if (state.filterChannel === 'signal' && !key.includes('signal')) return false;
+        if (state.filterChannel === 'whatsapp' && !key.includes('whatsapp')) return false;
+      }
+      
+      // Status filter
+      if (state.filterStatus !== 'all') {
+        const status = getSessionStatusType(session);
+        if (state.filterStatus !== status) return false;
+      }
+      
+      return true;
+    }
+    
+    function getSessionStatusType(session) {
+      // Check if running (has active run)
+      if (state.activeRuns && state.activeRuns[session.key]) {
+        return 'running';
+      }
+      
+      // Check if unread
+      const lastViewed = state.lastViewedAt[session.key] || 0;
+      if (session.updatedAt && session.updatedAt > lastViewed + 1000) {
+        return 'unread';
+      }
+      
+      // Check if error (look for error in status)
+      const statusInfo = state.sessionStatus[session.key];
+      if (statusInfo && statusInfo.text && statusInfo.text.toLowerCase().includes('error')) {
+        return 'error';
+      }
+      
+      // Check if recent (updated in last hour)
+      const hourAgo = Date.now() - 3600000;
+      if (session.updatedAt && session.updatedAt > hourAgo) {
+        return 'recent';
+      }
+      
+      return 'idle';
+    }
+    
+    function setFilterChannel(value) {
+      state.filterChannel = value;
+      renderSessions();
+    }
+    
+    function setFilterStatus(value) {
+      state.filterStatus = value;
+      renderSessions();
     }
     
     // Keyboard shortcut: Cmd/Ctrl+K to focus search
