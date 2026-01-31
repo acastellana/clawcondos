@@ -255,7 +255,9 @@
         document.title = `${app.name} | Sharp`;
         document.getElementById('appIcon').textContent = app.icon || '📦';
         document.getElementById('appName').textContent = app.name;
-        document.getElementById('appFrame').src = `/${app.id}/`;
+        // Support custom URL/route: app.url for external, app.route for path, default to /{id}/
+        const frameUrl = app.url || app.route || `/${app.id}/`;
+        document.getElementById('appFrame').src = frameUrl;
         sessionKey = `agent:app-assistant:app:${app.id}`;
         
         loadHistory();
