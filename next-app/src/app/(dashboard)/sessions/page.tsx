@@ -9,20 +9,20 @@
  * - Click to select session
  */
 
-import { useState, useCallback } from 'react';
+import { useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { SessionList } from '@/components/sessions';
 import { useGateway } from '@/hooks/use-gateway';
 import type { SessionKey } from '@/lib/types';
 
 export default function SessionsPage(): React.ReactElement {
   const { isConnected } = useGateway();
-  const [selectedSession, setSelectedSession] = useState<SessionKey | null>(null);
+  const router = useRouter();
 
   const handleSessionSelect = useCallback((sessionKey: SessionKey) => {
-    console.log('Session selected:', sessionKey);
-    setSelectedSession(sessionKey);
-    // TODO: Navigate to chat view or open session details
-  }, []);
+    const encoded = encodeURIComponent(sessionKey);
+    router.push(`/sessions/${encoded}`);
+  }, [router]);
 
   return (
     <main className="flex flex-col h-full">
@@ -82,29 +82,10 @@ export default function SessionsPage(): React.ReactElement {
 
           {/* Sessions list */}
           <div className="flex-1 overflow-y-auto">
-            <SessionList 
-              onSessionSelect={handleSessionSelect}
-              selectedSession={selectedSession}
-            />
+            <SessionList onSessionSelect={handleSessionSelect} />
           </div>
         </div>
       </div>
-
-      {/* Selected session toast */}
-      {selectedSession && (
-        <div className="fixed bottom-6 right-6 bg-[var(--bg-panel)] border border-[var(--border)] rounded-[var(--radius-md)] shadow-[var(--shadow-lg)] px-4 py-3 flex items-center gap-3 animate-in slide-in-from-bottom-4">
-          <div className="w-2 h-2 rounded-full bg-[var(--accent)]" />
-          <span className="text-sm text-[var(--text-secondary)]">
-            Selected: <span className="font-mono text-[var(--text)]">{selectedSession.split(':').slice(0, 3).join(':')}</span>
-          </span>
-          <button
-            onClick={() => setSelectedSession(null)}
-            className="text-[var(--text-muted)] hover:text-[var(--text)] transition-colors ml-2"
-          >
-            ✕
-          </button>
-        </div>
-      )}
     </main>
   );
 }
