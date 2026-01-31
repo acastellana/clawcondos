@@ -19,7 +19,7 @@ export function SessionList({
   onSessionSelect, 
   selectedSession: _selectedSession 
 }: SessionListProps): React.ReactElement {
-  const { isConnected, listSessions, subscribe, gateway } = useGateway();
+  const { isConnected, listSessions, subscribe, gateway, abort } = useGateway();
   const [sessions, setSessions] = useState<Session[]>([]);
   const [activeRuns, setActiveRuns] = useState<Set<SessionKey>>(new Set());
   const [isLoading, setIsLoading] = useState(true);
@@ -186,6 +186,7 @@ export function SessionList({
           session={session}
           isActive={activeRuns.has(session.key)}
           onClick={onSessionSelect}
+          onAbort={abort}
         />
       ))}
     </div>

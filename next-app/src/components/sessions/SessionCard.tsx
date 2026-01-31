@@ -11,6 +11,7 @@ type SessionCardProps = {
   session: Session;
   isActive?: boolean;
   onClick?: (sessionKey: SessionKey) => void;
+  onAbort?: (sessionKey: SessionKey) => void | Promise<void>;
 };
 
 /**
@@ -68,13 +69,24 @@ function truncate(text: string, maxLength: number): string {
   return text.slice(0, maxLength).trim() + '…';
 }
 
-export function SessionCard({ session, isActive = false, onClick }: SessionCardProps): React.ReactElement {
+export function SessionCard({
+  session,
+  isActive = false,
+  onClick,
+  onAbort,
+}: SessionCardProps): React.ReactElement {
   const { agent, channel, details } = parseSessionKey(session.key);
   const lastMessage = session.messages?.[0];
   
   const handleClick = (): void => {
     console.log('Session selected:', session.key);
     onClick?.(session.key);
+  };
+
+  const handleAbort = (event: React.MouseEvent<HTMLButtonElement>): void => {
+    event.preventDefault();
+    event.stopPropagation();
+    onAbort?.(session.key);
   };
   
   return (
@@ -109,10 +121,32 @@ export function SessionCard({ session, isActive = false, onClick }: SessionCardP
           {channel}
         </span>
         
-        {/* Timestamp */}
-        <span className="ml-auto text-xs text-[var(--text-muted)]">
-          {formatRelativeTime(session.lastMessageAt)}
-        </span>
+        <div className="ml-auto flex items-center gap-2">
+          {isActive && onAbort && (
+            <button
+              type="button"
+              onClick={handleAbort}
+              onMouseDown={(event) => event.stopPropagation()}
+              onKeyDown={(event) => event.stopPropagation()}
+              className="
+                text-xs font-medium px-2 py-1 rounded-[var(--radius-sm)]
+                border border-[var(--red)]/30 text-[var(--red)]
+                bg-[var(--red-dim)]
+                transition-all duration-[var(--transition-fast)]
+                hover:bg-[var(--bg-hover)] hover:border-[var(--red)]/60 hover:text-[var(--red)]
+                active:scale-[0.98]
+              "
+              title="Stop active run"
+            >
+              <span className="mr-1">⏹️</span>
+              Stop
+            </button>
+          )}
+          {/* Timestamp */}
+          <span className="text-xs text-[var(--text-muted)]">
+            {formatRelativeTime(session.lastMessageAt)}
+          </span>
+        </div>
       </div>
       
       {/* Session key (truncated details) */}
