@@ -61,10 +61,10 @@ export function DocViewer({
   const hasProperties = meta?.type || meta?.status || meta?.source || meta?.confidence;
 
   return (
-    <div className="flex flex-1 overflow-hidden">
+    <div className="flex flex-1 overflow-hidden md:flex-row flex-col">
       {/* Main content */}
       <article className="flex-1 overflow-y-auto">
-        <div className="max-w-3xl mx-auto px-8 py-12">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 md:px-8 py-6 md:py-12">
           {/* Meta */}
           <header className="mb-8">
             <h1 className="text-3xl font-bold tracking-tight mb-4">{title}</h1>
@@ -100,7 +100,7 @@ export function DocViewer({
 
       {/* Right panel - properties & backlinks */}
       {(hasBacklinks || hasProperties) && (
-        <aside className="w-72 h-full border-l border-[var(--border)] bg-[var(--bg-panel)] overflow-y-auto shrink-0">
+        <aside className="w-full md:w-72 md:h-full border-t md:border-t-0 md:border-l border-[var(--border)] bg-[var(--bg-panel)] overflow-y-auto shrink-0">
           <div className="p-4 space-y-6">
             {/* Properties */}
             {hasProperties && (
