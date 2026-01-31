@@ -141,6 +141,9 @@ export function Sidebar(): React.ReactElement {
             <span className="ml-auto text-[var(--text-muted)]">v2.0</span>
           )}
         </div>
+        <div className="text-[10px] text-[var(--text-muted)] text-center mt-1">
+          ui/polish-vanilla
+        </div>
       </div>
     </aside>
   );
