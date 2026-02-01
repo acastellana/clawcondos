@@ -64,11 +64,14 @@ All messages are JSON objects with the following structure:
 
 ## Required Methods
 
+> Note: Sharp’s UI uses a couple of RPCs beyond the absolute minimum. This section reflects what the current Sharp UI expects.
+
+
 ### `connect`
 
 Authenticate and establish session. Called in response to `connect.challenge` event.
 
-**Request:**
+**Request (recommended for OpenClaw):**
 ```json
 {
   "type": "req",
@@ -78,23 +81,28 @@ Authenticate and establish session. Called in response to `connect.challenge` ev
     "minProtocol": 3,
     "maxProtocol": 3,
     "auth": {
-      "password": "your-password-here"
+      "token": "your-gateway-token"
     },
     "client": {
       "id": "sharp-dashboard",
       "displayName": "Sharp Dashboard",
-      "version": "1.0.0",
-      "platform": "web",
+      "version": "2.0.0",
+      "platform": "browser",
       "mode": "ui"
     }
   }
 }
 ```
 
+> Avoid using `client.id="openclaw-control-ui"` unless you are implementing the full Control UI device identity flow.
+
+
 **Auth Options:**
-- `auth.password` — Password authentication
-- `auth.token` — Token/API key authentication
+- `auth.token` — Token/API key authentication (**recommended for OpenClaw**)
+- `auth.password` — Password authentication (legacy/backends that support it)
 - Omit `auth` if using reverse proxy authentication (e.g., Caddy with header injection)
+
+**OpenClaw note:** some deployments require device identity unless `auth.token` is supplied; prefer token auth for fresh installs.
 
 **Response:**
 ```json
@@ -243,6 +251,8 @@ Cancel an in-progress agent run.
 
 List available sessions with metadata.
 
+> Sharp also calls `agents.list` to populate the Agents section.
+
 **Request:**
 ```json
 {
@@ -306,6 +316,36 @@ List available sessions with metadata.
 ---
 
 ## Optional Methods
+
+These methods are used by Sharp when available, but should be treated as optional by backends:
+
+### `agents.list`
+
+List configured agents.
+
+**Request:**
+```json
+{ "type": "req", "id": "rX", "method": "agents.list", "params": {} }
+```
+
+**Response:**
+```json
+{ "type": "res", "id": "rX", "ok": true, "payload": { "agents": [ { "id": "main", "identity": {"name":"Bob","emoji":"🤖"} } ] } }
+```
+
+---
+
+### `chat.activeRuns`
+
+Return currently running agent runs. Sharp uses this to mark sessions as “thinking” on first load.
+
+---
+
+### `sessions.pin` / `sessions.archive`
+
+If implemented, Sharp can bulk-pin and bulk-archive sessions.
+
+---
 
 ### `health`
 
