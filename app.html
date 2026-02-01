@@ -256,7 +256,14 @@
         document.getElementById('appIcon').textContent = app.icon || '📦';
         document.getElementById('appName').textContent = app.name;
         // Support custom URL/route: app.url for external, app.route for path, default to /{id}/
-        const frameUrl = app.url || app.route || `/${app.id}/`;
+        // SECURITY: do not allow javascript:/data: etc. Only allow relative paths or allowlisted http(s).
+        const rawFrameUrl = app.url || app.route || `/${app.id}/`;
+        const frameUrl = sanitizeAppFrameUrl(rawFrameUrl, app.id);
+        if (!frameUrl) {
+          alert('Blocked unsafe app URL in registry.');
+          window.location.href = '/';
+          return;
+        }
         document.getElementById('appFrame').src = frameUrl;
         sessionKey = `agent:app-assistant:app:${app.id}`;
         
@@ -269,6 +276,30 @@
         console.error('Init error:', err);
         alert('Failed to load app: ' + err.message);
       }
+    }
+
+    function sanitizeAppFrameUrl(rawUrl, appId) {
+      if (!rawUrl) return null;
+      const trimmed = String(rawUrl).trim();
+
+      // Allow only local relative paths (preferred)
+      if (trimmed.startsWith('/')) {
+        // Optionally enforce the app is served under /<appId>/
+        // but allow absolute /apps/... or other reverse-proxy routes.
+        // Block protocol-relative URLs (//evil.com)
+        if (trimmed.startsWith('//')) return null;
+        return trimmed;
+      }
+
+      // Allow external http(s) only if explicitly allowlisted in the app registry
+      // (default deny)
+      if (/^https?:\/\//i.test(trimmed)) {
+        // Minimal allowlist hook: app.allowExternal === true
+        if (app && app.allowExternal === true) return trimmed;
+        return null;
+      }
+
+      return null;
     }
 
     async function checkAppStatus() {

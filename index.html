@@ -28,10 +28,10 @@
   <div class="modal-overlay hidden" id="loginModal">
     <div class="modal">
       <h2 class="modal-title">🎯 Sharp</h2>
-      <p class="modal-desc">Enter your Clawdbot gateway password to connect.</p>
+      <p class="modal-desc">Enter your OpenClaw gateway token to connect.</p>
       <div class="form-group">
-        <label class="form-label">Password</label>
-        <input type="password" class="form-input" id="loginPassword" placeholder="Gateway password" 
+        <label class="form-label">Token</label>
+        <input type="password" class="form-input" id="loginPassword" placeholder="Gateway token" 
                onkeypress="if(event.key==='Enter')doLogin()">
       </div>
       <button class="form-btn" onclick="doLogin()">Connect</button>
@@ -404,9 +404,13 @@
       // Track which agent nodes are expanded in sidebar (Agents > Sessions/Subsessions)
       expandedAgents: JSON.parse(localStorage.getItem('sharp_expanded_agents') || '{}'),
       
-      // Session status (brief current state)
-      sessionStatus: JSON.parse(localStorage.getItem('sharp_session_status') || '{}'),
+      // Session status (two separate concepts)
+      // 1) Brief current state (LLM-generated text)
+      sessionBriefStatus: JSON.parse(localStorage.getItem('sharp_session_brief_status') || '{}'),
       generatingStatus: new Set(),
+
+      // 2) Agent lifecycle status (idle/thinking/offline/error)
+      sessionAgentStatus: JSON.parse(localStorage.getItem('sharp_session_agent_status') || '{}'),
       
       // Tool activity tracking (for compact indicator)
       activeTools: new Map(),  // Map<toolCallId, { name, args, output, startedAt, status }>
@@ -511,7 +515,7 @@
     
     // Session status - brief current state (5-10 words)
     function getSessionStatus(key) {
-      return state.sessionStatus[key] || null;
+      return state.sessionBriefStatus[key] || null;
     }
     
     async function generateSessionStatusBrief(key, event) {
@@ -551,8 +555,8 @@
           const data = await response.json();
           const status = data.choices?.[0]?.message?.content?.trim();
           if (status && status.length < 80) {
-            state.sessionStatus[key] = { text: status, updatedAt: Date.now() };
-            localStorage.setItem('sharp_session_status', JSON.stringify(state.sessionStatus));
+            state.sessionBriefStatus[key] = { text: status, updatedAt: Date.now() };
+            localStorage.setItem('sharp_session_brief_status', JSON.stringify(state.sessionBriefStatus));
           }
         }
       } catch (err) {
@@ -940,7 +944,7 @@
     
     function getSessionStatusType(session) {
       // Check if running (has active run)
-      if (state.activeRuns && state.activeRuns[session.key]) {
+      if (state.activeRuns?.has?.(session.key)) {
         return 'running';
       }
       
@@ -951,7 +955,7 @@
       }
       
       // Check if error (look for error in status)
-      const statusInfo = state.sessionStatus[session.key];
+      const statusInfo = state.sessionBriefStatus[session.key];
       if (statusInfo && statusInfo.text && statusInfo.text.toLowerCase().includes('error')) {
         return 'error';
       }
@@ -1183,7 +1187,7 @@
         minProtocol: WS_PROTOCOL_VERSION,
         maxProtocol: WS_PROTOCOL_VERSION,
         client: {
-          id: 'openclaw-control-ui',
+          id: 'sharp-dashboard',
           displayName: 'Sharp Dashboard',
           mode: 'ui',
           version: '2.0.0',
@@ -1192,8 +1196,9 @@
       };
       
       // Only include auth if we have a token (Caddy proxy handles auth otherwise)
+      // NOTE: OpenClaw Gateway expects bearer/API tokens via auth.token (preferred).
       if (state.token) {
-        connectParams.auth = { password: state.token };
+        connectParams.auth = { token: state.token };
       }
       
       const connectFrame = {
@@ -1251,7 +1256,7 @@
         // Also set thinking status
         trackActiveRun(sessionKey, runId);
         state.sessionInputReady.set(sessionKey, false);
-        if (state.sessionStatus[sessionKey] !== 'thinking') {
+        if (state.sessionAgentStatus[sessionKey] !== 'thinking') {
           setSessionStatus(sessionKey, 'thinking');
         }
       }
@@ -1492,7 +1497,7 @@
         // Streaming chunk - agent is thinking/responding
         trackActiveRun(sessionKey, runId);
         state.sessionInputReady.set(sessionKey, false);
-        if (state.sessionStatus[sessionKey] !== 'thinking') {
+        if (state.sessionAgentStatus[sessionKey] !== 'thinking') {
           setSessionStatus(sessionKey, 'thinking');
         }
         
@@ -1718,9 +1723,9 @@
           dot.style.background = 'var(--green)';
           text.textContent = 'Connected';
           // Clear offline status for all sessions when reconnected
-          for (const key of Object.keys(state.sessionStatus)) {
-            if (state.sessionStatus[key] === 'offline') {
-              state.sessionStatus[key] = 'idle';
+          for (const key of Object.keys(state.sessionAgentStatus)) {
+            if (state.sessionAgentStatus[key] === 'offline') {
+              state.sessionAgentStatus[key] = 'idle';
             }
           }
           break;
@@ -1732,8 +1737,8 @@
           dot.style.background = 'var(--red)';
           text.textContent = 'Disconnected';
           // Set all sessions to offline when disconnected
-          for (const key of Object.keys(state.sessionStatus)) {
-            state.sessionStatus[key] = 'offline';
+          for (const key of Object.keys(state.sessionAgentStatus)) {
+            state.sessionAgentStatus[key] = 'offline';
           }
           renderSessions();
           updateHeaderStatus();
@@ -1772,7 +1777,7 @@
         } else {
           // Valid run - restore to activeRuns Map
           state.activeRuns.set(key, data.runId);
-          state.sessionStatus[key] = 'thinking';
+          state.sessionAgentStatus[key] = 'thinking';
           console.log(`[Sharp] Restored active run for ${key}`);
         }
       }
@@ -1795,14 +1800,15 @@
     }
     
     function setSessionStatus(key, status) {
-      state.sessionStatus[key] = status;
+      state.sessionAgentStatus[key] = status;
+      localStorage.setItem('sharp_session_agent_status', JSON.stringify(state.sessionAgentStatus));
       renderSessions();
       renderSessionsGrid();
       updateHeaderStatus();
     }
     
     function getAgentStatus(key) {
-      return state.sessionStatus[key] || 'idle';
+      return state.sessionAgentStatus[key] || 'idle';
     }
     
     function getStatusTooltip(status) {
@@ -1900,7 +1906,7 @@
               runId: run.runId,
               startedAt: run.startedAtMs
             };
-            state.sessionStatus[run.sessionKey] = 'thinking';
+            state.sessionAgentStatus[run.sessionKey] = 'thinking';
           }
           
           saveActiveRuns();
@@ -1937,8 +1943,8 @@
           state.activeRuns.delete(key);
           delete state.activeRunsStore[key];
           // Reset status to idle if it was thinking
-          if (state.sessionStatus[key] === 'thinking') {
-            state.sessionStatus[key] = 'idle';
+          if (state.sessionAgentStatus[key] === 'thinking') {
+            state.sessionAgentStatus[key] = 'idle';
           }
           changed = true;
         }
@@ -1962,10 +1968,10 @@
           for (const s of state.sessions) {
             // Active runs take priority (restored from localStorage or from WebSocket events)
             if (state.activeRuns.has(s.key)) {
-              state.sessionStatus[s.key] = 'thinking';
-            } else if (!state.sessionStatus[s.key]) {
+              state.sessionAgentStatus[s.key] = 'thinking';
+            } else if (!state.sessionAgentStatus[s.key]) {
               // Default to idle for new sessions
-              state.sessionStatus[s.key] = 'idle';
+              state.sessionAgentStatus[s.key] = 'idle';
             }
           }
           // Check for auto-archiving before rendering
@@ -2636,8 +2642,9 @@
       state.isThinking = state.activeRuns.has(key);
       
       // Initialize session status if not set
-      if (!state.sessionStatus[key]) {
-        state.sessionStatus[key] = state.connected ? 'idle' : 'offline';
+      if (!state.sessionAgentStatus[key]) {
+        state.sessionAgentStatus[key] = state.connected ? 'idle' : 'offline';
+        localStorage.setItem('sharp_session_agent_status', JSON.stringify(state.sessionAgentStatus));
       }
       
       document.getElementById('overviewView').classList.remove('active');
