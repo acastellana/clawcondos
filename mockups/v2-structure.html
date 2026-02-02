@@ -49,6 +49,31 @@
       display: flex;
       flex-direction: column;
       overflow: hidden;
+      flex-shrink: 0;
+    }
+    
+    /* === RIGHT AREA (header + content) === */
+    .right-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    
+    .right-area-header {
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: var(--bg-sidebar);
+      flex-shrink: 0;
+    }
+    
+    .right-area-body {
+      flex: 1;
+      display: flex;
+      overflow: hidden;
     }
     
     .sidebar-header {
@@ -314,6 +339,7 @@
       align-items: center;
       gap: 12px;
       background: var(--bg-sidebar);
+      flex-shrink: 0;
     }
     
     .main-title {
@@ -326,6 +352,37 @@
       flex: 1;
       overflow-y: auto;
       padding: 20px;
+    }
+    
+    /* Layout with shared header */
+    .content-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    
+    .content-header {
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: var(--bg-sidebar);
+      flex-shrink: 0;
+    }
+    
+    .content-body {
+      flex: 1;
+      display: flex;
+      overflow: hidden;
+    }
+    
+    .content-main {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+      background: var(--bg-dark);
     }
     
     /* Grid View */
@@ -446,6 +503,14 @@
       border-left: 1px solid var(--border);
       display: flex;
       flex-direction: column;
+      flex-shrink: 0;
+    }
+    
+    .detail-panel-inner {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
     }
     
     .detail-header {
@@ -454,6 +519,11 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
+    }
+    
+    /* Remove detail header when using shared header */
+    .content-body .detail-panel .detail-header {
+      display: none;
     }
     
     .detail-title {
@@ -1039,129 +1109,132 @@
       </div>
     </div>
     
-    <div class="main">
-      <div class="main-header">
+    <!-- Content Area (header spans main + detail) -->
+    <div class="content-area">
+      <div class="content-header">
         <span class="main-title">Apps</span>
+        <span style="flex: 1;"></span>
+        <span style="font-size: 12px; color: var(--text-muted);">🎯 Goals War Room</span>
       </div>
-      <div class="main-content">
-        <div class="grid">
-          <div class="grid-card">
-            <div class="grid-card-header">
-              <div class="grid-card-icon">🎯</div>
-              <div class="grid-card-actions">
-                <button class="icon-btn" title="Info">ℹ️</button>
-                <button class="icon-btn" title="Open">↗</button>
+      <div class="content-body">
+        <div class="content-main">
+          <div class="grid">
+            <div class="grid-card">
+              <div class="grid-card-header">
+                <div class="grid-card-icon">🎯</div>
+                <div class="grid-card-actions">
+                  <button class="icon-btn" title="Info">ℹ️</button>
+                  <button class="icon-btn" title="Open">↗</button>
+                </div>
+              </div>
+              <div class="grid-card-title">Goals War Room</div>
+              <div class="grid-card-desc">Track goals and projects</div>
+              <div class="grid-card-meta">
+                <div class="status-indicator">
+                  <span class="status-dot running"></span>
+                  <span>Running</span>
+                </div>
+                <span>:3847</span>
               </div>
             </div>
-            <div class="grid-card-title">Goals War Room</div>
-            <div class="grid-card-desc">Track goals and projects</div>
-            <div class="grid-card-meta">
-              <div class="status-indicator">
-                <span class="status-dot running"></span>
-                <span>Running</span>
+            
+            <div class="grid-card">
+              <div class="grid-card-header">
+                <div class="grid-card-icon">💼</div>
+                <div class="grid-card-actions">
+                  <button class="icon-btn" title="Info">ℹ️</button>
+                  <button class="icon-btn" title="Open">↗</button>
+                </div>
               </div>
-              <span>:3847</span>
-            </div>
-          </div>
-          
-          <div class="grid-card">
-            <div class="grid-card-header">
-              <div class="grid-card-icon">💼</div>
-              <div class="grid-card-actions">
-                <button class="icon-btn" title="Info">ℹ️</button>
-                <button class="icon-btn" title="Open">↗</button>
-              </div>
-            </div>
-            <div class="grid-card-title">Investor CRM</div>
-            <div class="grid-card-desc">Fundraising pipeline</div>
-            <div class="grid-card-meta">
-              <div class="status-indicator">
-                <span class="status-dot running"></span>
-                <span>Running</span>
-              </div>
-              <span>:3000</span>
-            </div>
-          </div>
-          
-          <div class="grid-card">
-            <div class="grid-card-header">
-              <div class="grid-card-icon">🏠</div>
-              <div class="grid-card-actions">
-                <button class="icon-btn" title="Info">ℹ️</button>
-                <button class="icon-btn" title="Open">↗</button>
+              <div class="grid-card-title">Investor CRM</div>
+              <div class="grid-card-desc">Fundraising pipeline</div>
+              <div class="grid-card-meta">
+                <div class="status-indicator">
+                  <span class="status-dot running"></span>
+                  <span>Running</span>
+                </div>
+                <span>:3000</span>
               </div>
             </div>
-            <div class="grid-card-title">Subastas</div>
-            <div class="grid-card-desc">Land auction tracker</div>
-            <div class="grid-card-meta">
-              <div class="status-indicator">
-                <span class="status-dot stopped"></span>
-                <span style="color: var(--accent-red);">Stopped</span>
+            
+            <div class="grid-card">
+              <div class="grid-card-header">
+                <div class="grid-card-icon">🏠</div>
+                <div class="grid-card-actions">
+                  <button class="icon-btn" title="Info">ℹ️</button>
+                  <button class="icon-btn" title="Open">↗</button>
+                </div>
               </div>
-              <span>:8080</span>
-            </div>
-          </div>
-          
-          <div class="grid-card">
-            <div class="grid-card-header">
-              <div class="grid-card-icon">🔐</div>
-              <div class="grid-card-actions">
-                <button class="icon-btn" title="Info">ℹ️</button>
-                <button class="icon-btn" title="Open">↗</button>
-              </div>
-            </div>
-            <div class="grid-card-title">Secrets Vault</div>
-            <div class="grid-card-desc">Credential manager</div>
-            <div class="grid-card-meta">
-              <div class="status-indicator">
-                <span class="status-dot running"></span>
-                <span>Running</span>
+              <div class="grid-card-title">Subastas</div>
+              <div class="grid-card-desc">Land auction tracker</div>
+              <div class="grid-card-meta">
+                <div class="status-indicator">
+                  <span class="status-dot stopped"></span>
+                  <span style="color: var(--accent-red);">Stopped</span>
+                </div>
+                <span>:8080</span>
               </div>
             </div>
-          </div>
-          
-          <div class="grid-card">
-            <div class="grid-card-header">
-              <div class="grid-card-icon">📚</div>
-              <div class="grid-card-actions">
-                <button class="icon-btn" title="Info">ℹ️</button>
-                <button class="icon-btn" title="Open">↗</button>
+            
+            <div class="grid-card">
+              <div class="grid-card-header">
+                <div class="grid-card-icon">🔐</div>
+                <div class="grid-card-actions">
+                  <button class="icon-btn" title="Info">ℹ️</button>
+                  <button class="icon-btn" title="Open">↗</button>
+                </div>
+              </div>
+              <div class="grid-card-title">Secrets Vault</div>
+              <div class="grid-card-desc">Credential manager</div>
+              <div class="grid-card-meta">
+                <div class="status-indicator">
+                  <span class="status-dot running"></span>
+                  <span>Running</span>
+                </div>
               </div>
             </div>
-            <div class="grid-card-title">Knowledge Base</div>
-            <div class="grid-card-desc">Second brain wiki</div>
-            <div class="grid-card-meta">
-              <div class="status-indicator">
-                <span class="status-dot idle"></span>
-                <span style="color: var(--accent-yellow);">Idle</span>
+            
+            <div class="grid-card">
+              <div class="grid-card-header">
+                <div class="grid-card-icon">📚</div>
+                <div class="grid-card-actions">
+                  <button class="icon-btn" title="Info">ℹ️</button>
+                  <button class="icon-btn" title="Open">↗</button>
+                </div>
+              </div>
+              <div class="grid-card-title">Knowledge Base</div>
+              <div class="grid-card-desc">Second brain wiki</div>
+              <div class="grid-card-meta">
+                <div class="status-indicator">
+                  <span class="status-dot idle"></span>
+                  <span style="color: var(--accent-yellow);">Idle</span>
+                </div>
               </div>
             </div>
-          </div>
-          
-          <div class="grid-card">
-            <div class="grid-card-header">
-              <div class="grid-card-icon">👁️</div>
-              <div class="grid-card-actions">
-                <button class="icon-btn" title="Info">ℹ️</button>
-                <button class="icon-btn" title="Open">↗</button>
+            
+            <div class="grid-card">
+              <div class="grid-card-header">
+                <div class="grid-card-icon">👁️</div>
+                <div class="grid-card-actions">
+                  <button class="icon-btn" title="Info">ℹ️</button>
+                  <button class="icon-btn" title="Open">↗</button>
+                </div>
               </div>
-            </div>
-            <div class="grid-card-title">Ecosystem Tracker</div>
-            <div class="grid-card-desc">claw.events monitor</div>
-            <div class="grid-card-meta">
-              <div class="status-indicator">
-                <span class="status-dot running"></span>
-                <span>Running</span>
+              <div class="grid-card-title">Ecosystem Tracker</div>
+              <div class="grid-card-desc">claw.events monitor</div>
+              <div class="grid-card-meta">
+                <div class="status-indicator">
+                  <span class="status-dot running"></span>
+                  <span>Running</span>
+                </div>
+                <span>:3870</span>
               </div>
-              <span>:3870</span>
             </div>
           </div>
         </div>
-      </div>
-    </div>
-    
-    <!-- App Detail Panel -->
-    <div class="detail-panel">
+        
+        <!-- App Detail Panel -->
+        <div class="detail-panel" style="border-top: none;">
       <div class="detail-header">
         <span class="detail-title">🎯 Goals War Room</span>
         <button class="detail-close">✕</button>
@@ -1223,6 +1296,8 @@
         </div>
       </div>
     </div>
+      </div><!-- /content-body -->
+    </div><!-- /content-area -->
   </div>
 </div>
 
@@ -1279,93 +1354,92 @@
       </div>
     </div>
     
-    <div class="main">
-      <div class="main-header">
+    <!-- Content Area (header spans main + detail) -->
+    <div class="content-area">
+      <div class="content-header">
         <span class="main-title">Recurring Tasks</span>
+        <span style="flex: 1;"></span>
+        <span style="font-size: 12px; color: var(--text-muted);">☕ Caffeine Scanner</span>
       </div>
-      <div class="main-content">
-        <div class="grid">
-          <div class="grid-card" style="border-color: var(--accent-yellow);">
-            <div class="grid-card-header">
-              <div class="grid-card-icon">☕</div>
-              <div class="grid-card-actions">
-                <button class="icon-btn" title="Info">ℹ️</button>
+      <div class="content-body">
+        <div class="content-main">
+          <div class="grid">
+            <div class="grid-card" style="border-color: var(--accent-yellow);">
+              <div class="grid-card-header">
+                <div class="grid-card-icon">☕</div>
+                <div class="grid-card-actions">
+                  <button class="icon-btn" title="Info">ℹ️</button>
+                </div>
+              </div>
+              <div class="grid-card-title">Caffeine Scanner</div>
+              <div class="grid-card-desc">Scan Moltbook for replies</div>
+              <div class="grid-card-meta">
+                <span>Every 30m</span>
+                <div class="status-indicator">
+                  <span class="status-dot running"></span>
+                  <span>Active</span>
+                </div>
               </div>
             </div>
-            <div class="grid-card-title">Caffeine Scanner</div>
-            <div class="grid-card-desc">Scan Moltbook for replies</div>
-            <div class="grid-card-meta">
-              <span>Every 30m</span>
-              <div class="status-indicator">
-                <span class="status-dot running"></span>
-                <span>Active</span>
+            
+            <div class="grid-card">
+              <div class="grid-card-header">
+                <div class="grid-card-icon">📧</div>
+                <div class="grid-card-actions">
+                  <button class="icon-btn" title="Info">ℹ️</button>
+                </div>
+              </div>
+              <div class="grid-card-title">Learning Capture</div>
+              <div class="grid-card-desc">Daily synthesis</div>
+              <div class="grid-card-meta">
+                <span>8:00 AM</span>
+                <div class="status-indicator">
+                  <span class="status-dot running"></span>
+                  <span>Active</span>
+                </div>
               </div>
             </div>
-          </div>
-          
-          <div class="grid-card">
-            <div class="grid-card-header">
-              <div class="grid-card-icon">📧</div>
-              <div class="grid-card-actions">
-                <button class="icon-btn" title="Info">ℹ️</button>
+            
+            <div class="grid-card">
+              <div class="grid-card-header">
+                <div class="grid-card-icon">🏠</div>
+                <div class="grid-card-actions">
+                  <button class="icon-btn" title="Info">ℹ️</button>
+                </div>
+              </div>
+              <div class="grid-card-title">Subastas Scraper</div>
+              <div class="grid-card-desc">Check BOE auctions</div>
+              <div class="grid-card-meta">
+                <span>Daily 6 AM</span>
+                <div class="status-indicator">
+                  <span class="status-dot running"></span>
+                  <span>Active</span>
+                </div>
               </div>
             </div>
-            <div class="grid-card-title">Learning Capture</div>
-            <div class="grid-card-desc">Daily synthesis</div>
-            <div class="grid-card-meta">
-              <span>8:00 AM</span>
-              <div class="status-indicator">
-                <span class="status-dot running"></span>
-                <span>Active</span>
+            
+            <div class="grid-card">
+              <div class="grid-card-header">
+                <div class="grid-card-icon">🔍</div>
+                <div class="grid-card-actions">
+                  <button class="icon-btn" title="Info">ℹ️</button>
+                </div>
               </div>
-            </div>
-          </div>
-          
-          <div class="grid-card">
-            <div class="grid-card-header">
-              <div class="grid-card-icon">🏠</div>
-              <div class="grid-card-actions">
-                <button class="icon-btn" title="Info">ℹ️</button>
-              </div>
-            </div>
-            <div class="grid-card-title">Subastas Scraper</div>
-            <div class="grid-card-desc">Check BOE auctions</div>
-            <div class="grid-card-meta">
-              <span>Daily 6 AM</span>
-              <div class="status-indicator">
-                <span class="status-dot running"></span>
-                <span>Active</span>
-              </div>
-            </div>
-          </div>
-          
-          <div class="grid-card">
-            <div class="grid-card-header">
-              <div class="grid-card-icon">🔍</div>
-              <div class="grid-card-actions">
-                <button class="icon-btn" title="Info">ℹ️</button>
-              </div>
-            </div>
-            <div class="grid-card-title">Tool Audit</div>
-            <div class="grid-card-desc">Check broken commands</div>
-            <div class="grid-card-meta">
-              <span>2:00 PM</span>
-              <div class="status-indicator">
-                <span class="status-dot" style="background: var(--text-muted);"></span>
-                <span style="color: var(--text-muted);">Disabled</span>
+              <div class="grid-card-title">Tool Audit</div>
+              <div class="grid-card-desc">Check broken commands</div>
+              <div class="grid-card-meta">
+                <span>2:00 PM</span>
+                <div class="status-indicator">
+                  <span class="status-dot" style="background: var(--text-muted);"></span>
+                  <span style="color: var(--text-muted);">Disabled</span>
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
-    </div>
-    
-    <!-- Cron Detail Panel -->
-    <div class="detail-panel">
-      <div class="detail-header">
-        <span class="detail-title">☕ Caffeine Scanner</span>
-        <button class="detail-close">✕</button>
-      </div>
+        
+        <!-- Cron Detail Panel -->
+        <div class="detail-panel" style="border-top: none;">
       <div class="detail-content">
         <div class="detail-section">
           <div class="detail-label">Status</div>
@@ -1424,6 +1498,8 @@
         </div>
       </div>
     </div>
+      </div><!-- /content-body -->
+    </div><!-- /content-area -->
   </div>
 </div>
 
@@ -1481,16 +1557,17 @@
       </div>
     </div>
     
-    <!-- Chat Area -->
-    <div class="main">
-      <div class="main-header" style="gap: 10px;">
+    <!-- Content Area (header spans main + detail) -->
+    <div class="content-area">
+      <div class="content-header" style="gap: 10px;">
         <span style="font-size: 10px; padding: 3px 8px; background: var(--accent-blue); border-radius: 4px; color: #000; font-weight: 600;">main</span>
         <span class="main-title">webchat:1769965525626</span>
         <span style="flex: 1;"></span>
         <span style="font-size: 11px; color: var(--text-muted);">Goal: Goals-first UI</span>
         <button class="icon-btn">ℹ️</button>
       </div>
-      <div class="main-content" style="padding: 0; display: flex; flex-direction: column;">
+      <div class="content-body">
+        <div class="content-main" style="padding: 0; display: flex; flex-direction: column;">
         <div style="flex: 1; overflow-y: auto; padding: 20px;">
           <!-- User message -->
           <div style="margin-bottom: 16px;">
@@ -1536,14 +1613,9 @@
           </div>
         </div>
       </div>
-    </div>
-    
-    <!-- Session Info Panel -->
-    <div class="detail-panel">
-      <div class="detail-header">
-        <span class="detail-title">Session Info</span>
-        <button class="detail-close">✕</button>
-      </div>
+        
+        <!-- Session Info Panel -->
+        <div class="detail-panel" style="border-top: none;">
       <div class="detail-content">
         <div class="detail-section">
           <div class="detail-label">Agent</div>
@@ -1587,6 +1659,8 @@
         </div>
       </div>
     </div>
+      </div><!-- /content-body -->
+    </div><!-- /content-area -->
   </div>
 </div>
 

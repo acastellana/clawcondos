@@ -4656,6 +4656,16 @@ a:focus-visible {
   color: var(--red);
 }
 
+.stat-card.clickable {
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.stat-card.clickable:hover {
+  border-color: var(--accent);
+  transform: translateY(-2px);
+}
+
 
 .goal-pill.pr {
   border-color: rgba(250,204,21,0.25);
