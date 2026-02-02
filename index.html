@@ -238,6 +238,9 @@
             <div class="grid-header">
               <h2 class="grid-title">🏙️ Condos (Goals)</h2>
               <span class="grid-count" id="goalCount">0</span>
+              <button class="auto-categorize-btn" onclick="autoCategorize()" title="Use AI to categorize uncategorized sessions into goals">
+                🤖 Auto-categorize
+              </button>
             </div>
             <div class="cards-grid goals-grid" id="goalsGrid"></div>
           </div>
@@ -2371,6 +2374,104 @@
       }
     }
 
+    async function autoCategorize() {
+      const btn = document.querySelector('.auto-categorize-btn');
+      if (!btn || btn.disabled) return;
+      
+      // Get current goals and uncategorized sessions
+      const goals = state.goals || [];
+      const sessions = state.sessions || [];
+      
+      if (goals.length === 0) {
+        alert('Create at least one goal first before auto-categorizing.');
+        return;
+      }
+      
+      // Find sessions not assigned to any goal
+      const assignedSessions = new Set();
+      goals.forEach(g => (g.sessions || []).forEach(s => assignedSessions.add(s)));
+      const uncategorized = sessions.filter(s => !assignedSessions.has(s.key));
+      
+      if (uncategorized.length === 0) {
+        alert('All sessions are already categorized!');
+        return;
+      }
+      
+      btn.disabled = true;
+      btn.textContent = '🔄 Categorizing...';
+      
+      try {
+        // Send a chat message to the main session asking to categorize
+        const goalsList = goals.map(g => `- "${g.title}" (id: ${g.id})`).join('\n');
+        const sessionsList = uncategorized.slice(0, 50).map(s => {
+          const name = s.displayName || s.label || s.key.split(':').pop();
+          return `- ${s.key} (${name})`;
+        }).join('\n');
+        
+        const message = `[AUTO-CATEGORIZE REQUEST]
+
+Please analyze these uncategorized sessions and assign them to the appropriate goals.
+
+**Existing Goals:**
+${goalsList}
+
+**Uncategorized Sessions (${uncategorized.length} total, showing first 50):**
+${sessionsList}
+
+For each session:
+1. Look at its key/name to infer what it's about
+2. If you need more context, check its recent history
+3. Assign it to the most appropriate goal using POST /api/goals/{goalId}/sessions
+4. If no goal fits, suggest creating a new one
+
+Start categorizing now and report progress.`;
+
+        // Send via WebSocket RPC
+        await sendChatMessage(message);
+        
+        alert(`Categorization request sent! I'll analyze ${uncategorized.length} sessions and assign them to goals. Check the chat for progress.`);
+        
+      } catch (e) {
+        console.error('Auto-categorize error:', e);
+        alert('Failed to send categorization request: ' + e.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '🤖 Auto-categorize';
+      }
+    }
+    
+    async function sendChatMessage(text) {
+      if (!state.ws || !state.connected) throw new Error('Not connected');
+      
+      const reqId = String(++state.rpcIdCounter);
+      return new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          state.rpcPending.delete(reqId);
+          reject(new Error('Request timeout'));
+        }, 30000);
+        
+        state.rpcPending.set(reqId, {
+          resolve: (result) => {
+            clearTimeout(timeout);
+            resolve(result);
+          },
+          reject: (err) => {
+            clearTimeout(timeout);
+            reject(err);
+          }
+        });
+        
+        state.ws.send(JSON.stringify({
+          type: 'req',
+          id: reqId,
+          method: 'chat.send',
+          params: {
+            sessionKey: 'agent:main:main',
+            message: text,
+          }
+        }));
+      });
+    }
 
     function showCreateGoalModal() {
       document.getElementById('createGoalModal').classList.remove('hidden');
