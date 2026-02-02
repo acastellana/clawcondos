@@ -416,6 +416,13 @@ body {
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
 }
 
+.logo-img {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  object-fit: cover;
+}
+
 .brand {
   font-size: 1.15rem;
   font-weight: 700;

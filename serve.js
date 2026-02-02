@@ -137,6 +137,38 @@ const server = createServer(async (req, res) => {
     res.end();
     return;
   }
+
+  // Proxy to OpenClaw gateway for /api/gateway/* requests
+  if (pathname.startsWith('/api/gateway/')) {
+    const gatewayPath = pathname.replace('/api/gateway', '');
+    const GATEWAY_PORT = 18789;
+    const GATEWAY_AUTH = 'REDACTED';
+    
+    const options = {
+      hostname: 'localhost',
+      port: GATEWAY_PORT,
+      path: gatewayPath + url.search,
+      method: req.method,
+      headers: {
+        ...req.headers,
+        host: `localhost:${GATEWAY_PORT}`,
+        'Authorization': `Bearer ${GATEWAY_AUTH}`,
+      },
+    };
+
+    const proxyReq = httpRequest(options, (proxyRes) => {
+      res.writeHead(proxyRes.statusCode, proxyRes.headers);
+      proxyRes.pipe(res, { end: true });
+    });
+
+    proxyReq.on('error', (err) => {
+      console.error('Gateway proxy error:', err.message);
+      json(res, 503, { error: { message: 'OpenClaw gateway unavailable', type: 'proxy_error' } });
+    });
+
+    req.pipe(proxyReq, { end: true });
+    return;
+  }
   
   const apps = loadApps();
   

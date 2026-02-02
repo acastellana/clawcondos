@@ -535,6 +535,18 @@ Window URL: ${window.location.href}
           filesSection += `- ${role}: ${app.path}/${file}\n`;
         }
       }
+      
+      // Include any captured errors
+      let errorSection = '';
+      if (lastErrorDetails) {
+        errorSection = `\n## ⚠️ Current Error
+- **Type:** ${lastErrorDetails.error?.type || 'Unknown'}
+- **Message:** ${lastErrorDetails.error?.message || 'N/A'}
+${lastErrorDetails.response ? `- **HTTP Status:** ${lastErrorDetails.response.status} ${lastErrorDetails.response.statusText}` : ''}
+${lastErrorDetails.response?.body ? `- **Response:** \`\`\`${lastErrorDetails.response.body.slice(0, 500)}\`\`\`` : ''}
+`;
+      }
+      
       const contextMsg = `[SYSTEM] You are an app assistant for "${app.name}".
 
 ## App Details
@@ -546,13 +558,13 @@ Window URL: ${window.location.href}
 ${app.startCommand ? `- **Start command:** ${app.startCommand}` : ''}
 ${app.logs ? `- **Logs:** ${app.logs}` : ''}
 ${app.docs ? `- **Docs:** ${app.path}/${app.docs}` : ''}
-${filesSection}
+${filesSection}${errorSection}
 ## Your Capabilities
 - Read and edit source files in ${app.path}
 - Check logs${app.logs ? ` at ${app.logs}` : ''}
 - Debug issues and suggest improvements
 
-Be concise. Start by reading the entry file to understand the current state.`;
+Be concise. ${errorSection ? 'An error has occurred - help debug it.' : 'Start by reading the entry file to understand the current state.'}`;
       await callAgent(contextMsg, true);
     }
 
