@@ -3018,8 +3018,9 @@ Recent messages: ${lastMessages.slice(0, 300)}
 Available goals:
 ${goalsList}
 
-Response format (pick the BEST single match, or suggest new):
-{"goalId":"id-or-null","title":"Goal Title","reason":"brief reason","isNew":false}`;
+Response format:
+If best match exists: {"goalId":"the-id","title":"Goal Title","reason":"why","isNew":false}
+If new goal better: {"goalId":null,"title":"Smart Name","reason":"why new","isNew":true}`;
 
         try {
           state.wizardPendingSessionKey = sessionKey;
@@ -3036,9 +3037,34 @@ Response format (pick the BEST single match, or suggest new):
           showWizardManualProposal();
         }
       } else {
-        // No goals - suggest creating one
-        state.wizardCurrentProposal = { goalId: null, title: 'New Goal', reason: 'No goals exist yet', isNew: true };
-        showWizardProposal(state.wizardCurrentProposal);
+        // No goals - ask AI to suggest a name for a new goal
+        const message = `[WIZARD-CATEGORIZE]
+Analyze this session and suggest a NEW goal to create. Respond with ONLY JSON, no other text.
+
+Session: ${sessionKey}
+Name: ${sessionName}
+First messages: ${firstMessages.slice(0, 300)}
+Recent messages: ${lastMessages.slice(0, 300)}
+
+No existing goals - suggest creating one based on session topic.
+
+Response format:
+{"goalId":null,"title":"Suggested Goal Name Based On Topic","reason":"why this fits","isNew":true}`;
+
+        try {
+          state.wizardPendingSessionKey = sessionKey;
+          await sendChatMessage(message);
+          
+          setTimeout(() => {
+            if (state.wizardPendingSessionKey === sessionKey && !state.wizardCurrentProposal) {
+              state.wizardCurrentProposal = { goalId: null, title: 'New Goal', reason: 'Could not analyze', isNew: true };
+              showWizardProposal(state.wizardCurrentProposal);
+            }
+          }, 10000);
+        } catch (e) {
+          state.wizardCurrentProposal = { goalId: null, title: 'New Goal', reason: 'Error analyzing', isNew: true };
+          showWizardProposal(state.wizardCurrentProposal);
+        }
       }
     }
     
