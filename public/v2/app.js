@@ -1875,12 +1875,32 @@
       }
 
       const condos = new Map();
+      const condoNameForId = (condoId, fallbackSession) => {
+        if (condoId === 'condo:genlayer') return 'GenLayer';
+        if (condoId === 'condo:clawcondos') return 'ClawCondos';
+        if (condoId === 'condo:rally') return 'Rally';
+        if (condoId === 'condo:moltcourt') return 'MoltCourt';
+        if (condoId === 'condo:personal') return 'Personal';
+        if (condoId === 'condo:finances') return 'Finances';
+        if (condoId === 'condo:subastas') return 'Subastas';
+        if (condoId?.startsWith('condo:')) return condoId.split(':').slice(1).join(':');
+        return fallbackSession ? getSessionCondoName(fallbackSession) : 'Condo';
+      };
+
       for (const s of visibleSessions) {
-        const condoId = getSessionCondoId(s);
+        // Prefer condo assignment via goal (product-level condos)
+        let condoId = null;
+        const goalId = sessionToGoal.get(s.key);
+        if (goalId) {
+          const goal = goalById.get(goalId);
+          condoId = goal?.condoId || null;
+        }
+        if (!condoId) condoId = getSessionCondoId(s);
+
         if (!condos.has(condoId)) {
           condos.set(condoId, {
             id: condoId,
-            name: getSessionCondoName(s),
+            name: condoNameForId(condoId, s),
             sessions: [],
             goals: new Map(),
             latest: 0,
@@ -1929,9 +1949,14 @@
         // Only pending goals should be displayed in sidebar
         const pendingGoalsCount = Array.from(condo.goals.values()).filter(g => !isGoalCompleted(g)).length;
 
-        // Default collapse condos with no pending goals unless user explicitly expanded them before
-        if (pendingGoalsCount === 0 && state.expandedCondos[condo.id] === undefined) {
-          state.expandedCondos[condo.id] = false;
+        // Default collapse condos that have "nothing happening" unless user explicitly expanded them before.
+        // Heuristic: no pending goals OR no sessions attached to any pending goal and no unassigned sessions.
+        if (state.expandedCondos[condo.id] === undefined) {
+          const pendingGoals = Array.from(condo.goals.values()).filter(g => !isGoalCompleted(g));
+          const pendingGoalsSessionsCount = pendingGoals.reduce((acc, g) => acc + (Array.isArray(g.sessions) ? g.sessions.length : 0), 0);
+          const hasAnySessions = (condo.sessions?.length || 0) > 0;
+          const shouldCollapse = pendingGoals.length === 0 || (!hasAnySessions && pendingGoalsSessionsCount === 0);
+          if (shouldCollapse) state.expandedCondos[condo.id] = false;
         }
 
         const isExpanded = isCondoExpanded(condo.id);
@@ -2019,9 +2044,14 @@
       return null;
     }
 
-    function openGoal(goalId) {
+    function openGoal(goalId, opts = {}) {
       const goal = state.goals.find(g => g.id === goalId);
       if (!goal) return;
+
+      if (!opts.fromRouter) {
+        navigateTo(`goal/${encodeURIComponent(goalId)}`);
+        return;
+      }
 
       state.currentView = 'goal';
       state.currentGoalOpenId = goalId;
@@ -3714,6 +3744,20 @@ Response format:
         case 'recurring':
           showRecurringView();
           break;
+        case 'condo':
+          if (payload) {
+            openCondo(decodeURIComponent(payload), { fromRouter: true });
+          } else {
+            showOverview();
+          }
+          break;
+        case 'goal':
+          if (payload) {
+            openGoal(decodeURIComponent(payload), { fromRouter: true });
+          } else {
+            showOverview();
+          }
+          break;
         case 'session':
           if (payload) {
             const sessionKey = decodeURIComponent(payload);
@@ -3839,9 +3883,104 @@ Response format:
     }
 
     function selectCondo(condoId) {
+      openCondo(condoId);
+    }
+
+    function openCondo(condoId, opts = {}) {
+      if (!condoId) return;
+
+      if (!opts.fromRouter) {
+        navigateTo(`condo/${encodeURIComponent(condoId)}`);
+        return;
+      }
+
+      state.currentView = 'condo';
       state.currentCondoId = condoId;
-      setCurrentGoal('all', condoId);
-      navigateTo('dashboard');
+      state.currentSession = null;
+      state.currentGoalId = 'all';
+      localStorage.removeItem('sharp_current_session');
+
+      setView('condoView');
+      setActiveNav(null);
+
+      const condoName = (() => {
+        if (condoId === 'cron') return 'Recurring';
+        // Try to resolve from existing sessions
+        const s = (state.sessions || []).find(x => getSessionCondoId(x) === condoId);
+        if (s) return getSessionCondoName(s);
+        return condoId.split(':').pop() || 'Condo';
+      })();
+
+      setBreadcrumbs([
+        { label: '🏠', onClick: "navigateTo('dashboard')" },
+        { label: `🏢 ${escapeHtml(condoName)}`, current: true }
+      ]);
+
+      document.getElementById('headerAction').style.display = 'none';
+      document.getElementById('headerStatusIndicator').style.display = 'none';
+
+      renderCondoView();
+      renderDetailPanel();
+      updateMobileHeader();
+      closeSidebar();
+    }
+
+    function renderCondoView() {
+      const goalsEl = document.getElementById('condoGoalsList');
+      const sessionsEl = document.getElementById('condoSessionsList');
+      if (!goalsEl || !sessionsEl) return;
+
+      const condoGoals = (state.goals || [])
+        .filter(g => (g.condoId || 'misc:default') === state.currentCondoId)
+        .filter(g => !isGoalCompleted(g));
+
+      // Goals list
+      if (!condoGoals.length) {
+        goalsEl.innerHTML = `<div class="empty-state">No pending goals in this condo.</div>`;
+      } else {
+        goalsEl.innerHTML = condoGoals.map(g => {
+          const sessCount = Array.isArray(g.sessions) ? g.sessions.length : 0;
+          return `
+            <div class="condo-goal-row" onclick="openGoal('${escapeHtml(g.id)}')">
+              <div class="condo-goal-status pending"></div>
+              <span class="condo-goal-name">${escapeHtml(g.title || 'Untitled goal')}</span>
+              <span class="condo-goal-meta">${sessCount ? `${sessCount} session${sessCount===1?'':'s'}` : '—'}</span>
+            </div>
+          `;
+        }).join('');
+      }
+
+      // Sessions list
+      const condoSessions = (state.sessions || [])
+        .filter(s => !s.key.includes(':subagent:'))
+        .filter(s => getSessionCondoId(s) === state.currentCondoId)
+        .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+
+      if (!condoSessions.length) {
+        sessionsEl.innerHTML = `<div class="empty-state">No sessions in this condo.</div>`;
+      } else {
+        sessionsEl.innerHTML = condoSessions.map(s => {
+          const preview = getMessagePreview(s);
+          const g = getGoalForSession(s.key);
+          const goalPill = g ? `<span class="card-badge goal" onclick="event.stopPropagation(); openGoal('${escapeHtml(g.id)}')">🏙️ ${escapeHtml(g.title || 'Goal')}</span>` : '';
+          return `
+            <div class="session-card" onclick="openSession('${escapeHtml(s.key)}')">
+              <div class="card-top">
+                <div class="card-icon">${getSessionIcon(s)}</div>
+                <div class="card-info">
+                  <div class="card-name">${escapeHtml(getSessionName(s))}</div>
+                  <div class="card-desc">${escapeHtml(s.model?.split('/').pop() || 'unknown model')}</div>
+                </div>
+              </div>
+              ${preview ? `<div class="card-preview">${escapeHtml(preview)}</div>` : ''}
+              <div class="card-footer">
+                <span>${timeAgo(s.updatedAt)}</span>
+                <span class="card-footer-right">${goalPill}</span>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
     }
 
     function buildSessionBreadcrumbs(session) {
@@ -3850,7 +3989,7 @@ Response format:
       const goal = getGoalForSession(session.key);
       const crumbs = [
         { label: '🏠', onClick: "navigateTo('dashboard')" },
-        { label: `🏢 ${escapeHtml(condoName)}`, onClick: `selectCondo('${escapeHtml(condoId)}')` },
+        { label: `🏢 ${escapeHtml(condoName)}`, onClick: `openCondo('${escapeHtml(condoId)}')` },
       ];
       if (goal) {
         crumbs.push({ label: escapeHtml(goal.title || 'Goal'), onClick: `openGoal('${escapeHtml(goal.id)}')` });
@@ -3864,7 +4003,7 @@ Response format:
       const condoName = goal.condoName || 'Condo';
       return [
         { label: '🏠', onClick: "navigateTo('dashboard')" },
-        { label: `🏢 ${escapeHtml(condoName)}`, onClick: `selectCondo('${escapeHtml(condoId)}')` },
+        { label: `🏢 ${escapeHtml(condoName)}`, onClick: `openCondo('${escapeHtml(condoId)}')` },
         { label: escapeHtml(goal.title || 'Goal'), current: true }
       ];
     }
