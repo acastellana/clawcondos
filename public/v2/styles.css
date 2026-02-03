@@ -810,7 +810,8 @@ body {
   gap: 14px;
 }
 
-.condo-card {
+.condo-card,
+.goal-card {
   background: var(--bg-card) !important;
   border: 1px solid var(--border) !important;
   border-radius: 12px !important;
@@ -821,7 +822,8 @@ body {
   transform: none !important;
 }
 
-.condo-card:hover {
+.condo-card:hover,
+.goal-card:hover {
   border-color: var(--accent-blue) !important;
   background: var(--bg-card) !important;
 }
@@ -839,7 +841,8 @@ body {
   flex: 1;
 }
 
-.condo-card-goals {
+.condo-card-goals,
+.goal-card-goals {
   border-top: 1px solid var(--border-subtle);
   padding-top: 10px;
 }
