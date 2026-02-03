@@ -32,6 +32,8 @@
       selectedCronKey: null,
       newSessionAgentId: null,
       pendingRouteSessionKey: null,
+      pendingRouteGoalId: null,
+      pendingRouteCondoId: null,
       chatHistory: [],
       isThinking: false,
       messageQueue: [],  // Queued messages when agent is busy
@@ -1732,6 +1734,14 @@
         renderGoals();
         renderGoalsGrid();
         updateUncategorizedCount();
+
+        if (state.pendingRouteGoalId) {
+          const pending = state.pendingRouteGoalId;
+          state.pendingRouteGoalId = null;
+          if (state.goals.find(x => x.id === pending)) {
+            openGoal(pending, { fromRouter: true });
+          }
+        }
       } catch (err) {
         console.error('[ClawCondos] Failed to load goals:', err);
       }
@@ -3182,6 +3192,11 @@ Response format:
               openSession(pending, { fromRouter: true });
             }
           }
+          if (state.pendingRouteCondoId) {
+            const pending = state.pendingRouteCondoId;
+            state.pendingRouteCondoId = null;
+            openCondo(pending, { fromRouter: true });
+          }
           // Agents tree uses sessions for its nested view
           if (state.agents?.length) renderAgents();
         }
@@ -3746,14 +3761,28 @@ Response format:
           break;
         case 'condo':
           if (payload) {
-            openCondo(decodeURIComponent(payload), { fromRouter: true });
+            const condoId = decodeURIComponent(payload);
+            // If data hasn't loaded yet, defer
+            if (!(state.sessions?.length || state.goals?.length)) {
+              state.pendingRouteCondoId = condoId;
+              showOverview();
+            } else {
+              openCondo(condoId, { fromRouter: true });
+            }
           } else {
             showOverview();
           }
           break;
         case 'goal':
           if (payload) {
-            openGoal(decodeURIComponent(payload), { fromRouter: true });
+            const goalId = decodeURIComponent(payload);
+            // If goals not loaded yet, defer
+            if (!state.goals?.length) {
+              state.pendingRouteGoalId = goalId;
+              showOverview();
+            } else {
+              openGoal(goalId, { fromRouter: true });
+            }
           } else {
             showOverview();
           }
