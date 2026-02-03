@@ -759,3 +759,88 @@ body {
     min-width: 0;
   }
 }
+
+/* =====================================================================
+   V2 CARD SYSTEM (flat/minimal, prototype parity)
+   Applies across Dashboard + Apps + Recurring + Sessions + Goals.
+   Overrides the more "glowy" card styles from /styles/main.css.
+   ===================================================================== */
+
+:root {
+  --v2-card-radius: 10px;
+  --v2-card-padding: 16px;
+  --v2-card-border: var(--border);
+  --v2-card-bg: var(--bg-card);
+  --v2-card-bg-hover: var(--bg-hover);
+}
+
+/* Base card surfaces */
+.session-card,
+.app-card,
+.goal-card,
+.grid-card,
+.stat-card,
+.condo-card {
+  background: var(--v2-card-bg) !important;
+  border: 1px solid var(--v2-card-border) !important;
+  border-radius: var(--v2-card-radius) !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+/* Remove glow overlays from main.css */
+.session-card::after,
+.app-card::after,
+.goal-card::before {
+  content: none !important;
+  display: none !important;
+}
+
+.session-card:hover,
+.app-card:hover,
+.goal-card:hover,
+.grid-card:hover,
+.stat-card:hover,
+.condo-card:hover {
+  background: var(--v2-card-bg-hover) !important;
+  border-color: var(--border) !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+/* Inner card typography - tighten to prototype */
+.card-name,
+.grid-card-title,
+.condo-card-title {
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.01em !important;
+}
+
+.card-desc,
+.grid-card-desc,
+.goal-card-sub {
+  font-size: 12px !important;
+  color: var(--text-secondary) !important;
+}
+
+/* Card icon blocks should be flatter (no accent scaling/glow) */
+.card-icon {
+  width: 38px !important;
+  height: 38px !important;
+  background: var(--bg-dark) !important;
+  border: 1px solid var(--border-subtle) !important;
+  border-radius: 10px !important;
+  transform: none !important;
+}
+
+.session-card:hover .card-icon,
+.app-card:hover .card-icon {
+  transform: none !important;
+  border-color: var(--border-subtle) !important;
+}
+
+/* Grid spacing */
+.cards-grid {
+  gap: 14px !important;
+}
