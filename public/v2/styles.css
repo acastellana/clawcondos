@@ -1124,6 +1124,12 @@ body {
   height: 100%;
 }
 
+/* content-main has 20px padding; chat should be edge-to-edge */
+#chatView.active {
+  margin: -20px;
+  height: calc(100% + 40px);
+}
+
 .chat-shell {
   height: 100%;
   display: flex;
