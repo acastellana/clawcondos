@@ -1115,6 +1115,28 @@ body {
   .goal-hero-actions { justify-content: flex-start; flex-wrap: wrap; }
 }
 
+/* =====================================================================
+   Chat view (v2)
+   Fix layout regressions from v1 classnames (.chat-view)
+   ===================================================================== */
+
+#chatView {
+  height: 100%;
+}
+
+.chat-shell {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0; /* allow children to scroll */
+}
+
+/* Ensure message list can actually scroll inside flex column */
+#chatMessages.chat-messages {
+  flex: 1;
+  min-height: 0;
+}
+
 /* Grid cards (Apps/Recurring) */
 .grid {
   display: grid;
