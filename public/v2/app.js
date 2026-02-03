@@ -5172,7 +5172,12 @@ Response format:
 
       const goals = Array.isArray(state.goals) ? state.goals : [];
       for (const g of goals) {
-        const condoId = g.condoId || 'misc:default';
+        // If condoId is missing but the goal already has sessions, infer condoId from the first session.
+        // This makes the dashboard "Condos Overview" populate correctly even for legacy goals.
+        const inferredCondoId = (!g.condoId && Array.isArray(g.sessions) && g.sessions[0])
+          ? getCondoIdForSessionKey(g.sessions[0])
+          : null;
+        const condoId = g.condoId || inferredCondoId || 'misc:default';
         if (!condos.has(condoId)) {
           condos.set(condoId, {
             id: condoId,
