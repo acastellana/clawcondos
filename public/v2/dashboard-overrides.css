@@ -1,0 +1,44 @@
+/* Dashboard-only overrides to match v2 prototype (flat/minimal) */
+
+/* Flatten stat cards */
+#overviewView .stats-grid {
+  gap: 14px;
+  margin-bottom: 18px;
+}
+#overviewView .stat-card {
+  box-shadow: none;
+}
+
+/* Condos Overview header row */
+#goalsSection .grid-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+#goalsSection .grid-title {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  letter-spacing: 0.08em;
+}
+#goalsSection .uncategorized-count {
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(248, 113, 113, 0.12);
+  border: 1px solid rgba(248, 113, 113, 0.25);
+  color: var(--red);
+}
+
+/* Condos grid */
+#goalsGrid .condos-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+#goalsGrid .condo-card {
+  box-shadow: none;
+}
+#goalsGrid .condo-goal-row { cursor: pointer; }
