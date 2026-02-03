@@ -34,6 +34,8 @@
       pendingRouteSessionKey: null,
       pendingRouteGoalId: null,
       pendingRouteCondoId: null,
+      pendingRouteAppId: null,
+      pendingRouteCronKey: null,
       chatHistory: [],
       isThinking: false,
       messageQueue: [],  // Queued messages when agent is busy
@@ -3197,6 +3199,13 @@ Response format:
             state.pendingRouteCondoId = null;
             openCondo(pending, { fromRouter: true });
           }
+          if (state.pendingRouteCronKey) {
+            const pending = state.pendingRouteCronKey;
+            state.pendingRouteCronKey = null;
+            if (state.sessions.find(s => s.key === pending)) {
+              selectCron(pending, { fromRouter: true });
+            }
+          }
           // Agents tree uses sessions for its nested view
           if (state.agents?.length) renderAgents();
         }
@@ -3219,6 +3228,15 @@ Response format:
         }));
         renderApps();
         if (state.currentView === 'apps') renderAppsGridView();
+
+        if (state.pendingRouteAppId) {
+          const pending = state.pendingRouteAppId;
+          state.pendingRouteAppId = null;
+          if (state.apps.find(a => a.id === pending)) {
+            selectApp(pending, { fromRouter: true });
+          }
+        }
+
         state.apps.forEach(checkAppStatus);
       } catch (err) {
         console.error('Failed to load apps:', err);
@@ -3753,12 +3771,36 @@ Response format:
       const payload = rest.join('/');
 
       switch (route || 'dashboard') {
-        case 'apps':
-          showAppsView();
+        case 'apps': {
+          if (payload) {
+            const appId = decodeURIComponent(payload);
+            if (!state.apps?.length) {
+              state.pendingRouteAppId = appId;
+              showAppsView();
+            } else {
+              showAppsView({ fromRouter: true });
+              selectApp(appId, { fromRouter: true });
+            }
+          } else {
+            showAppsView({ fromRouter: true });
+          }
           break;
-        case 'recurring':
-          showRecurringView();
+        }
+        case 'recurring': {
+          if (payload) {
+            const cronKey = decodeURIComponent(payload);
+            if (!state.sessions?.length) {
+              state.pendingRouteCronKey = cronKey;
+              showRecurringView({ fromRouter: true });
+            } else {
+              showRecurringView({ fromRouter: true });
+              selectCron(cronKey, { fromRouter: true });
+            }
+          } else {
+            showRecurringView({ fromRouter: true });
+          }
           break;
+        }
         case 'condo':
           if (payload) {
             const condoId = decodeURIComponent(payload);
@@ -3835,7 +3877,7 @@ Response format:
       renderDetailPanel();
     }
 
-    function showAppsView() {
+    function showAppsView(opts = {}) {
       state.currentView = 'apps';
       setView('appsView');
       setActiveNav('apps');
@@ -3846,13 +3888,22 @@ Response format:
       document.getElementById('headerAction').style.display = 'none';
       document.getElementById('headerStatusIndicator').style.display = 'none';
       if (!state.selectedAppId && state.apps[0]) state.selectedAppId = state.apps[0].id;
+
+      // If route included an app id and apps were not loaded yet, resolve now
+      if (state.pendingRouteAppId && state.apps?.length) {
+        const pending = state.pendingRouteAppId;
+        state.pendingRouteAppId = null;
+        if (state.apps.find(a => a.id === pending)) {
+          state.selectedAppId = pending;
+        }
+      }
       renderAppsGridView();
       renderDetailPanel();
       updateMobileHeader();
       closeSidebar();
     }
 
-    function showRecurringView() {
+    function showRecurringView(opts = {}) {
       state.currentView = 'recurring';
       setView('recurringView');
       setActiveNav('recurring');
@@ -3865,6 +3916,14 @@ Response format:
       if (!state.selectedCronKey) {
         const firstCron = state.sessions.find(s => s.key.startsWith('cron:'));
         if (firstCron) state.selectedCronKey = firstCron.key;
+      }
+
+      if (state.pendingRouteCronKey && state.sessions?.length) {
+        const pending = state.pendingRouteCronKey;
+        state.pendingRouteCronKey = null;
+        if (state.sessions.find(s => s.key === pending)) {
+          state.selectedCronKey = pending;
+        }
       }
       renderRecurringView();
       renderDetailPanel();
@@ -4166,13 +4225,30 @@ Response format:
       `).join('');
     }
 
-    function selectApp(appId) {
+    function selectApp(appId, opts = {}) {
+      if (!appId) return;
+
+      if (!opts.fromRouter) {
+        navigateTo(`apps/${encodeURIComponent(appId)}`);
+        return;
+      }
+
       state.selectedAppId = appId;
+      // Keep view consistent when deep-linking
+      if (state.currentView !== 'apps') showAppsView({ fromRouter: true });
       renderDetailPanel();
     }
 
-    function selectCron(sessionKey) {
+    function selectCron(sessionKey, opts = {}) {
+      if (!sessionKey) return;
+
+      if (!opts.fromRouter) {
+        navigateTo(`recurring/${encodeURIComponent(sessionKey)}`);
+        return;
+      }
+
       state.selectedCronKey = sessionKey;
+      if (state.currentView !== 'recurring') showRecurringView({ fromRouter: true });
       renderDetailPanel();
     }
 
