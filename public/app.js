@@ -68,6 +68,8 @@
       chatUnseenCount: 0,            // new messages while scrolled up
       streamingBuffers: new Map(),   // Map<runId, string>
       streamingRaf: new Map(),       // Map<runId, rafId>
+      recentMessageFingerprints: new Map(), // Map<fingerprint, timestampMs>
+      recentMessageFingerprintPruneAt: 0,
       
       // Audio recording
       mediaRecorder: null,
@@ -1018,6 +1020,7 @@ function initAutoArchiveUI() {
         state.connectSent = false;
         clearWsTimers();
         setConnectionStatus('error');
+        finalizeAllStreamingMessages('disconnected');
 
         // If auth or handshake failed, prompt for token and STOP reconnect loop until user acts.
         if (event?.code === 1008 && /unauthorized|password mismatch|device identity required|invalid connect params/i.test(event?.reason || '')) {
@@ -1613,6 +1616,35 @@ function initAutoArchiveUI() {
         if (thinking) thinking.remove();
         addChatMessageTo(prefix, 'assistant', text);
       }
+    }
+
+    function finalizeAllStreamingMessages(reason = 'disconnected') {
+      const now = new Date();
+      const timeStr = formatMessageTime(now);
+      const note = reason ? ` (${reason})` : '';
+
+      document.querySelectorAll('.message.assistant.streaming').forEach(el => {
+        el.classList.remove('streaming');
+        const cursor = el.querySelector('.streaming-cursor');
+        if (cursor) cursor.remove();
+
+        let timeEl = el.querySelector('.message-time');
+        if (!timeEl) {
+          timeEl = document.createElement('div');
+          timeEl.className = 'message-time';
+          el.appendChild(timeEl);
+        }
+
+        if (!timeEl.textContent.includes(note.trim())) {
+          timeEl.textContent = `${timeStr}${note}`;
+        }
+      });
+
+      for (const rafId of state.streamingRaf.values()) {
+        cancelAnimationFrame(rafId);
+      }
+      state.streamingRaf.clear();
+      state.streamingBuffers.clear();
     }
     
     function removeStreamingMessage(runId, prefix = '') {
@@ -6982,10 +7014,26 @@ Response format:
       const container = document.getElementById(containerId);
       if (!container) return null;
 
-      const msg = document.createElement('div');
-      // Normalize role strings like "user queued" → classes: message user queued
       const parts = String(role || '').split(/\s+/).filter(Boolean);
       const base = parts[0] || 'system';
+      const normalizedContent = String(content ?? '').replace(/\s+/g, '');
+      const fingerprint = `${prefix}|${base}|${normalizedContent}`;
+      const now = Date.now();
+      const recent = state.recentMessageFingerprints.get(fingerprint);
+      if (recent && (now - recent) <= 15000) {
+        return null;
+      }
+      state.recentMessageFingerprints.set(fingerprint, now);
+
+      if ((now - state.recentMessageFingerprintPruneAt) > 5000) {
+        state.recentMessageFingerprintPruneAt = now;
+        for (const [key, ts] of state.recentMessageFingerprints) {
+          if ((now - ts) > 30000) state.recentMessageFingerprints.delete(key);
+        }
+      }
+
+      const msg = document.createElement('div');
+      // Normalize role strings like "user queued" → classes: message user queued
       const extra = parts.slice(1);
       msg.className = `message ${base}${extra.length ? ' ' + extra.join(' ') : ''}`;
 
