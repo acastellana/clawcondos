@@ -1757,6 +1757,19 @@ function initAutoArchiveUI() {
       renderSessions();
       renderSessionsGrid();
       updateHeaderStatus();
+
+      // Auto-clear transient statuses
+      if (status === 'sent') {
+        setTimeout(() => {
+          if (state.sessionAgentStatus[key] === 'sent') {
+            state.sessionAgentStatus[key] = 'idle';
+            localStorage.setItem('sharp_session_agent_status', JSON.stringify(state.sessionAgentStatus));
+            renderSessions();
+            renderSessionsGrid();
+            updateHeaderStatus();
+          }
+        }, 1500);
+      }
     }
     
     function getAgentStatus(key) {
@@ -1769,6 +1782,7 @@ function initAutoArchiveUI() {
         case 'thinking': return 'Processing...';
         case 'error': return 'Last request failed';
         case 'offline': return 'Disconnected';
+        case 'sent': return 'Sent';
         default: return status;
       }
     }
@@ -5493,12 +5507,20 @@ Response format:
           attachments: attachments,
           idempotencyKey
         }, 130000);
-        
+
+        // Visual ack: mark this session as "sent" briefly so user knows it left the client.
+        try {
+          state.sessionLastSentAt = state.sessionLastSentAt || {};
+          state.sessionLastSentAt[sessionKey] = Date.now();
+          setSessionStatus(sessionKey, 'sent');
+        } catch {
+          setSessionStatus(sessionKey, 'idle');
+        }
+
         if (result?.reply) {
           addChatMessage('assistant', result.reply);
         }
-        
-        setSessionStatus(sessionKey, 'idle');
+
         refresh();
         
       } catch (err) {
