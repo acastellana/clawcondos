@@ -3916,6 +3916,16 @@ Response format:
       document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
       const view = document.getElementById(viewId);
       if (view) view.classList.add('active');
+
+      // UX: when switching between top-level views (overview/apps/recurring/etc),
+      // reset the main scroll container so content doesn't appear "under" the wrapper.
+      // Preserve scroll for chat view since it manages its own autoscroll behavior.
+      try {
+        if (viewId !== 'chatView') {
+          const main = document.querySelector('.content-main');
+          if (main) main.scrollTop = 0;
+        }
+      } catch {}
     }
 
     function navigateTo(path, replace = false) {
@@ -5699,6 +5709,10 @@ Response format:
     }
 
     function init() {
+      // Prevent browser from restoring scroll positions between hash routes.
+      // ClawCondos manages its own scroll behavior per-view.
+      try { if ('scrollRestoration' in history) history.scrollRestoration = 'manual'; } catch {}
+
       // Restore active runs from localStorage (before connecting)
       restoreActiveRuns();
 
@@ -5721,8 +5735,12 @@ Response format:
         handleRoute();
         // Route changes can swap views; re-attach if needed
         initChatUX();
+        // Ensure main scroll container doesn't preserve a stale offset between routes.
+        try { const main = document.querySelector('.content-main'); if (main) main.scrollTop = 0; } catch {}
       });
       handleRoute();
+      // Initial route may render with a stale scrollTop (browser restore). Reset.
+      try { const main = document.querySelector('.content-main'); if (main) main.scrollTop = 0; } catch {}
 
       // Auto-refresh sessions every 30s
       setInterval(() => {
