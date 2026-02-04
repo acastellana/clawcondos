@@ -1608,6 +1608,9 @@ body {
 
 #mediaFileInput { display: none; }
 
+/* Hide any composer-mounted file inputs (e.g. goal_mediaFileInput) */
+.chat-input-area input[type="file"]{ display:none !important; }
+
 .chat-input-area {
   position: relative;
   background: rgba(18, 22, 30, 0.92);
@@ -1658,7 +1661,8 @@ body {
 }
 
 .attach-btn { width: 38px; padding: 0; }
-.attach-btn svg { width: 18px; height: 18px; opacity: 0.9; }
+/* Cleaner paperclip: slightly thinner + centered */
+.attach-btn svg { width: 18px; height: 18px; opacity: 0.92; stroke-width: 1.8; }
 
 .stop-btn { width: 38px; padding: 0; font-size: 14px; }
 
