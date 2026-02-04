@@ -2451,11 +2451,23 @@ function initAutoArchiveUI() {
       if (!goal || !pane) return;
 
       if ((state.goalTab || 'tasks') === 'files') {
-        pane.innerHTML = `<div class="empty-state">Files view is coming soon. For now, keep key links in the definition above.</div>`;
+        pane.innerHTML = `<div class="empty-state" style="padding:14px;">Files view is coming soon. (We can wire it to a goal “files” field or to session artifacts.)</div>`;
         return;
       }
 
-      // Tasks: grouped by stage, visual-only; we’ll store stage/blocked when tasks start being used.
+      const tasks = Array.isArray(goal.tasks) ? goal.tasks : [];
+      if (!tasks.length) {
+        pane.innerHTML = `
+          <div class="empty-state" style="padding:14px;">No tasks yet. Add the next physical step.</div>
+          <div class="goal-task-compose">
+            <input class="form-input" id="goalNewTaskInput" placeholder="Add a task…" onkeypress="if(event.key==='Enter')addGoalTaskFromGoalPane()">
+            <button class="ghost-btn" onclick="addGoalTaskFromGoalPane()">Add</button>
+          </div>
+        `;
+        return;
+      }
+
+      // Tasks: grouped by stage (prototype direction). If no stage metadata yet, they land in Backlog.
       const stages = [
         { k: 'backlog', l: 'Backlog' },
         { k: 'blocked', l: 'Blocked' },
@@ -2464,7 +2476,6 @@ function initAutoArchiveUI() {
         { k: 'done', l: 'Done' },
       ];
 
-      const tasks = Array.isArray(goal.tasks) ? goal.tasks : [];
       const by = new Map(stages.map(s => [s.k, []]));
       for (const t of tasks) {
         const key = t.blocked ? 'blocked' : (t.stage || (t.done ? 'done' : 'backlog'));
@@ -2472,25 +2483,47 @@ function initAutoArchiveUI() {
         by.get(key).push(t);
       }
 
-      pane.innerHTML = stages.map(s => {
-        const items = by.get(s.k) || [];
-        const rows = items.map((t, idx) => {
-          const id = escapeHtml(t.id || String(idx));
-          const checked = t.done ? 'checked' : '';
-          const badge = t.blocked ? 'blocked' : (t.stage || (t.done ? 'done' : 'backlog'));
-          const title = t.text || t.title || '';
-          return `
-            <div class="goal-task-row" onclick="toggleGoalTask('${id}')">
-              <input type="checkbox" ${checked} onclick="event.stopPropagation(); toggleGoalTask('${id}')">
-              <div class="goal-badge ${escapeHtml(badge)}"></div>
-              <div class="goal-rtitle">${escapeHtml(title)}</div>
-              <div class="goal-rmeta"><span>${escapeHtml(String(t.id || ''))}</span></div>
-            </div>
-          `;
-        }).join('');
+      pane.innerHTML = `
+        ${stages.map(s => {
+          const items = by.get(s.k) || [];
+          if (!items.length) return '';
+          const rows = items.map((t, idx) => {
+            const id = escapeHtml(t.id || String(idx));
+            const checked = t.done ? 'checked' : '';
+            const badge = t.blocked ? 'blocked' : (t.stage || (t.done ? 'done' : 'backlog'));
+            const title = t.text || t.title || '';
+            return `
+              <div class="goal-task-row" onclick="toggleGoalTask('${id}')">
+                <input type="checkbox" ${checked} onclick="event.stopPropagation(); toggleGoalTask('${id}')">
+                <div class="goal-badge ${escapeHtml(badge)}"></div>
+                <div class="goal-rtitle">${escapeHtml(title)}</div>
+                <div class="goal-rmeta"><span>${escapeHtml(String(t.id || ''))}</span></div>
+              </div>
+            `;
+          }).join('');
 
-        return `<div class="goal-group"><div class="goal-ghead"><div class="goal-gtitle">${escapeHtml(s.l)}</div><div class="goal-gcount">${items.length}</div></div>${rows || `<div class="empty-state">—</div>`}</div>`;
-      }).join('');
+          return `<div class="goal-group"><div class="goal-ghead"><div class="goal-gtitle">${escapeHtml(s.l)}</div><div class="goal-gcount">${items.length}</div></div>${rows}</div>`;
+        }).join('')}
+
+        <div class="goal-task-compose">
+          <input class="form-input" id="goalNewTaskInput" placeholder="Add a task…" onkeypress="if(event.key==='Enter')addGoalTaskFromGoalPane()">
+          <button class="ghost-btn" onclick="addGoalTaskFromGoalPane()">Add</button>
+        </div>
+      `;
+    }
+
+    async function addGoalTaskFromGoalPane() {
+      const goal = state.goals.find(g => g.id === state.currentGoalOpenId);
+      if (!goal) return;
+      const input = document.getElementById('goalNewTaskInput');
+      if (!input) return;
+      const text = (input.value || '').trim();
+      if (!text) return;
+
+      const tasks = Array.isArray(goal.tasks) ? goal.tasks.slice() : [];
+      tasks.unshift({ id: uid('task'), text, done: false, stage: 'backlog' });
+      input.value = '';
+      await updateGoal(goal.id, { tasks });
     }
 
     async function toggleGoalDone() {

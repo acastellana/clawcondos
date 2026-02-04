@@ -1278,7 +1278,32 @@ body {
 .goal-tab{ font-size:12px; color: var(--text-muted); cursor:pointer; padding:6px 2px; border-bottom:2px solid transparent; }
 .goal-tab.active{ color: rgba(255,255,255,.92); border-bottom-color: rgba(96,165,250,.75); }
 
-.goal-pane{ flex:1; min-height:0; overflow:auto; padding: 12px 14px; }
+.goal-pane{ flex:1; min-height:0; overflow:auto; padding: 10px 14px 14px; }
+
+.goal-task-compose{
+  margin-top: 12px;
+  display:flex;
+  gap:10px;
+  align-items:center;
+  position: sticky;
+  bottom: 0;
+  padding-top: 10px;
+  background: rgba(26,30,36,.92);
+  backdrop-filter: blur(8px);
+  border-top: 1px solid rgba(255,255,255,.06);
+}
+.goal-task-compose .form-input{ flex:1; }
+
+/* Goal chat should feel like a bounded panel */
+#goalView{height:100%;}
+.goal-shell-v2{height:100%;}
+.goal-chat-body{ display:flex; flex-direction:column; }
+#goalChatMessages{ flex:1; min-height:0; overflow:auto; }
+#goalChatMessages .message{ max-width: 100%; }
+#goalChatInput{ font-family: inherit; }
+
+/* tighten empty rows so stage groups don't create huge vertical voids */
+.empty-state{ padding: 12px 14px; }
 
 .goal-group{ padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,.06); }
 .goal-group:last-child{ border-bottom:none; }
