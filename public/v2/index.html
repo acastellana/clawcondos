@@ -15,6 +15,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,520;9..144,720&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 
   <link rel="stylesheet" href="/v2/styles.css">
+  <link rel="stylesheet" href="/v2/agents.css">
   <link rel="stylesheet" href="/v2/dashboard-overrides.css">
   <link rel="stylesheet" href="/styles/media-upload.css">
   <link rel="stylesheet" href="/styles/voice-recorder.css">
@@ -341,6 +342,25 @@
 
           <div class="view" id="recurringView">
             <div class="grid" id="recurringGrid"></div>
+          </div>
+
+          <div class="view" id="agentsView">
+            <div class="agents-shell">
+              <aside class="agents-left">
+                <div class="agents-left-header">
+                  <div class="agents-left-title">Agents</div>
+                  <div class="agents-left-sub" id="agentsLeftSub">—</div>
+                </div>
+                <div class="agents-list" id="agentsListColumn"></div>
+              </aside>
+              <section class="agents-main">
+                <div class="agents-main-header">
+                  <div class="agents-main-title" id="agentsMainTitle">Select an agent</div>
+                  <div class="agents-main-meta" id="agentsMainMeta"></div>
+                </div>
+                <div class="agents-main-body" id="agentsMainBody"></div>
+              </section>
+            </div>
           </div>
 
           <div class="view" id="condoView">

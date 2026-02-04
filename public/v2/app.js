@@ -1367,7 +1367,7 @@ function initAutoArchiveUI() {
       }
     }
     
-    function handleChatEvent(data) {
+    async function handleChatEvent(data) {
       const { sessionKey, runId, state: runState, message } = data;
       
       console.log('[ClawCondos] Chat event:', runState, 'for', sessionKey, 'runId:', runId);
@@ -1429,6 +1429,8 @@ function initAutoArchiveUI() {
             const text = extractText(message.content);
             if (text) {
               finalizeStreamingMessage(runId, text, '');
+              // Auto-apply goal patches when agent updates tasks/status.
+              try { await maybeAutoApplyGoalPatch(sessionKey, text); } catch {}
             }
           } else {
             removeStreamingMessage(runId, '');
@@ -1441,6 +1443,7 @@ function initAutoArchiveUI() {
             const text = extractText(message.content);
             if (text) {
               finalizeStreamingMessage(runId, text, 'goal');
+              try { await maybeAutoApplyGoalPatch(sessionKey, text); } catch {}
             }
           } else {
             removeStreamingMessage(runId, 'goal');
@@ -2363,7 +2366,9 @@ function initAutoArchiveUI() {
         `INSTRUCTIONS:`,
         `1) Pick the best first task to start now (you choose).`,
         `2) Start executing immediately.`,
-        `3) As you work, keep the goal state updated by emitting a compact JSON patch for tasks/status/nextTask (auto-applied by the UI).`,
+        `3) As you work, keep the goal state updated by emitting a compact JSON patch that the UI will auto-apply.`,
+        `   Example JSON (put this in a fenced code block in your message):`,
+        `   {"goalPatch": {"status":"active","nextTask":"…","tasks":[{"id":"task_…","text":"…","done":false}]}}`,
       ].join('\n');
 
       try {
@@ -2818,7 +2823,7 @@ function initAutoArchiveUI() {
       await updateGoal(goal.id, { completed: next, status: next ? 'done' : 'active' });
     }
 
-    async function updateGoal(goalId, patch) {
+    async function updateGoal(goalId, patch, opts = {}) {
       try {
         const res = await fetch(`/api/goals/${encodeURIComponent(goalId)}`, {
           method: 'PUT',
@@ -2829,11 +2834,94 @@ function initAutoArchiveUI() {
         const data = await res.json();
         const idx = state.goals.findIndex(g => g.id === goalId);
         if (idx !== -1 && data?.goal) state.goals[idx] = data.goal;
-        renderGoals();
-        renderGoalsGrid();
-        renderGoalView();
+
+        if (!opts.skipRender) {
+          try { renderGoals(); } catch {}
+          try { renderGoalsGrid(); } catch {}
+
+          // Avoid nuking chat contents when we're in goal view; prefer lighter refresh.
+          if (!(opts.skipGoalViewRerender) && state.currentView === 'goal' && state.currentGoalOpenId === goalId) {
+            try { renderGoalView(); } catch {}
+          } else {
+            try { renderDetailPanel(); } catch {}
+          }
+        }
+
+        return data?.goal;
       } catch (e) {
-        showToast('Failed to save goal', 'error');
+        if (!opts.silent) showToast('Failed to save goal', 'error');
+        throw e;
+      }
+    }
+
+    function extractJsonBlocks(text) {
+      const out = [];
+      const s = String(text || '');
+      const re = /```(?:json)?\s*([\s\S]*?)```/gi;
+      let m;
+      while ((m = re.exec(s)) !== null) {
+        const body = (m[1] || '').trim();
+        if (body) out.push(body);
+      }
+      return out;
+    }
+
+    function tryParseGoalPatch(text) {
+      // Accept a JSON block like:
+      // ```json
+      // {"goalPatch": { ... }}
+      // ```
+      // or a raw object with {status/tasks/nextTask/...}
+      const blocks = extractJsonBlocks(text);
+      const candidates = blocks.length ? blocks : [String(text || '')];
+
+      for (const c of candidates) {
+        const trimmed = (c || '').trim();
+        if (!trimmed.startsWith('{')) continue;
+        try {
+          const obj = JSON.parse(trimmed);
+          const patch = obj?.goalPatch || obj?.clawcondosGoalPatch || obj;
+          if (!patch || typeof patch !== 'object') continue;
+
+          // Heuristic: only treat as patch if it looks like one.
+          const keys = Object.keys(patch);
+          const allowed = new Set(['status','priority','deadline','notes','description','tasks','nextTask','completed','dropped','droppedAtMs','condoId','condoName']);
+          const looksLikePatch = keys.some(k => allowed.has(k));
+          if (!looksLikePatch) continue;
+
+          return patch;
+        } catch {}
+      }
+      return null;
+    }
+
+    async function maybeAutoApplyGoalPatch(sessionKey, assistantText) {
+      const text = (assistantText || '').trim();
+      if (!text) return;
+
+      const patch = tryParseGoalPatch(text);
+      if (!patch) return;
+
+      // Determine goalId from sessionKey mapping.
+      let goalId = null;
+      try {
+        const g = getGoalForSession(sessionKey);
+        if (g?.id) goalId = g.id;
+      } catch {}
+      if (!goalId && state.currentView === 'goal' && state.goalChatSessionKey === sessionKey) {
+        goalId = state.currentGoalOpenId;
+      }
+      if (!goalId) return;
+
+      try {
+        await updateGoal(goalId, patch, { silent: true, skipGoalViewRerender: true });
+        // Light refresh for goal header + tasks pane.
+        if (state.currentView === 'goal' && state.currentGoalOpenId === goalId) {
+          try { renderGoalView(); } catch {}
+        }
+        showToast('Applied goal update', 'info', 1200);
+      } catch (e) {
+        addChatMessageTo('goal', 'system', `⚠️ Failed to apply goal update: ${e.message}`);
       }
     }
 
