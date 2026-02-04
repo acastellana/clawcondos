@@ -463,7 +463,9 @@
       <div class="view" id="chatView">
         <div class="session-info" id="sessionInfo">
           <span class="session-info-item">📍 <span id="sessionKeyDisplay">-</span></span>
-          <span class="session-info-item">🤖 <span class="session-badge" id="sessionModel">-</span></span>
+          <span class="session-info-item" title="Session model (switching model will reset the session)">🤖
+            <select class="session-model-select" id="sessionModelSelect" onchange="handleSessionModelChange(this.value)"></select>
+          </span>
           <span class="session-info-item">📊 <span id="sessionTokens">-</span> tokens</span>
           <span class="session-info-spacer"></span>
 
@@ -578,6 +580,11 @@
       chatHistory: [],
       isThinking: false,
       messageQueue: [],  // Queued messages when agent is busy
+
+      // Per-session model overrides (UI-level; model switch is triggered by sending /new <model>)
+      sessionModelOverrides: (() => {
+        try { return JSON.parse(lsGet('session_model_overrides', '{}') || '{}') || {}; } catch { return {}; }
+      })(),
       
       // Audio recording
       mediaRecorder: null,
@@ -4177,7 +4184,7 @@ Response format:
       updateHeaderStatus();
       
       document.getElementById('sessionKeyDisplay').textContent = session.key;
-      document.getElementById('sessionModel').textContent = session.model?.split('/').pop() || 'unknown';
+      renderSessionModelSelector(session);
       document.getElementById('sessionTokens').textContent = session.totalTokens?.toLocaleString() || '0';
       updateVerboseToggleUI();
       
@@ -4894,6 +4901,108 @@ Response format:
         addChatMessage('system', `Verbose → ${normalized}`);
       } catch (err) {
         addChatMessage('system', `Failed to set verbose: ${err.message}`);
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // MODEL SELECTOR (per session)
+    // ═══════════════════════════════════════════════════════════════
+
+    function availableModelChoices() {
+      const base = [
+        { value: 'default', label: 'default' },
+        { value: 'gpt', label: 'gpt (gpt-5.2 alias)' },
+        { value: 'opus', label: 'opus (Claude Opus alias)' },
+      ];
+      const seen = new Set(base.map(x => x.value));
+      for (const a of (state.agents || [])) {
+        const m = String(a?.model || a?.models?.primary || '').trim();
+        if (!m) continue;
+        if (seen.has(m)) continue;
+        seen.add(m);
+        base.push({ value: m, label: m });
+      }
+      const head = base.slice(0, 3);
+      const tail = base.slice(3).sort((a, b) => a.label.localeCompare(b.label));
+      return head.concat(tail).concat([{ value: '__custom__', label: 'Custom…' }]);
+    }
+
+    function effectiveSessionModel(session) {
+      if (!session?.key) return session?.model || null;
+      return state.sessionModelOverrides?.[session.key] || session.model || null;
+    }
+
+    function renderSessionModelSelector(session) {
+      const sel = document.getElementById('sessionModelSelect');
+      if (!sel) return;
+
+      const choices = availableModelChoices();
+      const current = effectiveSessionModel(session);
+      const currentValue = current || 'default';
+
+      sel.innerHTML = choices.map(c => {
+        const selected = (c.value === currentValue) ? ' selected' : '';
+        return `<option value="${escapeHtml(String(c.value))}"${selected}>${escapeHtml(String(c.label))}</option>`;
+      }).join('');
+
+      if (current && !choices.some(c => c.value === current)) {
+        const opt = document.createElement('option');
+        opt.value = String(current);
+        opt.textContent = String(current);
+        opt.selected = true;
+        sel.insertBefore(opt, sel.firstChild);
+      }
+    }
+
+    async function handleSessionModelChange(value) {
+      const sessionKey = state.currentSession?.key;
+      if (!sessionKey) return;
+
+      let chosen = String(value || '').trim();
+      if (!chosen) return;
+
+      if (chosen === '__custom__') {
+        const custom = prompt('Enter model alias or full model id (e.g. opus, gpt, anthropic/claude-opus-4-5):', 'opus');
+        if (!custom) {
+          renderSessionModelSelector(state.currentSession);
+          return;
+        }
+        chosen = String(custom).trim();
+      }
+
+      const prev = effectiveSessionModel(state.currentSession) || 'default';
+      if (chosen === prev) return;
+
+      const ok = confirm(`Switch model to "${chosen}"?\n\nThis will reset the session (equivalent to sending: /new ${chosen}).`);
+      if (!ok) {
+        renderSessionModelSelector(state.currentSession);
+        return;
+      }
+
+      state.sessionModelOverrides[sessionKey] = chosen;
+      lsSet('session_model_overrides', JSON.stringify(state.sessionModelOverrides));
+      renderSessionModelSelector(state.currentSession);
+
+      try {
+        const idempotencyKey = `model-${sessionKey}-${Date.now()}`;
+        await rpcCall('chat.send', {
+          sessionKey,
+          message: `/new ${chosen}`,
+          idempotencyKey,
+        }, 15000);
+        showToast(`Model → ${chosen} (session reset)`, 'success', 2500);
+
+        setTimeout(async () => {
+          try {
+            await loadSessions();
+            const updated = state.sessions.find(s => s.key === sessionKey);
+            if (updated) state.currentSession = updated;
+            renderSessionModelSelector(state.currentSession);
+            renderSessions();
+          } catch {}
+        }, 1200);
+      } catch (err) {
+        showToast(`Failed to switch model: ${err.message}`, 'error');
       }
     }
 

@@ -2970,6 +2970,45 @@ body {
   font-family: var(--font-mono);
 }
 
+.session-model-select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+
+  background: var(--bg-panel);
+  color: var(--text);
+  border: 1px solid rgba(255,255,255,0.06);
+  padding: 2px calc(var(--space-sm) + 16px) 2px var(--space-sm);
+  border-radius: var(--radius-sm);
+  font-size: 0.72rem;
+  font-family: var(--font-mono);
+  line-height: 1.4;
+  cursor: pointer;
+
+  background-image:
+    linear-gradient(45deg, transparent 50%, rgba(255,255,255,0.35) 50%),
+    linear-gradient(135deg, rgba(255,255,255,0.35) 50%, transparent 50%),
+    linear-gradient(to right, transparent, transparent);
+  background-position:
+    calc(100% - 11px) 55%,
+    calc(100% - 6px) 55%,
+    0 0;
+  background-size:
+    5px 5px,
+    5px 5px,
+    100% 100%;
+  background-repeat: no-repeat;
+}
+
+.session-model-select:hover {
+  border-color: rgba(255,255,255,0.12);
+}
+
+.session-model-select:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(120, 180, 255, 0.18);
+}
+
 .session-info-spacer { 
   flex: 1; 
 }

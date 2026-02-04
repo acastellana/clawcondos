@@ -63,6 +63,11 @@
       isThinking: false,
       messageQueue: [],  // Queued messages when agent is busy
 
+      // Per-session model overrides (UI-level; model switch is triggered by sending /new <model>)
+      sessionModelOverrides: (() => {
+        try { return JSON.parse(lsGet('session_model_overrides', '{}') || '{}') || {}; } catch { return {}; }
+      })(),
+
       // Chat UX
       chatAutoScroll: true,          // user is at bottom (or near-bottom)
       chatUnseenCount: 0,            // new messages while scrolled up
@@ -6577,7 +6582,7 @@ Response format:
       updateHeaderStatus();
       
       document.getElementById('sessionKeyDisplay').textContent = session.key;
-      document.getElementById('sessionModel').textContent = session.model?.split('/').pop() || 'unknown';
+      renderSessionModelSelector(session);
       document.getElementById('sessionTokens').textContent = session.totalTokens?.toLocaleString() || '0';
       updateVerboseToggleUI();
       
@@ -7626,6 +7631,118 @@ Response format:
         addChatMessageTo('', 'system', `Verbose → ${normalized}`);
       } catch (err) {
         addChatMessageTo('', 'system', `Failed to set verbose: ${err.message}`);
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // MODEL SELECTOR (per session)
+    // ═══════════════════════════════════════════════════════════════
+
+    function availableModelChoices() {
+      // MVP list: core aliases + any configured agent models.
+      const base = [
+        { value: 'default', label: 'default' },
+        { value: 'gpt', label: 'gpt (gpt-5.2 alias)' },
+        { value: 'opus', label: 'opus (Claude Opus alias)' },
+      ];
+
+      const seen = new Set(base.map(x => x.value));
+      for (const a of (state.agents || [])) {
+        const m = String(a?.model || a?.models?.primary || '').trim();
+        if (!m) continue;
+        if (seen.has(m)) continue;
+        seen.add(m);
+        base.push({ value: m, label: m });
+      }
+
+      // Keep deterministic ordering: aliases first, then full model strings.
+      const head = base.slice(0, 3);
+      const tail = base.slice(3).sort((a, b) => a.label.localeCompare(b.label));
+      return head.concat(tail).concat([{ value: '__custom__', label: 'Custom…' }]);
+    }
+
+    function effectiveSessionModel(session) {
+      if (!session?.key) return session?.model || null;
+      return state.sessionModelOverrides?.[session.key] || session.model || null;
+    }
+
+    function renderSessionModelSelector(session) {
+      const sel = document.getElementById('sessionModelSelect');
+      if (!sel) return;
+
+      const choices = availableModelChoices();
+      const current = effectiveSessionModel(session);
+      const currentValue = current || 'default';
+
+      sel.innerHTML = choices.map(c => {
+        const selected = (c.value === currentValue) ? ' selected' : '';
+        return `<option value="${escapeHtml(String(c.value))}"${selected}>${escapeHtml(String(c.label))}</option>`;
+      }).join('');
+
+      // If the current model is not in the list, inject it at the top.
+      if (current && !choices.some(c => c.value === current)) {
+        const opt = document.createElement('option');
+        opt.value = String(current);
+        opt.textContent = String(current);
+        opt.selected = true;
+        sel.insertBefore(opt, sel.firstChild);
+      }
+    }
+
+    async function handleSessionModelChange(value) {
+      const sessionKey = state.currentSession?.key;
+      if (!sessionKey) return;
+
+      let chosen = String(value || '').trim();
+      if (!chosen) return;
+
+      if (chosen === '__custom__') {
+        const custom = prompt('Enter model alias or full model id (e.g. opus, gpt, anthropic/claude-opus-4-5):', 'opus');
+        if (!custom) {
+          // Re-render to reset selection
+          renderSessionModelSelector(state.currentSession);
+          return;
+        }
+        chosen = String(custom).trim();
+      }
+
+      // No-op
+      const prev = effectiveSessionModel(state.currentSession) || 'default';
+      if (chosen === prev) return;
+
+      // NOTE: OpenClaw supports `/new <model>` which *resets* the session and switches model.
+      const ok = confirm(`Switch model to "${chosen}"?\n\nThis will reset the session (equivalent to sending: /new ${chosen}).`);
+      if (!ok) {
+        renderSessionModelSelector(state.currentSession);
+        return;
+      }
+
+      // Optimistically update UI
+      state.sessionModelOverrides[sessionKey] = chosen;
+      lsSet('session_model_overrides', JSON.stringify(state.sessionModelOverrides));
+      renderSessionModelSelector(state.currentSession);
+
+      try {
+        const idempotencyKey = `model-${sessionKey}-${Date.now()}`;
+        await rpcCall('chat.send', {
+          sessionKey,
+          message: `/new ${chosen}`,
+          idempotencyKey,
+        }, 15000);
+        showToast(`Model → ${chosen} (session reset)`, 'success', 2500);
+
+        // Refresh session metadata soon after.
+        setTimeout(async () => {
+          try {
+            await loadSessions();
+            const updated = state.sessions.find(s => s.key === sessionKey);
+            if (updated) state.currentSession = updated;
+            renderSessionModelSelector(state.currentSession);
+            renderSessions();
+          } catch {}
+        }, 1200);
+      } catch (err) {
+        showToast(`Failed to switch model: ${err.message}`, 'error');
       }
     }
 
