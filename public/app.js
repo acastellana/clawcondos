@@ -2513,11 +2513,19 @@ function initAutoArchiveUI() {
 
       try {
         // Attach session to goal first so it shows up immediately.
-        await fetch(`/api/goals/${encodeURIComponent(goalId)}/sessions`, {
+        const attachRes = await fetch(`/api/goals/${encodeURIComponent(goalId)}/sessions`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ sessionKey }),
         });
+        if (!attachRes.ok) {
+          let msg = 'Failed to attach session to goal';
+          try {
+            const j = await attachRes.json();
+            if (j?.error) msg = String(j.error);
+          } catch {}
+          throw new Error(msg);
+        }
 
         state.goalChatSessionKey = sessionKey;
 
@@ -4534,22 +4542,19 @@ Response format:
       if (!state.selectedAgentId) state.selectedAgentId = agents[0].id;
 
       list.innerHTML = agents.map(a => {
-        const emoji = a.identity?.emoji || '🤖';
         const name = a.identity?.name || a.name || a.id;
         const active = state.selectedAgentId === a.id;
-        const sum = state.agentSummaries?.[a.id];
-        const desc = (sum?.mission || a.description || a.summary || '').replace(/^Mission\s*/i, '').trim();
-        const pills = [a.model ? `<span class="agent-pill">${escapeHtml(String(a.model))}</span>` : ''];
-        if (sum?.audit?.summary?.warn != null) pills.push(`<span class="agent-pill">audit ${escapeHtml(String(sum.audit.summary.warn))}w</span>`);
+        const model = a.model || a.models?.primary || '';
+
+        const chips = [
+          `<span class="agent-chip">${escapeHtml(String(a.id))}</span>`,
+          model ? `<span class="agent-chip">${escapeHtml(String(model))}</span>` : ''
+        ].filter(Boolean).join('');
 
         return `
           <div class="agent-card ${active ? 'active' : ''}" onclick="selectAgentForAgentsPage('${escapeHtml(a.id)}')">
-            <div class="agent-card-emoji">${emoji}</div>
-            <div class="agent-card-body">
-              <div class="agent-card-name">${escapeHtml(name)}</div>
-              <div class="agent-card-desc">${escapeHtml(desc)}</div>
-              <div class="agent-card-meta">${pills.filter(Boolean).join('')}</div>
-            </div>
+            <div class="agent-card-title">${escapeHtml(String(name))}</div>
+            <div class="agent-card-meta">${chips}</div>
           </div>
         `;
       }).join('');
@@ -4559,33 +4564,62 @@ Response format:
 
       const titleEl = document.getElementById('agentsMainTitle');
       const metaEl = document.getElementById('agentsMainMeta');
-      if (titleEl) titleEl.textContent = `${agent.identity?.emoji || '🤖'} ${agent.identity?.name || agent.name || agent.id}`;
-      if (metaEl) metaEl.innerHTML = `${agent.model ? `<span class="agent-pill">${escapeHtml(String(agent.model))}</span>` : ''}`;
+      const displayName = agent.identity?.name || agent.name || agent.id;
+      const model = agent.model || agent.models?.primary || '';
+      if (titleEl) titleEl.textContent = `${agent.identity?.emoji || '🤖'} ${displayName}`;
+      if (metaEl) {
+        const toolCount = Array.isArray(agent.tools) ? agent.tools.length : (Array.isArray(agent.toolAllowlist) ? agent.toolAllowlist.length : null);
+        metaEl.innerHTML = [
+          `<span class="agent-chip">id: ${escapeHtml(String(agent.id))}</span>`,
+          model ? `<span class="agent-chip">model: ${escapeHtml(String(model))}</span>` : '',
+          toolCount != null ? `<span class="agent-chip">tools: ${escapeHtml(String(toolCount))}</span>` : ''
+        ].filter(Boolean).join(' ');
+      }
 
-      const sum = state.agentSummaries?.[agent.id];
-      const skills = (state.resolvedSkillsByAgent?.[agent.id] || []).filter(Boolean);
+      const desc = (agent.description || agent.summary || '').trim();
+
+      const jobsLoaded = state.cronJobsLoaded;
+      const allJobs = state.cronJobs || [];
+      const agentJobs = jobsLoaded ? allJobs.filter(j => String(j.agentId || '') === String(agent.id)) : [];
+
+      const jobsHtml = !jobsLoaded
+        ? `<div class="grid-card">Loading recurring tasks…</div>`
+        : (agentJobs.length ? agentJobs.map(j => {
+            const schedule = formatSchedule(j.schedule);
+            const jobModel = getJobModel(j.payload);
+            const outcome = summarizeOutcome(j.payload);
+            const stateObj = j.state || {};
+            const lastAt = Number(stateObj.lastRunAtMs || 0);
+            const lastStatus = stateObj.lastStatus || '';
+            const sub = `${schedule}${lastAt ? ` · last ${formatRelativeTime(lastAt)}${lastStatus ? ` (${lastStatus})` : ''}` : ''}`;
+            return `
+              <div class="grid-card" style="margin-bottom:10px;" onclick="openCronJobDetail('${escapeHtml(String(j.id))}')">
+                <div class="grid-card-title">${escapeHtml(String(j.name || j.id))}</div>
+                <div class="grid-card-desc">${escapeHtml(sub)}</div>
+                ${outcome ? `<div class="grid-card-desc" style="color: var(--text-dim); margin-top:6px;">${escapeHtml(outcome)}</div>` : ''}
+                <div class="grid-card-meta"><span>${escapeHtml(`${j.enabled === false ? 'disabled' : 'enabled'} · ${j.agentId || 'main'} · ${jobModel}`)}</span></div>
+              </div>
+            `;
+          }).join('') : `<div class="grid-card">No recurring tasks for this agent</div>`);
 
       body.innerHTML = `
-        <div class="agent-section"><h3>Mission</h3><div class="agent-v">${sum?.mission ? escapeHtml(sum.mission) : '<span class="muted">Loading…</span>'}</div></div>
-        <div class="agent-section"><h3>Cadence</h3><div class="agent-v">${sum?.structured?.cadence?.length ? escapeHtml(sum.structured.cadence.slice(0,10).map(x => `• ${x}`).join('\n')) : '<span class="muted">(not specified)</span>'}</div></div>
-        <div class="agent-section"><h3>Outputs</h3><div class="agent-v">${sum?.structured?.outputs?.length ? escapeHtml(sum.structured.outputs.slice(0,10).map(x => `• ${x}`).join('\n')) : '<span class="muted">(not specified)</span>'}</div></div>
-        <div class="agent-section"><h3>Skills</h3><div class="agent-v">${skills.length ? skills.slice(0,12).map(s => `<div class="agent-kv"><div class="agent-k">${escapeHtml(s.name || s.id)}</div><div class="agent-v">${escapeHtml(s.description || '')}</div></div>`).join('') : '<span class="muted">(none)</span>'}</div></div>
-        <div class="agent-section"><h3>Heartbeat outline</h3><div class="agent-v">${sum?.headings?.heartbeat?.length ? escapeHtml(sum.headings.heartbeat.map(h => `${'#'.repeat(h.level)} ${h.text}`).slice(0, 16).join('\n')) : '<span class="muted">(no HEARTBEAT.md)</span>'}</div></div>
+        ${desc ? `<div class="detail-section"><div class="detail-label">Description</div><div class="detail-value" style="white-space: pre-wrap; color: var(--text-dim);">${escapeHtml(desc)}</div></div>` : ''}
+        <div class="detail-section"><div class="detail-label">Recurring Tasks</div><div class="detail-value" style="color: var(--text-dim);">${jobsHtml}</div></div>
       `;
 
-      // Kick off async loads
+      // Optional async extras (keep, but don't block usefulness)
+      const sum = state.agentSummaries?.[agent.id];
       if (!sum) loadAgentSummary(agent.id);
       const skillIds = Array.isArray(agent.skills) ? agent.skills : (Array.isArray(agent.skillIds) ? agent.skillIds : []);
       if (skillIds.length && !state.resolvedSkillsByAgent?.[agent.id]) loadSkillDetailsForAgent(agent.id, skillIds);
-
-      // Ensure file browser has entries for right panel
       if (!state.agentFileEntries && !state.agentFileLoading) loadAgentFiles(agent.id);
-
-      if (!state.cronJobsLoaded) loadCronJobs();
+      if (!state.cronJobsLoaded) loadCronJobs().then(() => { if (state.currentView === 'agents') renderAgentsPage(); });
     }
 
     function selectAgentForAgentsPage(agentId) {
       state.selectedAgentId = agentId;
+      // clear any open cron detail when switching agents
+      state.selectedCronJobId = null;
       // reset file viewer for this agent
       state.agentFileEntries = null;
       state.selectedAgentFile = null;
@@ -5915,31 +5949,53 @@ Response format:
     function renderRecurringView() {
       const container = document.getElementById('recurringGrid');
       if (!container) return;
-      const cronSessions = state.sessions.filter(s => s.key.startsWith('cron:'));
-      if (cronSessions.length === 0) {
+
+      if (!state.cronJobsLoaded) {
+        container.innerHTML = '<div class="grid-card">Loading recurring tasks…</div>';
+        loadCronJobs().then(() => renderRecurringView());
+        return;
+      }
+
+      const jobs = (state.cronJobs || []).slice();
+      if (!jobs.length) {
         container.innerHTML = '<div class="grid-card">No recurring tasks found</div>';
         return;
       }
-      container.innerHTML = cronSessions.map(s => `
-        <div class="grid-card" onclick="selectCron('${escapeHtml(s.key)}')">
-          <div class="grid-card-header">
-            <div class="grid-card-icon">⏰</div>
-            <div class="grid-card-actions">
-              <button class="icon-btn" title="Info">ℹ️</button>
-              <button class="icon-btn" title="Open" onclick="event.stopPropagation(); openSession('${escapeHtml(s.key)}')">↗</button>
+
+      container.style.display = 'grid';
+      container.style.gridTemplateColumns = '1fr';
+      container.style.gap = '10px';
+
+      jobs.sort((a, b) => String(a.name || a.id).localeCompare(String(b.name || b.id)));
+
+      container.innerHTML = jobs.map(j => {
+        const name = j.name || j.id;
+        const schedule = formatSchedule(j.schedule);
+        const model = getJobModel(j.payload);
+        const outcome = summarizeOutcome(j.payload);
+        const last = j.state || {};
+        const lastAt = Number(last.lastRunAtMs || 0);
+        const lastStatus = last.lastStatus || '';
+        const sub = `${schedule}${lastAt ? ` · last ${formatRelativeTime(lastAt)}${lastStatus ? ` (${lastStatus})` : ''}` : ''}`;
+        const meta = `${j.enabled === false ? 'disabled' : 'enabled'} · ${j.agentId || 'main'} · ${model}`;
+
+        return `
+          <div class="grid-card" onclick="openCronJobDetail('${escapeHtml(String(j.id))}')">
+            <div class="grid-card-header">
+              <div class="grid-card-icon">⏰</div>
+              <div class="grid-card-actions">
+                <button class="icon-btn" title="Details" onclick="event.stopPropagation(); openCronJobDetail('${escapeHtml(String(j.id))}')">ℹ️</button>
+              </div>
+            </div>
+            <div class="grid-card-title">${escapeHtml(String(name))}</div>
+            <div class="grid-card-desc">${escapeHtml(sub)}</div>
+            ${outcome ? `<div class="grid-card-desc" style="color: var(--text-dim); margin-top:6px;">${escapeHtml(outcome)}</div>` : ''}
+            <div class="grid-card-meta">
+              <span>${escapeHtml(meta)}</span>
             </div>
           </div>
-          <div class="grid-card-title">${escapeHtml(getSessionName(s))}</div>
-          <div class="grid-card-desc">${escapeHtml(s.displayName || 'Recurring task')}</div>
-          <div class="grid-card-meta">
-            <span>${escapeHtml(timeAgo(s.updatedAt || Date.now()))}</span>
-            <div class="status-indicator">
-              <span class="status-dot ${getSessionActivityStatus(s) === 'error' ? 'stopped' : 'running'}"></span>
-              <span>${getSessionActivityStatus(s) === 'error' ? 'Error' : 'Active'}</span>
-            </div>
-          </div>
-        </div>
-      `).join('');
+        `;
+      }).join('');
     }
 
     function selectApp(appId, opts = {}) {
