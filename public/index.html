@@ -432,6 +432,12 @@
                       <span class="goal-history-label">History</span>
                       <select class="goal-history-select" id="goalHistorySelect" onchange="handleGoalHistoryChange(this.value)"></select>
                     </div>
+
+                    <div class="session-state-pill" id="goalSessionStatePill" title="Status">
+                      <span class="session-state-dot blink-idle" id="goalSessionStateDot"></span>
+                      <span class="session-state-label" id="goalSessionStateLabel">Idle</span>
+                    </div>
+
                     <button class="ghost-btn" id="goalNewSessionBtn" onclick="openNewSession(state.currentCondoId, state.currentGoalOpenId)">＋ New</button>
                     <button class="ghost-btn" id="goalAttachBtn" onclick="showAttachSessionModal(null)">⛓</button>
                     <button class="ghost-btn" id="goalOpenBtn" onclick="openGoalChatInFull()">Open →</button>
@@ -607,6 +613,6 @@
   <!-- Load shared modules BEFORE app.js so it can mount them dynamically -->
   <script src="/js/media-upload.js"></script>
   <script src="/js/voice-recorder.js"></script>
-  <script src="/app.js?v=19"></script>
+  <script src="/app.js?v=20"></script>
 </body>
 </html>

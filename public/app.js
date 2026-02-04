@@ -1719,6 +1719,10 @@ function initAutoArchiveUI() {
           }
           renderSessions();
           updateHeaderStatus();
+          if (state.currentView === 'goal') {
+            const goal = state.goals.find(g => g.id === state.currentGoalOpenId);
+            updateGoalSessionStatePill(goal);
+          }
           break;
       }
     }
@@ -1789,6 +1793,10 @@ function initAutoArchiveUI() {
       renderSessions();
       renderSessionsGrid();
       updateHeaderStatus();
+      if (state.currentView === 'goal' && state.goalChatSessionKey === key) {
+        const goal = state.goals.find(g => g.id === state.currentGoalOpenId);
+        updateGoalSessionStatePill(goal);
+      }
 
       // Auto-clear transient statuses
       if (status === 'sent') {
@@ -2591,6 +2599,7 @@ function initAutoArchiveUI() {
 
       updateGoalChatMeta(state.goalChatSessionKey);
       renderGoalHistoryPicker(goal);
+      updateGoalSessionStatePill(goal);
 
       renderGoalChat();
 
@@ -2624,6 +2633,29 @@ function initAutoArchiveUI() {
       chatMetaEl.textContent = s ? `${getSessionName(s)} · ${getSessionMeta(s)}` : sessionKey;
     }
 
+    function updateGoalSessionStatePill(goal) {
+      const pill = document.getElementById('goalSessionStatePill');
+      const dot = document.getElementById('goalSessionStateDot');
+      const label = document.getElementById('goalSessionStateLabel');
+      if (!pill || !dot || !label) return;
+
+      const goalId = goal?.id || state.currentGoalOpenId || null;
+      const key = state.goalChatSessionKey;
+
+      // No session yet: show neutral "Not started".
+      if (!key) {
+        dot.className = 'session-state-dot blink-idle';
+        label.textContent = 'Not started';
+        pill.title = 'Not started';
+        return;
+      }
+
+      const b = deriveSessionBlinker(key, { goalId });
+      dot.className = `session-state-dot ${b?.colorClass || 'blink-idle'}`;
+      label.textContent = b?.label || 'Idle';
+      pill.title = b?.label || 'Status';
+    }
+
     function renderGoalHistoryPicker(goal) {
       const wrap = document.getElementById('goalHistoryWrap');
       const select = document.getElementById('goalHistorySelect');
@@ -2654,6 +2686,8 @@ function initAutoArchiveUI() {
       state.goalChatSessionKey = value;
       setGoalChatLocked(false);
       updateGoalChatMeta(value);
+      const goal = state.goals.find(g => g.id === state.currentGoalOpenId);
+      updateGoalSessionStatePill(goal);
       renderGoalChat();
     }
 

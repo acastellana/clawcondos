@@ -316,6 +316,38 @@ body {
   border-radius: 6px;
 }
 
+.session-state-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: rgba(15, 23, 42, 0.35);
+  color: var(--text-secondary);
+  font-size: 11px;
+  line-height: 1;
+  cursor: default;
+  user-select: none;
+}
+
+.session-state-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  display: inline-block;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08) inset;
+}
+
+/* Reuse the same blink color classes as goal dots */
+.session-state-dot.blink-offline { background: #0b0b0b; opacity: 0.75; }
+.session-state-dot.blink-error { background: var(--accent-red); box-shadow: 0 0 8px rgba(239, 68, 68, 0.35); }
+.session-state-dot.blink-blocked { background: #a855f7; }
+.session-state-dot.blink-needs-user { background: var(--accent-green); }
+.session-state-dot.blink-queued { background: #c2410c; }
+.session-state-dot.blink-running { background: #f59e0b; }
+.session-state-dot.blink-idle { background: #3b82f6; box-shadow: 0 0 6px rgba(59, 130, 246, 0.35); }
+
 .goal-name {
   flex: 1;
   white-space: nowrap;
