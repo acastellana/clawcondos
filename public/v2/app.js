@@ -5786,7 +5786,7 @@ Response format:
               </svg>
             </button>
             <textarea class="chat-input" id="${inputId}" placeholder="Type a message..." rows="1"></textarea>
-            <button class="stop-btn" id="${stopId}" onclick="stopAgent()" disabled title="Stop">⏹</button>
+            <button class="stop-btn" id="${stopId}" onclick="stopAgent(null, '${prefix || ''}')" disabled title="Stop">⏹</button>
             <button class="voice-btn" id="${voiceId}" title="Record voice" aria-pressed="false">
               <svg viewBox="0 0 24 24" fill="currentColor">
                 <path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3zm5 11a5 5 0 01-10 0H5a7 7 0 0014 0h-2zm-5 9a7.001 7.001 0 006.93-6H19a8.99 8.99 0 01-14 0H5.07A7.001 7.001 0 0012 21z"/>
@@ -5857,19 +5857,22 @@ Response format:
       } catch {}
     }
     
-    async function stopAgent() {
-      if (!state.isThinking || !state.currentSession) return;
-      
+    async function stopAgent(sessionKeyOverride = null, prefix = '') {
+      if (!state.isThinking) return;
+
+      const sessionKey = sessionKeyOverride || state.currentSession?.key || (state.currentView === 'goal' ? state.goalChatSessionKey : null);
+      if (!sessionKey) return;
+
       try {
-        const idempotencyKey = `stop-${state.currentSession.key}-${Date.now()}`;
+        const idempotencyKey = `stop-${sessionKey}-${Date.now()}`;
         await rpcCall('chat.send', {
-          sessionKey: state.currentSession.key,
+          sessionKey,
           message: '/stop',
           idempotencyKey
         }, 10000);
-        addChatMessage('system', '⏹ Stop requested');
+        addChatMessageTo(prefix, 'system', '⏹ Stop requested');
       } catch (err) {
-        addChatMessage('system', `Failed to stop: ${err.message}`);
+        addChatMessageTo(prefix, 'system', `Failed to stop: ${err.message}`);
       }
     }
     
