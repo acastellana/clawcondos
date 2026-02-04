@@ -2453,9 +2453,9 @@ function initAutoArchiveUI() {
     async function sendGoalChatMessage() {
       const input = document.getElementById('goal_chatInput');
       const box = document.getElementById('goal_chatMessages');
-      const key = state.goalChatSessionKey;
-      if (!input || !box || !key) {
-        showToast('Goal chat not ready (no session loaded yet)', 'warning', 5000);
+
+      if (!input || !box) {
+        showToast('Goal chat not ready', 'warning', 3000);
         return;
       }
 
@@ -2465,6 +2465,31 @@ function initAutoArchiveUI() {
       if (!text && !hasMedia) {
         showToast('Nothing to send', 'info', 1500);
         return;
+      }
+
+      // If this goal has no session yet, the first message should automatically create
+      // the first session for that goal and send the message into it.
+      let key = state.goalChatSessionKey;
+      let createdNewSession = false;
+      if (!key) {
+        const goalId = state.currentGoalOpenId;
+        const goal = state.goals.find(g => g.id === goalId);
+        if (!goalId || !goal) {
+          showToast('Goal not ready', 'warning', 3000);
+          return;
+        }
+
+        const agentId = state.newSessionAgentId || 'main';
+        const timestamp = Date.now();
+        key = `agent:${agentId}:webchat:${timestamp}`;
+        state.goalChatSessionKey = key;
+        createdNewSession = true;
+
+        // Make the UI reflect that the goal now has an active session.
+        try {
+          const chatMetaEl = document.getElementById('goalChatMeta');
+          if (chatMetaEl) chatMetaEl.textContent = 'Starting session…';
+        } catch {}
       }
 
       // If agent is busy, queue goal messages (including attachments).
@@ -2527,6 +2552,28 @@ function initAutoArchiveUI() {
           attachments,
           idempotencyKey: `goalmsg-${key}-${Date.now()}`,
         }, 130000);
+
+        // If this was the first message for the goal, attach the new session to the goal.
+        if (createdNewSession) {
+          const goalId = state.currentGoalOpenId;
+          try {
+            await fetch(`/api/goals/${encodeURIComponent(goalId)}/sessions`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ sessionKey: key }),
+            });
+          } catch (err) {
+            addChatMessageTo('goal', 'system', `Warning: failed to attach session to goal: ${err.message}`);
+          }
+
+          // Refresh local caches so the UI shows the session under the goal and WS state stays consistent.
+          try {
+            await loadSessions();
+            await loadGoals();
+            renderGoalView();
+          } catch {}
+        }
+
         // Don't re-fetch history immediately; the WS event will append the response.
         // (Immediate reload causes "message appears then disappears".)
       } catch (err) {
