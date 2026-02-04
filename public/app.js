@@ -140,6 +140,9 @@
       searchQuery: '',
       filterChannel: 'all',  // all, telegram, discord, signal, whatsapp, cron
       filterStatus: 'all',   // all, running, unread, error, recent, idle
+      recurringSearch: lsGet('recurring_search', '') || '',
+      recurringAgentFilter: lsGet('recurring_agent_filter', 'all') || 'all',
+      recurringEnabledOnly: lsGet('recurring_enabled_only', '0') === '1',
       
       // Auto-title generation tracking
       generatingTitles: new Set(),  // Currently generating
@@ -5415,6 +5418,7 @@ Response format:
           state.selectedCronKey = pending;
         }
       }
+      bindRecurringFilters();
       renderRecurringView();
       renderDetailPanel();
       updateMobileHeader();
@@ -5946,6 +5950,60 @@ Response format:
       `).join('');
     }
 
+    function bindRecurringFilters() {
+      const searchInput = document.getElementById('recurringSearch');
+      const agentSelect = document.getElementById('recurringAgentFilter');
+      const enabledToggle = document.getElementById('recurringEnabledOnly');
+      if (!searchInput || !agentSelect || !enabledToggle) return;
+      if (searchInput.dataset.bound) return;
+
+      searchInput.value = state.recurringSearch || '';
+      enabledToggle.checked = !!state.recurringEnabledOnly;
+
+      searchInput.addEventListener('input', () => {
+        state.recurringSearch = searchInput.value || '';
+        lsSet('recurring_search', state.recurringSearch);
+        renderRecurringView();
+      });
+      agentSelect.addEventListener('change', () => {
+        state.recurringAgentFilter = agentSelect.value || 'all';
+        lsSet('recurring_agent_filter', state.recurringAgentFilter);
+        renderRecurringView();
+      });
+      enabledToggle.addEventListener('change', () => {
+        state.recurringEnabledOnly = enabledToggle.checked;
+        lsSet('recurring_enabled_only', state.recurringEnabledOnly ? '1' : '0');
+        renderRecurringView();
+      });
+
+      searchInput.dataset.bound = '1';
+    }
+
+    function updateRecurringFilterControls(jobs = []) {
+      const searchInput = document.getElementById('recurringSearch');
+      const agentSelect = document.getElementById('recurringAgentFilter');
+      const enabledToggle = document.getElementById('recurringEnabledOnly');
+      if (!searchInput || !agentSelect || !enabledToggle) return;
+
+      if (searchInput.value !== (state.recurringSearch || '')) {
+        searchInput.value = state.recurringSearch || '';
+      }
+      if (enabledToggle.checked !== !!state.recurringEnabledOnly) {
+        enabledToggle.checked = !!state.recurringEnabledOnly;
+      }
+
+      const agents = Array.from(new Set((jobs || []).map(j => String(j.agentId || 'main')))).sort((a, b) => a.localeCompare(b));
+      const options = ['<option value="all">All agents</option>']
+        .concat(agents.map(agentId => `<option value="${escapeHtml(agentId)}">${escapeHtml(agentId)}</option>`));
+      agentSelect.innerHTML = options.join('');
+
+      if (state.recurringAgentFilter && state.recurringAgentFilter !== 'all' && !agents.includes(state.recurringAgentFilter)) {
+        state.recurringAgentFilter = 'all';
+        lsSet('recurring_agent_filter', 'all');
+      }
+      agentSelect.value = state.recurringAgentFilter || 'all';
+    }
+
     function renderRecurringView() {
       const container = document.getElementById('recurringGrid');
       if (!container) return;
@@ -5956,7 +6014,10 @@ Response format:
         return;
       }
 
-      const jobs = (state.cronJobs || []).slice();
+      const allJobs = (state.cronJobs || []).slice();
+      updateRecurringFilterControls(allJobs);
+
+      let jobs = allJobs.slice();
       if (!jobs.length) {
         container.innerHTML = '<div class="grid-card">No recurring tasks found</div>';
         return;
@@ -5965,6 +6026,34 @@ Response format:
       container.style.display = 'grid';
       container.style.gridTemplateColumns = '1fr';
       container.style.gap = '10px';
+
+      const agentFilter = state.recurringAgentFilter || 'all';
+      const search = (state.recurringSearch || '').trim().toLowerCase();
+      const enabledOnly = !!state.recurringEnabledOnly;
+
+      if (agentFilter !== 'all') {
+        jobs = jobs.filter(j => String(j.agentId || 'main') === agentFilter);
+      }
+      if (enabledOnly) {
+        jobs = jobs.filter(j => j.enabled !== false);
+      }
+      if (search) {
+        jobs = jobs.filter(j => {
+          const name = String(j.name || j.id || '');
+          const schedule = formatSchedule(j.schedule);
+          const agentId = String(j.agentId || 'main');
+          const model = String(getJobModel(j.payload));
+          const outcome = summarizeOutcome(j.payload);
+          const status = String(j.state?.lastStatus || '');
+          const haystack = `${name} ${j.id || ''} ${schedule} ${agentId} ${model} ${outcome} ${status}`.toLowerCase();
+          return haystack.includes(search);
+        });
+      }
+
+      if (!jobs.length) {
+        container.innerHTML = '<div class="grid-card">No recurring tasks match filters</div>';
+        return;
+      }
 
       jobs.sort((a, b) => String(a.name || a.id).localeCompare(String(b.name || b.id)));
 
@@ -5976,8 +6065,8 @@ Response format:
         const last = j.state || {};
         const lastAt = Number(last.lastRunAtMs || 0);
         const lastStatus = last.lastStatus || '';
-        const sub = `${schedule}${lastAt ? ` · last ${formatRelativeTime(lastAt)}${lastStatus ? ` (${lastStatus})` : ''}` : ''}`;
-        const meta = `${j.enabled === false ? 'disabled' : 'enabled'} · ${j.agentId || 'main'} · ${model}`;
+        const line2 = `${j.agentId || 'main'} · ${model} · ${j.enabled === false ? 'disabled' : 'enabled'}`;
+        const line3 = lastAt ? `last ${formatRelativeTime(lastAt)}${lastStatus ? ` (${lastStatus})` : ''}` : '';
 
         return `
           <div class="grid-card" onclick="openCronJobDetail('${escapeHtml(String(j.id))}')">
@@ -5988,11 +6077,10 @@ Response format:
               </div>
             </div>
             <div class="grid-card-title">${escapeHtml(String(name))}</div>
-            <div class="grid-card-desc">${escapeHtml(sub)}</div>
+            <div class="grid-card-desc">${escapeHtml(schedule)}</div>
+            <div class="grid-card-desc">${escapeHtml(line2)}</div>
+            ${line3 ? `<div class="grid-card-desc">${escapeHtml(line3)}</div>` : ''}
             ${outcome ? `<div class="grid-card-desc" style="color: var(--text-dim); margin-top:6px;">${escapeHtml(outcome)}</div>` : ''}
-            <div class="grid-card-meta">
-              <span>${escapeHtml(meta)}</span>
-            </div>
           </div>
         `;
       }).join('');

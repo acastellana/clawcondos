@@ -603,6 +603,36 @@ body {
   letter-spacing: 0.02em;
 }
 
+.recurring-filters {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.recurring-filters .form-input {
+  min-width: 180px;
+}
+
+#recurringSearch.form-input {
+  flex: 1;
+  min-width: 220px;
+}
+
+.recurring-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  user-select: none;
+}
+
+.recurring-toggle input[type="checkbox"] {
+  accent-color: var(--accent-blue);
+}
+
 .back-btn {
   display: flex;
   align-items: center;
