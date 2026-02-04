@@ -2448,6 +2448,14 @@ function initAutoArchiveUI() {
 
       if (!text && !hasMedia) return;
 
+      // If agent is busy, don't attempt to send attachments from goal view (we don't queue media yet).
+      if (state.isThinking) {
+        if (hasMedia) {
+          showToast('Agent is busy — wait or press Stop before sending attachments', 'warning', 5000);
+          return;
+        }
+      }
+
       input.value = '';
       autoResize(input);
 
@@ -5387,6 +5395,10 @@ Response format:
       
       // If agent is busy, queue the message (text only for now)
       if (state.isThinking) {
+        if (hasMedia) {
+          showToast('Agent is busy — wait or press Stop before sending attachments', 'warning', 5000);
+          return;
+        }
         if (text) {
           state.messageQueue.push({ text, sessionKey });
           updateQueueIndicator();
@@ -5472,13 +5484,23 @@ Response format:
     }
     
     function updateQueueIndicator() {
+      const count = state.messageQueue.length;
+
+      // main
       const indicator = document.getElementById('queueIndicator');
       const countEl = document.getElementById('queueCount');
-      if (!indicator || !countEl) return;
-      
-      const count = state.messageQueue.length;
-      countEl.textContent = count;
-      indicator.classList.toggle('visible', count > 0);
+      if (indicator && countEl) {
+        countEl.textContent = count;
+        indicator.classList.toggle('visible', count > 0);
+      }
+
+      // goal composer
+      const gInd = document.getElementById('goal_queueIndicator');
+      const gCnt = document.getElementById('goal_queueCount');
+      if (gInd && gCnt) {
+        gCnt.textContent = count;
+        gInd.classList.toggle('visible', count > 0);
+      }
     }
     
     function clearMessageQueue() {
@@ -5767,7 +5789,7 @@ Response format:
 
       return `
         <div class="chat-input-area">
-          <div class="queue-indicator" id="${queueId}" style="display:none">
+          <div class="queue-indicator" id="${queueId}">
             <span>📨</span>
             <span class="queue-count" id="${queueCountId}">0</span>
             <span>queued</span>
