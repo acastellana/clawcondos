@@ -1831,12 +1831,19 @@ function initAutoArchiveUI() {
       const isBlocked = !!(goalId && isGoalBlocked(state.goals?.find(g => g.id === goalId)));
       const isIdle = ['idle', 'ready', 'canceled', 'sent'].includes(agentStatus);
 
+      // 3-color mapping (Albert preference)
+      // - Idle: black
+      // - Active (running/thinking/queued): blue
+      // - Disconnected OR needs-attention (error/blocked/needs_user): orange
+
       if (isDisconnected) return { state: 'offline', label: 'Disconnected', colorClass: 'blink-offline' };
       if (isError) return { state: agentStatus, label: agentStatus === 'rate_limited' ? 'Rate limited' : 'Error', colorClass: 'blink-error' };
       if (isBlocked) return { state: 'blocked', label: 'Blocked', colorClass: 'blink-blocked' };
       if (isNeedsUser) return { state: 'needs_user', label: 'Needs input', colorClass: 'blink-needs-user' };
+
       if (hasQueue) return { state: 'queued', label: 'Queued', colorClass: 'blink-queued' };
       if (isRunning) return { state: agentStatus === 'thinking' ? 'thinking' : 'running', label: agentStatus === 'thinking' ? 'Thinking' : 'Running', colorClass: 'blink-running' };
+
       if (isIdle) return { state: agentStatus, label: agentStatus === 'canceled' ? 'Canceled' : agentStatus === 'ready' ? 'Ready' : 'Idle', colorClass: 'blink-idle' };
       return { state: agentStatus || 'idle', label: agentStatus || 'Idle', colorClass: 'blink-idle' };
     }
@@ -3776,11 +3783,11 @@ If none fit well, include a suggestion with goalId:null and a proposed new goal 
       const uncategorized = sessions.filter(s => !assignedSessions.has(s.key));
       
       if (uncategorized.length === 0) {
-        alert('All sessions are already categorized!');
+        showToast('All sessions are already categorized!', 'info');
         return;
       }
       
-      alert(`${uncategorized.length} sessions need categorization. Use the 🏷️ button on each session to categorize one by one.`);
+      showToast(`${uncategorized.length} sessions need categorization. Use the 🏷️ button on each session.`, 'warning', 7000);
     }
     
     async function sendChatMessage(text) {
@@ -3837,7 +3844,7 @@ If none fit well, include a suggestion with goalId:null and a proposed new goal 
       const uncategorized = sessions.filter(s => !assignedSessions.has(s.key));
       
       if (uncategorized.length === 0) {
-        alert('All sessions are already categorized! 🎉');
+        showToast('All sessions are already categorized! 🎉', 'success');
         return;
       }
       
@@ -4149,7 +4156,7 @@ Response format:
         
       } catch (e) {
         console.error('Failed to assign:', e);
-        alert('Failed to assign: ' + e.message);
+        showToast('Failed to assign: ' + e.message, 'error');
       }
     }
     
@@ -4168,7 +4175,7 @@ Response format:
         nextWizardSession();
         
       } catch (e) {
-        alert('Failed to assign: ' + e.message);
+        showToast('Failed to assign: ' + e.message, 'error');
       }
     }
     
@@ -4201,7 +4208,7 @@ Response format:
         nextWizardSession();
         
       } catch (e) {
-        alert('Failed: ' + e.message);
+        showToast('Failed: ' + e.message, 'error');
       }
     }
     
@@ -4704,7 +4711,7 @@ Response format:
         openSession(sessionKey);
       } catch (err) {
         console.error('Failed to start session:', err);
-        alert('Failed to start new session: ' + err.message);
+        showToast('Failed to start new session: ' + err.message, 'error');
       }
     }
     
@@ -5864,7 +5871,7 @@ Response format:
         openSession(sessionKey);
       } catch (err) {
         console.error('Failed to start session:', err);
-        alert('Failed to start new session: ' + err.message);
+        showToast('Failed to start new session: ' + err.message, 'error');
       }
     }
 
@@ -5877,7 +5884,7 @@ Response format:
       const title = document.getElementById('newGoalTitle').value.trim();
       const description = document.getElementById('newGoalDescription').value.trim();
       if (!title) {
-        alert('Enter a goal title');
+        showToast('Enter a goal title', 'warning');
         return;
       }
       try {
@@ -5898,7 +5905,7 @@ Response format:
           navigateTo('dashboard');
         }
       } catch (err) {
-        alert('Failed to create goal: ' + err.message);
+        showToast('Failed to create goal: ' + err.message, 'error');
       }
     }
 
@@ -6950,7 +6957,7 @@ Response format:
         const messages = result?.messages || [];
         
         if (messages.length === 0) {
-          alert('No messages to export');
+          showToast('No messages to export', 'info');
           return;
         }
         
@@ -7015,7 +7022,7 @@ Response format:
         
       } catch (err) {
         console.error('Export failed:', err);
-        alert('Export failed: ' + err.message);
+        showToast('Export failed: ' + err.message, 'error');
       }
     }
     

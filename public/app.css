@@ -241,38 +241,45 @@ body {
 }
 
 .goal-dot.blink-offline {
-  background: #0b0b0b;
-  opacity: 0.75;
-}
-
-.goal-dot.blink-error {
-  background: var(--accent-red);
-  box-shadow: 0 0 8px rgba(239, 68, 68, 0.35);
-}
-
-.goal-dot.blink-blocked {
-  background: #a855f7; /* purple */
-  animation: goalPulsePurple 1.2s ease-in-out infinite;
-}
-
-.goal-dot.blink-needs-user {
-  background: var(--accent-green);
-  animation: goalPulseGreen 1.2s ease-in-out infinite;
-}
-
-.goal-dot.blink-queued {
-  background: #c2410c; /* dark orange */
-  animation: goalPulseOrange 1.4s ease-in-out infinite;
-}
-
-.goal-dot.blink-running {
+  /* disconnected */
   background: #f59e0b;
   animation: goalPulseOrange 1.2s ease-in-out infinite;
 }
 
-.goal-dot.blink-idle {
+.goal-dot.blink-error {
+  /* error/rate_limit/needs attention */
+  background: #f59e0b;
+  animation: goalPulseOrange 1.2s ease-in-out infinite;
+}
+
+.goal-dot.blink-blocked {
+  /* needs attention */
+  background: #f59e0b;
+  animation: goalPulseOrange 1.2s ease-in-out infinite;
+}
+
+.goal-dot.blink-needs-user {
+  /* needs attention */
+  background: #f59e0b;
+  animation: goalPulseOrange 1.2s ease-in-out infinite;
+}
+
+.goal-dot.blink-queued {
+  /* active */
   background: #3b82f6;
   box-shadow: 0 0 6px rgba(59, 130, 246, 0.35);
+}
+
+.goal-dot.blink-running {
+  /* active */
+  background: #3b82f6;
+  box-shadow: 0 0 6px rgba(59, 130, 246, 0.35);
+}
+
+.goal-dot.blink-idle {
+  /* idle */
+  background: #0b0b0b;
+  opacity: 0.85;
 }
 
 @keyframes goalPulseYellow {
@@ -339,14 +346,14 @@ body {
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08) inset;
 }
 
-/* Reuse the same blink color classes as goal dots */
-.session-state-dot.blink-offline { background: #0b0b0b; opacity: 0.75; }
-.session-state-dot.blink-error { background: var(--accent-red); box-shadow: 0 0 8px rgba(239, 68, 68, 0.35); }
-.session-state-dot.blink-blocked { background: #a855f7; }
-.session-state-dot.blink-needs-user { background: var(--accent-green); }
-.session-state-dot.blink-queued { background: #c2410c; }
-.session-state-dot.blink-running { background: #f59e0b; }
-.session-state-dot.blink-idle { background: #3b82f6; box-shadow: 0 0 6px rgba(59, 130, 246, 0.35); }
+/* Reuse the same blink color classes as goal dots (3-state mapping) */
+.session-state-dot.blink-offline { background: #f59e0b; }
+.session-state-dot.blink-error { background: #f59e0b; }
+.session-state-dot.blink-blocked { background: #f59e0b; }
+.session-state-dot.blink-needs-user { background: #f59e0b; }
+.session-state-dot.blink-queued { background: #3b82f6; box-shadow: 0 0 6px rgba(59, 130, 246, 0.35); }
+.session-state-dot.blink-running { background: #3b82f6; box-shadow: 0 0 6px rgba(59, 130, 246, 0.35); }
+.session-state-dot.blink-idle { background: #0b0b0b; opacity: 0.85; }
 
 .goal-name {
   flex: 1;
