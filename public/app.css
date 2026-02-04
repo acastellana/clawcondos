@@ -1988,3 +1988,29 @@ body {
   color: rgba(91,156,244,0.98);
   background: rgba(91,156,244,0.14);
 }
+
+/* In-app nav surfaces should NOT look like default links */
+a.condo-header, a.goal-item, a.session-item, a.item-link, a.condo-goal-row, a.condo-card-header, a.condo-goal-card, a.session-card, a.goal-card, a.condo-card {
+  color: inherit;
+  text-decoration: none;
+}
+
+a.condo-header:visited, a.goal-item:visited, a.session-item:visited, a.item-link:visited, a.condo-goal-row:visited, a.condo-card-header:visited, a.condo-goal-card:visited, a.session-card:visited, a.goal-card:visited, a.condo-card:visited {
+  color: inherit;
+}
+
+a.condo-header:hover, a.goal-item:hover, a.session-item:hover, a.item-link:hover, a.condo-goal-row:hover, a.condo-card-header:hover, a.condo-goal-card:hover, a.session-card:hover, a.goal-card:hover, a.condo-card:hover {
+  text-decoration: none;
+}
+
+/* Preserve “row” layout: anchors must behave like the old container */
+a.condo-header, a.goal-item, a.session-item, a.item-link, a.condo-goal-row, a.condo-card-header {
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+/* Card anchors should behave like block cards */
+a.condo-goal-card, a.session-card, a.goal-card, a.condo-card {
+  display: block;
+}

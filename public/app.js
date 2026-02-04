@@ -2461,13 +2461,13 @@ function initAutoArchiveUI() {
 
         html += `
           <div class=\"condo-item\">
-            <div class=\"condo-header ${activeCondo}\" onclick=\"selectCondo('${escapeHtml(condo.id)}')\">
-              <span class=\"condo-toggle\" title=\"${isExpanded ? 'Collapse' : 'Expand'}\" onclick=\"event.stopPropagation(); toggleCondoExpanded('${escapeHtml(condo.id)}')\">${toggleIcon}</span>
+            <a class=\"condo-header ${activeCondo}\" href=\"${escapeHtml(fullHref(`#/condo/${encodeURIComponent(condo.id)}`))}\" onclick=\"return handleCondoLinkClick(event, '${escapeHtml(condo.id)}')\">
+              <span class=\"condo-toggle\" title=\"${isExpanded ? 'Collapse' : 'Expand'}\" onclick=\"event.preventDefault(); event.stopPropagation(); toggleCondoExpanded('${escapeHtml(condo.id)}')\">${toggleIcon}</span>
               <span class=\"condo-icon\">🏢</span>
               <span class=\"condo-name\">${escapeHtml(condo.name || 'Condo')}</span>
               ${badge}
-              <span class=\"condo-add\" title=\"New session\" onclick=\"event.stopPropagation(); openNewSession('${escapeHtml(condo.id)}')\">+</span>
-            </div>
+              <span class=\"condo-add\" title=\"New session\" onclick=\"event.preventDefault(); event.stopPropagation(); openNewSession('${escapeHtml(condo.id)}')\">+</span>
+            </a>
             ${isExpanded ? `<div class=\"condo-goals\">${renderCondoGoals(condo, sessionToGoal, goalById)}</div>` : ''}
           </div>
         `;
@@ -2509,7 +2509,7 @@ function initAutoArchiveUI() {
           ? `<div style="grid-column: 1 / -1; margin: 2px 0 0 22px; font-size: 11px; color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Next: ${escapeHtml(nextTask)}</div>`
           : '';
         goalRows.push(`
-          <div class=\"goal-item ${isActive}\" onclick=\"openGoal('${escapeHtml(goal.id)}')\">\n            ${dot}\n            <div class=\"goal-checkbox\"></div>\n            <span class=\"goal-name\" title=\"${escapeHtml(nextTask || '')}\">${escapeHtml(goal.title || 'Untitled goal')}</span>\n            <span class=\"goal-count\">${sessionsForGoal.length}</span>\n            <span class=\"goal-add\" title=\"New session for this goal\" onclick=\"event.stopPropagation(); openNewSession('${escapeHtml(condo.id)}','${escapeHtml(goal.id)}')\">+</span>\n            ${nextTaskEl}\n          </div>
+          <a class=\"goal-item ${isActive}\" href=\"${escapeHtml(goalHref(goal.id))}\" onclick=\"return handleGoalLinkClick(event, '${escapeHtml(goal.id)}')\">\n            ${dot}\n            <div class=\"goal-checkbox\"></div>\n            <span class=\"goal-name\" title=\"${escapeHtml(nextTask || '')}\">${escapeHtml(goal.title || 'Untitled goal')}</span>\n            <span class=\"goal-count\">${sessionsForGoal.length}</span>\n            <span class=\"goal-add\" title=\"New session for this goal\" onclick=\"event.preventDefault(); event.stopPropagation(); openNewSession('${escapeHtml(condo.id)}','${escapeHtml(goal.id)}')\">+</span>\n            ${nextTaskEl}\n          </a>
         `);
       }
 
@@ -2522,7 +2522,7 @@ function initAutoArchiveUI() {
       const agentStatus = getAgentStatus(s.key);
       const statusClass = hasUnread ? 'unread' : agentStatus === 'error' ? 'error' : isActive ? 'active' : '';
       return `
-        <div class=\"session-item ${isActive ? 'active' : ''}\" onclick=\"openSession('${escapeHtml(s.key)}')\">\n          <div class=\"session-dot ${statusClass}\"></div>\n          <span>${escapeHtml(getSessionName(s))}</span>\n        </div>
+        <a class=\"session-item ${isActive ? 'active' : ''}\" href=\"${escapeHtml(sessionHref(s.key))}\" onclick=\"return handleSessionLinkClick(event, '${escapeHtml(s.key)}')\">\n          <div class=\"session-dot ${statusClass}\"></div>\n          <span>${escapeHtml(getSessionName(s))}</span>\n        </a>
       `;
     }
 
@@ -3552,14 +3552,14 @@ function initAutoArchiveUI() {
           const updated = formatTimestamp(g.updatedAtMs || g.updatedAt || g.createdAtMs || Date.now());
           const pill = state.archivedTab === 'dropped' ? 'dropped' : 'done';
           return `
-            <div class="goal-picker-row" style="cursor:pointer" onclick="openGoal('${escapeHtml(g.id)}')">
+            <a class="goal-picker-row" style="cursor:pointer" href="${escapeHtml(goalHref(g.id))}" onclick="return handleGoalLinkClick(event, '${escapeHtml(g.id)}')">
               <div class="goal-picker-title">${escapeHtml(g.title || 'Untitled goal')}</div>
               <div class="goal-picker-meta">${pill} · updated ${escapeHtml(updated)}</div>
               <div style="margin-top:8px; display:flex; gap:8px;">
-                ${state.archivedTab === 'dropped' ? `<button class=\"ghost-btn\" onclick=\"event.stopPropagation(); restoreGoal('${escapeHtml(g.id)}')\">Restore</button>` : ''}
-                ${state.archivedTab === 'done' ? `<button class=\"ghost-btn\" onclick=\"event.stopPropagation(); markGoalActive('${escapeHtml(g.id)}')\">Mark active</button>` : ''}
+                ${state.archivedTab === 'dropped' ? `<button class=\"ghost-btn\" onclick=\"event.preventDefault(); event.stopPropagation(); restoreGoal('${escapeHtml(g.id)}')\">Restore</button>` : ''}
+                ${state.archivedTab === 'done' ? `<button class=\"ghost-btn\" onclick=\"event.preventDefault(); event.stopPropagation(); markGoalActive('${escapeHtml(g.id)}')\">Mark active</button>` : ''}
               </div>
-            </div>
+            </a>
           `;
         }).join('');
     }
@@ -5866,7 +5866,7 @@ Response format:
             const owner = (Array.isArray(g.sessions) && g.sessions.length) ? `${g.sessions.length} session${g.sessions.length===1?'':'s'}` : '—';
 
             return `
-              <article class="condo-goal-card" onclick="openGoal('${escapeHtml(g.id)}')">
+              <a class="condo-goal-card" href="${escapeHtml(goalHref(g.id))}" onclick="return handleGoalLinkClick(event, '${escapeHtml(g.id)}')">
                 <div class="condo-card-top">
                   <div>
                     <div class="condo-card-title">${escapeHtml(g.title || 'Untitled goal')}</div>
@@ -5890,7 +5890,7 @@ Response format:
                 </div>
 
                 <div class="condo-card-foot"><span>Updated recently</span><span>Open →</span></div>
-              </article>
+              </a>
             `;
           }).join('');
       }
@@ -5905,9 +5905,9 @@ Response format:
         sessionsEl.innerHTML = condoSessions.length ? condoSessions.map(s => {
           const preview = getMessagePreview(s);
           const g = getGoalForSession(s.key);
-          const goalPill = g ? `<span class="card-badge goal" onclick="event.stopPropagation(); openGoal('${escapeHtml(g.id)}')">🏙️ ${escapeHtml(g.title || 'Goal')}</span>` : '';
+          const goalPill = g ? `<button type="button" class="card-badge goal" onclick="event.preventDefault(); event.stopPropagation(); openGoal('${escapeHtml(g.id)}', { fromRouter: true })">🏙️ ${escapeHtml(g.title || 'Goal')}</button>` : '';
           return `
-            <div class="session-card" onclick="openSession('${escapeHtml(s.key)}')">
+            <a class="session-card" href="${escapeHtml(sessionHref(s.key))}" onclick="return handleSessionLinkClick(event, '${escapeHtml(s.key)}')">
               <div class="card-top">
                 <div class="card-icon">${getSessionIcon(s)}</div>
                 <div class="card-info">
@@ -5920,7 +5920,7 @@ Response format:
                 <span>${timeAgo(s.updatedAt)}</span>
                 <span class="card-footer-right">${goalPill}</span>
               </div>
-            </div>
+            </a>
           `;
         }).join('') : `<div class="empty-state">No sessions in this condo.</div>`;
       }
@@ -6506,16 +6506,38 @@ Response format:
     }
 
     function handleSessionLinkClick(e, key) {
+      if (!e) return true;
+      e.stopPropagation();
       if (!isPlainLeftClick(e)) return true; // let browser open new tab/window
       e.preventDefault();
-      openSession(key);
+      openSession(key, { fromRouter: true });
       return false;
     }
 
     function handleGoalLinkClick(e, goalId) {
+      if (!e) return true;
+      e.stopPropagation();
       if (!isPlainLeftClick(e)) return true;
       e.preventDefault();
-      openGoal(goalId);
+      openGoal(goalId, { fromRouter: true });
+      return false;
+    }
+
+    function handleCondoLinkClick(e, condoId) {
+      if (!e) return true;
+      e.stopPropagation();
+      if (!isPlainLeftClick(e)) return true;
+      e.preventDefault();
+      openCondo(condoId, { fromRouter: true });
+      return false;
+    }
+
+    function handleRouteLinkClick(e, path) {
+      if (!e) return true;
+      e.stopPropagation();
+      if (!isPlainLeftClick(e)) return true;
+      e.preventDefault();
+      navigateTo(path);
       return false;
     }
 
@@ -6693,7 +6715,7 @@ Response format:
             <div class="spawn-card-messages" id="${cardId}-messages">
               <div class="spawn-card-loading">Click to load sub-agent transcript...</div>
             </div>
-            ${card.sessionKey ? `<div class="spawn-card-link" onclick="openSession('${escapeHtml(card.sessionKey)}')">Open full session →</div>` : ''}
+            ${card.sessionKey ? `<a class="spawn-card-link" href="${escapeHtml(sessionHref(card.sessionKey))}" onclick="return handleSessionLinkClick(event, '${escapeHtml(card.sessionKey)}')">Open full session →</a>` : ''}
           </div>
           <div class="message-time">${timeStr}</div>
         </div>
@@ -7810,26 +7832,26 @@ Response format:
           const sessionCount = Array.isArray(g.sessions) ? g.sessions.length : 0;
           const meta = sessionCount ? `${sessionCount} session${sessionCount === 1 ? '' : 's'}` : '';
           return `
-            <div class="condo-goal-row" onclick="openGoal('${escapeHtml(g.id)}')">
+            <a class="condo-goal-row" href="${escapeHtml(goalHref(g.id))}" onclick="return handleGoalLinkClick(event, '${escapeHtml(g.id)}')">
               <div class="condo-goal-status pending"></div>
               <span class="condo-goal-name">${escapeHtml(g.title || 'Untitled goal')}</span>
               <span class="condo-goal-meta">${escapeHtml(meta || '—')}</span>
-            </div>
+            </a>
           `;
         }).join('');
 
         const fallback = !rows
           ? `
-            <div class="condo-goal-row" onclick="openNewGoal('${escapeHtml(condo.id)}')">
+            <a class="condo-goal-row" href="${escapeHtml(fullHref(`#/new-goal/${encodeURIComponent(condo.id)}`))}" onclick="return handleRouteLinkClick(event, 'new-goal/${encodeURIComponent(condo.id)}')">
               <div class="condo-goal-status pending"></div>
               <span class="condo-goal-name">New goal…</span>
               <span class="condo-goal-meta">+</span>
-            </div>
+            </a>
           `
           : '';
 
         return `
-          <div class="condo-card" onclick="selectCondo('${escapeHtml(condo.id)}')">
+          <a class="condo-card" href="${escapeHtml(fullHref(`#/condo/${encodeURIComponent(condo.id)}`))}" onclick="return handleCondoLinkClick(event, '${escapeHtml(condo.id)}')">
             <div class="condo-card-header">
               <span style="font-size:18px">🏢</span>
               <span class="condo-card-title">${escapeHtml(condo.name || 'Condo')}</span>
@@ -7838,7 +7860,7 @@ Response format:
             <div class="condo-card-goals">
               ${rows || fallback}
             </div>
-          </div>
+          </a>
         `;
       }).join('');
 
@@ -7888,9 +7910,9 @@ Response format:
         const agentStatus = getAgentStatus(s.key);
         const tooltip = getStatusTooltip(agentStatus);
         const g = getGoalForSession(s.key);
-        const goalPill = g ? `<span class="card-badge goal" onclick="event.stopPropagation(); openGoal('${escapeHtml(g.id)}')">🏙️ ${escapeHtml(g.title || 'Goal')}</span>` : '';
+        const goalPill = g ? `<button type="button" class="card-badge goal" onclick="event.preventDefault(); event.stopPropagation(); openGoal('${escapeHtml(g.id)}', { fromRouter: true })">🏙️ ${escapeHtml(g.title || 'Goal')}</button>` : '';
         return `
-          <div class="session-card" onclick="openSession('${escapeHtml(s.key)}')">
+          <a class="session-card" href="${escapeHtml(sessionHref(s.key))}" onclick="return handleSessionLinkClick(event, '${escapeHtml(s.key)}')">
             <div class="card-top">
               <div class="card-icon">${getSessionIcon(s)}</div>
               <div class="card-info">
@@ -7904,7 +7926,7 @@ Response format:
               <span>${timeAgo(s.updatedAt)}</span>
               <span class="card-footer-right">${goalPill}<span class="card-badge">${(s.totalTokens || 0).toLocaleString()} tokens</span></span>
             </div>
-          </div>
+          </a>
         `;
       }).join('');
     }
@@ -7980,7 +8002,7 @@ Response format:
         const agentStatus = getAgentStatus(s.key);
         const tooltip = getStatusTooltip(agentStatus);
         return `
-          <div class="session-card" onclick="openSession('${escapeHtml(s.key)}')">
+          <a class="session-card" href="${escapeHtml(sessionHref(s.key))}" onclick="return handleSessionLinkClick(event, '${escapeHtml(s.key)}')">
             <div class="card-top">
               <div class="card-icon">⚡</div>
               <div class="card-info">
@@ -7993,7 +8015,7 @@ Response format:
             <div class="card-footer">
               <span>${timeAgo(s.updatedAt)}</span>
             </div>
-          </div>
+          </a>
         `;
       }).join('');
     }
