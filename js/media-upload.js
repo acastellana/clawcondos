@@ -388,15 +388,20 @@ const MediaUpload = (() => {
     const items = event.clipboardData?.items;
     if (!items) return;
 
+    let attached = false;
+
     for (const item of items) {
       if (item.kind === 'file') {
         const file = item.getAsFile();
         if (file && getFileType(file.type)) {
-          event.preventDefault();
+          attached = true;
           addFile(file);
         }
       }
     }
+
+    // If we attached at least one file from clipboard, prevent the default paste into textarea.
+    if (attached) event.preventDefault();
   }
 
   // ═══════════════════════════════════════════════════════════════
