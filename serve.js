@@ -55,7 +55,7 @@ function goalsFilePath() {
 
 function loadGoalsStore() {
   const file = goalsFilePath();
-  if (!existsSync(file)) return { version: 2, goals: [], sessionIndex: {} };
+  if (!existsSync(file)) return { version: 2, goals: [], sessionIndex: {}, sessionCondoIndex: {} };
   try {
     const parsed = JSON.parse(readFileSync(file, 'utf-8'));
     const rawGoals = Array.isArray(parsed.goals) ? parsed.goals : [];
@@ -78,9 +78,10 @@ function loadGoalsStore() {
       version: parsed.version ?? 2,
       goals,
       sessionIndex: parsed.sessionIndex && typeof parsed.sessionIndex === 'object' ? parsed.sessionIndex : {},
+      sessionCondoIndex: parsed.sessionCondoIndex && typeof parsed.sessionCondoIndex === 'object' ? parsed.sessionCondoIndex : {},
     };
   } catch {
-    return { version: 2, goals: [], sessionIndex: {} };
+    return { version: 2, goals: [], sessionIndex: {}, sessionCondoIndex: {} };
   }
 }
 
@@ -712,6 +713,48 @@ const server = createServer(async (req, res) => {
     const mapping = store.sessionIndex?.[sessionKey] || null;
     json(res, 200, { mapping });
     return;
+  }
+
+  // GET /api/session-condos
+  if (pathname === '/api/session-condos' && req.method === 'GET') {
+    const store = loadGoalsStore();
+    json(res, 200, { sessionCondoIndex: store.sessionCondoIndex || {} });
+    return;
+  }
+
+  // GET /api/session-condo?sessionKey=...
+  if (pathname === '/api/session-condo' && req.method === 'GET') {
+    const store = loadGoalsStore();
+    const sessionKey = url.searchParams.get('sessionKey') || '';
+    const condoId = (store.sessionCondoIndex || {})[sessionKey] || null;
+    json(res, 200, { sessionKey, condoId });
+    return;
+  }
+
+  // POST /api/session-condo { sessionKey, condoId }
+  if (pathname === '/api/session-condo' && req.method === 'POST') {
+    const store = loadGoalsStore();
+    try {
+      const body = await readJsonBody(req);
+      const sessionKey = String(body.sessionKey || '').trim();
+      const condoId = body.condoId != null ? String(body.condoId).trim() : '';
+      if (!sessionKey) {
+        json(res, 400, { ok: false, error: 'sessionKey is required' });
+        return;
+      }
+      if (!condoId) {
+        json(res, 400, { ok: false, error: 'condoId is required' });
+        return;
+      }
+      store.sessionCondoIndex = store.sessionCondoIndex && typeof store.sessionCondoIndex === 'object' ? store.sessionCondoIndex : {};
+      store.sessionCondoIndex[sessionKey] = condoId;
+      saveGoalsStore(store);
+      json(res, 200, { ok: true, sessionKey, condoId });
+      return;
+    } catch {
+      json(res, 400, { ok: false, error: 'Invalid JSON body' });
+      return;
+    }
   }
 
   // Media upload (for voice notes + images)

@@ -2059,6 +2059,7 @@ function initAutoArchiveUI() {
         console.log('[ClawCondos] About to call syncActiveRunsFromServer...');
         await syncActiveRunsFromServer();
         console.log('[ClawCondos] syncActiveRunsFromServer completed');
+        await loadSessionCondos();
         await Promise.all([loadGoals(), loadSessions(), loadApps(), loadAgents()]);
         updateOverview();
         updateStatsGrid();
@@ -2112,6 +2113,48 @@ function initAutoArchiveUI() {
       }
     }
     
+    async function loadSessionCondos() {
+      try {
+        const res = await fetch('/api/session-condos');
+        if (!res.ok) return;
+        const data = await res.json();
+        state.sessionCondoIndex = data.sessionCondoIndex || {};
+      } catch (err) {
+        console.warn('[ClawCondos] Failed to load session condos:', err);
+      }
+    }
+
+    function isSystemCondoSession(session) {
+      const k = String(session?.key || '');
+      if (!k.startsWith('agent:')) return false;
+      // Heartbeats + internal scheduled runs generally show up as cron sessions.
+      if (k.includes(':cron:')) return true;
+      if (k.includes(':heartbeat:')) return true;
+      return false;
+    }
+
+    async function persistSessionCondo(sessionKey, condoId) {
+      const key = String(sessionKey || '').trim();
+      const cid = String(condoId || '').trim();
+      if (!key || !cid) return;
+      if (state.sessionCondoIndex?.[key] === cid) return;
+
+      // Optimistic local write
+      state.sessionCondoIndex = state.sessionCondoIndex || {};
+      state.sessionCondoIndex[key] = cid;
+
+      // Best-effort persist (data-level)
+      try {
+        await fetch('/api/session-condo', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sessionKey: key, condoId: cid }),
+        });
+      } catch {
+        // ignore
+      }
+    }
+
     async function loadGoals() {
       try {
         const res = await fetch('/api/goals');
@@ -2314,6 +2357,7 @@ function initAutoArchiveUI() {
         if (condoId === 'condo:personal') return 'Personal';
         if (condoId === 'condo:finances') return 'Finances';
         if (condoId === 'condo:subastas') return 'Subastas';
+        if (condoId === 'condo:system') return 'SYSTEM';
         if (condoId?.startsWith('condo:')) return condoId.split(':').slice(1).join(':');
         return fallbackSession ? getSessionCondoName(fallbackSession) : 'Condo';
       };
@@ -4413,6 +4457,15 @@ Response format:
         console.log('[ClawCondos] Sessions result:', result);
         if (result?.sessions) {
           state.sessions = result.sessions;
+
+          // Data-level: funnel heartbeat/cron sessions into SYSTEM condo.
+          for (const s of state.sessions) {
+            if (isSystemCondoSession(s)) {
+              // Fire-and-forget; don't block rendering.
+              persistSessionCondo(s.key, 'condo:system');
+            }
+          }
+
           // Goals chips depend on total session count
           renderGoals();
           // Initialize/update status for sessions
