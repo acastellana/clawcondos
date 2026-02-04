@@ -250,6 +250,7 @@
       </div>
     </aside>
   </div>
+  <script src="/lib/message-shaping.js"></script>
   <script>
     let app = null;
     let assistantOpen = false;
@@ -602,8 +603,15 @@ Be concise. ${errorSection ? 'An error has occurred - help debug it.' : 'Start b
       const container = document.getElementById('messages');
       const msg = document.createElement('div');
       msg.className = `message ${role}`;
+
       if (role === 'assistant') {
-        msg.innerHTML = escapeHtml(content)
+        const shaper = window.messageShaping && window.messageShaping.shapeMessageText;
+        const shaped = shaper ? shaper(String(content || '')) : { text: String(content || ''), replyTo: null, suppressed: false };
+        if (shaped.suppressed) {
+          return null; // hide sentinel-only messages
+        }
+
+        msg.innerHTML = escapeHtml(shaped.text)
           .replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>')
           .replace(/`([^`]+)`/g, '<code>$1</code>')
           .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
@@ -611,6 +619,7 @@ Be concise. ${errorSection ? 'An error has occurred - help debug it.' : 'Start b
       } else {
         msg.textContent = content;
       }
+
       container.appendChild(msg);
       container.scrollTop = container.scrollHeight;
       if (role !== 'system' && !role.includes('thinking')) {

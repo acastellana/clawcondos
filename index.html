@@ -538,6 +538,7 @@
 
   <!-- Load configuration before main script -->
   <script src="/lib/config.js"></script>
+  <script src="/lib/message-shaping.js"></script>
   
   <script>
     // ═══════════════════════════════════════════════════════════════
@@ -4218,7 +4219,8 @@ Response format:
           const text = extractText(m.content);
           if (!text) return '';
           const timeHtml = m.timestamp ? `<div class="message-time">${formatMessageTime(new Date(m.timestamp))}</div>` : '';
-          return `<div class="message user"><div class="message-content">${formatMessage(text)}</div>${timeHtml}</div>`;
+          const msgIdAttr = m.id ? ` data-message-id="${escapeHtml(String(m.id))}"` : '';
+          return `<div class="message user" data-message-idx="${idx}"${msgIdAttr}><div class="message-content">${formatMessage(text)}</div>${timeHtml}</div>`;
         } else if (m.role === 'assistant') {
           const text = extractText(m.content);
           const spawnCards = extractSpawnCards(m.content, m.timestamp);
@@ -4230,7 +4232,12 @@ Response format:
             html += spawnCards.map(card => renderSpawnCard(card, idx)).join('');
           }
           if (text) {
-            html += `<div class="message assistant"><div class="message-content">${formatMessage(text)}</div>${timeHtml}</div>`;
+            const shaped = shapeForDisplay(text);
+            if (!shaped.suppressed) {
+              const replyChip = renderReplyChip(shaped.replyTo, idx - 1);
+              const msgIdAttr = m.id ? ` data-message-id="${escapeHtml(String(m.id))}"` : '';
+              html += `<div class="message assistant" data-message-idx="${idx}"${msgIdAttr}>${replyChip}<div class="message-content">${formatMessage(shaped.text)}</div>${timeHtml}</div>`;
+            }
           }
           return html;
         }
@@ -4329,11 +4336,17 @@ Response format:
             if (messages.length === 0) {
               messagesEl.innerHTML = '<div class="spawn-card-loading">No messages yet</div>';
             } else {
-              messagesEl.innerHTML = messages.map(m => {
+              messagesEl.innerHTML = messages.map((m, idx) => {
                 const text = extractText(m.content);
                 if (!text) return '';
                 const roleClass = m.role === 'user' ? 'user' : 'assistant';
-                return `<div class="message ${roleClass}"><div class="message-content">${formatMessage(text)}</div></div>`;
+                if (roleClass === 'assistant') {
+                  const shaped = shapeForDisplay(text);
+                  if (shaped.suppressed) return '';
+                  const replyChip = renderReplyChip(shaped.replyTo, idx - 1);
+                  return `<div class="message ${roleClass}" data-message-idx="${idx}">${replyChip}<div class="message-content">${formatMessage(shaped.text)}</div></div>`;
+                }
+                return `<div class="message ${roleClass}" data-message-idx="${idx}"><div class="message-content">${formatMessage(text)}</div></div>`;
               }).filter(Boolean).join('');
             }
           } catch (err) {
@@ -4360,6 +4373,54 @@ Response format:
       if (content[0]?.text) return content[0].text;
       
       return '';
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // MESSAGE SHAPING (reply tags + sentinel suppression)
+    // ═══════════════════════════════════════════════════════════════
+
+    function shapeForDisplay(rawText) {
+      const shaper = window.messageShaping && window.messageShaping.shapeMessageText;
+      if (!shaper) {
+        return { text: String(rawText || ''), replyTo: null, suppressed: false, suppressedReason: null };
+      }
+      return shaper(String(rawText || ''));
+    }
+
+    function renderReplyChip(replyTo, fallbackTargetId) {
+      if (!replyTo) return '';
+      const label = replyTo.kind === 'current' ? 'Replying to: current' : `Replying to: ${escapeHtml(replyTo.id)}`;
+      const ref = replyTo.kind === 'current' ? `idx:${escapeHtml(String(fallbackTargetId || ''))}` : `id:${escapeHtml(replyTo.id)}`;
+      return `<div class="reply-chip" onclick="scrollToReplyRef('${ref}')" title="${label}">↩ ${escapeHtml(label)}</div>`;
+    }
+
+    function scrollToReplyRef(ref) {
+      try {
+        if (!ref) return;
+        if (ref.startsWith('id:')) {
+          const id = ref.slice(3);
+          const el = document.querySelector(`[data-message-id='${CSS.escape(id)}']`);
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            el.classList.add('flash');
+            setTimeout(() => el.classList.remove('flash'), 800);
+            return;
+          }
+        }
+        if (ref.startsWith('idx:')) {
+          const idx = ref.slice(4);
+          const el = document.querySelector(`[data-message-idx='${CSS.escape(idx)}']`);
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            el.classList.add('flash');
+            setTimeout(() => el.classList.remove('flash'), 800);
+            return;
+          }
+        }
+        showToast('Replied-to message not found in loaded history', 'info');
+      } catch (e) {
+        // no-op
+      }
     }
     
     // ═══════════════════════════════════════════════════════════════
@@ -4594,21 +4655,31 @@ Response format:
       
       // Format content
       let contentHtml;
+      let replyChip = '';
       const features = (config && config.features) ? config.features : {};
       const formatUserMessages = features.formatUserMessages === true;
       const shouldFormat = role.startsWith('assistant') || (formatUserMessages && role.startsWith('user'));
-      if (shouldFormat && !role.includes('thinking')) {
+
+      if (role.startsWith('assistant') && !role.includes('thinking')) {
+        const shaped = shapeForDisplay(content);
+        if (shaped.suppressed) {
+          return null; // do not render sentinel-only messages
+        }
+        replyChip = renderReplyChip(shaped.replyTo, container.children.length - 1);
+        contentHtml = shouldFormat ? formatMessage(shaped.text) : escapeHtml(shaped.text);
+      } else if (shouldFormat && !role.includes('thinking')) {
         contentHtml = formatMessage(content);
       } else {
         contentHtml = escapeHtml(content);
       }
-      
+
       // Add timestamp
       const time = timestamp ? new Date(timestamp) : new Date();
       const timeStr = formatMessageTime(time);
-      
-      msg.innerHTML = `<div class="message-content">${contentHtml}</div><div class="message-time">${timeStr}</div>`;
-      
+
+      msg.setAttribute('data-message-idx', String(container.children.length));
+      msg.innerHTML = `${replyChip}<div class="message-content">${contentHtml}</div><div class="message-time">${timeStr}</div>`;
+
       container.appendChild(msg);
       scrollChatToBottom();
       return msg;

@@ -2120,6 +2120,31 @@ body {
   word-break: break-word;
 }
 
+.reply-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-subtle);
+  padding: 4px 8px;
+  border-radius: 999px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.reply-chip:hover {
+  border-color: rgba(91, 156, 244, 0.5);
+  color: var(--text);
+}
+
+.message.flash {
+  outline: 2px solid rgba(91, 156, 244, 0.5);
+  outline-offset: 2px;
+}
+
 .message-time {
   font-size: 0.62rem;
   color: var(--text-muted);
