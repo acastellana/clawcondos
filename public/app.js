@@ -2388,6 +2388,30 @@ function initAutoArchiveUI() {
         }
       }
 
+      // Ensure SYSTEM condo is visible when there are system-tagged sessions,
+      // even if it has no active goals (sessions are hidden-by-default, but condo should exist).
+      const systemSessions = (state.sessions || []).filter(s => getSessionCondoId(s) === 'condo:system');
+      if (systemSessions.length > 0) {
+        if (!condos.has('condo:system')) {
+          condos.set('condo:system', {
+            id: 'condo:system',
+            name: 'SYSTEM',
+            sessions: [],
+            goals: new Map(),
+            latest: 0,
+            sessionKeySet: new Set(),
+          });
+        }
+        const sys = condos.get('condo:system');
+        for (const s of systemSessions) {
+          if (sys.sessionKeySet.has(s.key)) continue;
+          sys.sessions.push(s);
+          sys.sessionKeySet.add(s.key);
+          const t = Number(s.updatedAt || s.updatedAtMs || 0);
+          if (t) sys.latest = Math.max(sys.latest, t);
+        }
+      }
+
       const sortedCondos = Array.from(condos.values()).sort((a, b) => (b.latest || 0) - (a.latest || 0));
 
       if (sortedCondos.length === 0) {
@@ -2965,14 +2989,26 @@ function initAutoArchiveUI() {
               return;
             }
           } else {
+            // Images are uploaded to ClawCondos and referenced by URL.
+            // Avoid sending base64 blobs over WebSocket (can exceed frame limits and close the socket).
             try {
-              queuedAttachments = await MediaUpload.buildGatewayAttachments();
-              if (!queuedText) {
-                queuedText = files.map(f => `[attachment: ${f.file.name}]`).join('\n');
+              showToast('Uploading image…', 'info', 2000);
+              addChatMessageTo('goal', 'system', 'Uploading image…');
+
+              const uploaded = await MediaUpload.uploadAllPending(key);
+              const lines = [];
+              for (const u of (uploaded || [])) {
+                if (!u || !u.ok) continue;
+                lines.push(`[attachment: ${u.url}]`);
               }
+
+              const attachText = lines.filter(Boolean).join('\n');
+              queuedText = queuedText ? [queuedText, attachText].filter(Boolean).join('\n\n') : attachText;
+              queuedAttachments = undefined;
               MediaUpload.clearFiles();
             } catch (err) {
-              addChatMessageTo('goal', 'system', `Attachment prep error: ${err.message}`);
+              MediaUpload.clearFiles();
+              addChatMessageTo('goal', 'system', `Upload error: ${err.message}`);
               return;
             }
           }
@@ -3038,14 +3074,28 @@ function initAutoArchiveUI() {
             return;
           }
         } else {
+          // Images are uploaded to ClawCondos and referenced by URL.
+          // Avoid sending base64 blobs over WebSocket (can exceed frame limits and close the socket).
           try {
-            attachments = await MediaUpload.buildGatewayAttachments();
-            if (!finalMessage) {
-              finalMessage = files.map(f => `[attachment: ${f.file.name}]`).join('\n');
+            showToast('Uploading image…', 'info', 2000);
+            addChatMessageTo('goal', 'system', 'Uploading image…');
+
+            const uploaded = await MediaUpload.uploadAllPending(key);
+            const lines = [];
+            for (const u of (uploaded || [])) {
+              if (!u || !u.ok) continue;
+              lines.push(`[attachment: ${u.url}]`);
             }
+
+            const attachText = lines.filter(Boolean).join('\n');
+            if (!finalMessage) finalMessage = attachText;
+            else finalMessage = [finalMessage, attachText].filter(Boolean).join('\n\n');
+
+            attachments = undefined;
             MediaUpload.clearFiles();
           } catch (err) {
-            box.insertAdjacentHTML('beforeend', `<div class="message system">Attachment prep error: ${escapeHtml(err.message)}</div>`);
+            MediaUpload.clearFiles();
+            box.insertAdjacentHTML('beforeend', `<div class="message system">Upload error: ${escapeHtml(err.message)}</div>`);
             box.scrollTop = box.scrollHeight;
             return;
           }
@@ -6870,15 +6920,26 @@ Response format:
               return;
             }
           } else {
-            // Images only -> base64 attachments are fine to queue
+            // Images: upload to ClawCondos and reference by URL.
+            // Avoid base64 attachments (can exceed WebSocket frame limits via reverse proxy and close the socket).
             try {
-              queuedAttachments = await MediaUpload.buildGatewayAttachments();
-              if (!queuedText) {
-                queuedText = files.map(f => `[attachment: ${f.file.name}]`).join('\n');
+              showToast('Uploading image…', 'info', 2000);
+              addChatMessage('system', 'Uploading image…');
+
+              const uploaded = await MediaUpload.uploadAllPending(sessionKey);
+              const lines = [];
+              for (const u of (uploaded || [])) {
+                if (!u || !u.ok) continue;
+                lines.push(`[attachment: ${u.url}]`);
               }
+
+              const attachText = lines.filter(Boolean).join('\n');
+              queuedText = queuedText ? [queuedText, attachText].filter(Boolean).join('\n\n') : attachText;
+              queuedAttachments = undefined;
               MediaUpload.clearFiles();
             } catch (err) {
-              addChatMessage('system', `Attachment prep error: ${err.message}`);
+              MediaUpload.clearFiles();
+              addChatMessage('system', `Upload error: ${err.message}`);
               return;
             }
           }
@@ -6961,15 +7022,28 @@ Response format:
             return;
           }
         } else {
-          // images only -> gateway attachments
+          // Images: upload to ClawCondos and reference by URL.
+          // Avoid base64 attachments (can exceed WebSocket frame limits via reverse proxy and close the socket).
           try {
-            attachments = await MediaUpload.buildGatewayAttachments();
-            if (!finalMessage) {
-              finalMessage = files.map(f => `[attachment: ${f.file.name}]`).join('\n');
+            showToast('Uploading image…', 'info', 2000);
+            addChatMessage('system', 'Uploading image…');
+
+            const uploaded = await MediaUpload.uploadAllPending(sessionKey);
+            const lines = [];
+            for (const u of (uploaded || [])) {
+              if (!u || !u.ok) continue;
+              lines.push(`[attachment: ${u.url}]`);
             }
+
+            const attachText = lines.filter(Boolean).join('\n');
+            if (!finalMessage) finalMessage = attachText;
+            else finalMessage = [finalMessage, attachText].filter(Boolean).join('\n\n');
+
+            attachments = undefined;
             MediaUpload.clearFiles();
           } catch (err) {
-            addChatMessage('system', `Attachment prep error: ${err.message}`);
+            MediaUpload.clearFiles();
+            addChatMessage('system', `Upload error: ${err.message}`);
             return;
           }
         }
