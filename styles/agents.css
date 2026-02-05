@@ -217,6 +217,17 @@
   color: var(--text-secondary);
 }
 
+.agent-heartbeat-h2 {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 13px;
+  padding-top: 8px;
+}
+
+.agent-heartbeat-h2:first-child {
+  padding-top: 0;
+}
+
 .agent-file-list {
   display: flex;
   flex-direction: column;

@@ -311,8 +311,16 @@ function resolveAgentWorkspace(agentId) {
 function parseMissionFromIdentity(md) {
   const m = String(md || '').match(/^\s*Mission:\s*(.+)$/im);
   if (m) return m[1].trim();
+  // Fallback: find first non-heading, non-empty, non-metadata line
   const lines = String(md || '').split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-  return lines[0]?.replace(/^#\s+/, '') || '';
+  for (const line of lines) {
+    if (line.startsWith('#')) continue;        // skip headings
+    if (line.startsWith('-') || line.startsWith('*')) continue; // skip list items / hr
+    if (line.startsWith('|')) continue;        // skip tables
+    if (line.length < 10) continue;            // skip short noise
+    return line;
+  }
+  return '';
 }
 
 function parseHeadings(md) {

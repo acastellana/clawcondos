@@ -4691,6 +4691,22 @@ Response format:
 
       let html = '';
 
+      // Agent info chips (model, tools, workspace)
+      const model = agent.model || agent.models?.primary || '';
+      const toolCount = Array.isArray(agent.tools) ? agent.tools.length : (Array.isArray(agent.toolAllowlist) ? agent.toolAllowlist.length : null);
+      const workspace = sum?.workspace || '';
+      const infoChips = [
+        model ? '<span class="agent-chip">model: ' + escapeHtml(String(model)) + '</span>' : '',
+        toolCount != null ? '<span class="agent-chip">tools: ' + escapeHtml(String(toolCount)) + '</span>' : '',
+        workspace ? '<span class="agent-chip">workspace: ' + escapeHtml(workspace.split('/').pop()) + '</span>' : '',
+        agent.isDefault ? '<span class="agent-chip" style="border-color: var(--accent-blue); color: var(--accent-blue);">default</span>' : ''
+      ].filter(Boolean).join(' ');
+      if (infoChips) {
+        html += '<div class="agent-detail-section">' +
+          '<div class="agent-detail-section-body" style="display: flex; flex-wrap: wrap; gap: 6px;">' + infoChips + '</div>' +
+          '</div>';
+      }
+
       // Mission
       const mission = sum?.mission && sum.mission !== '(no mission found)' ? sum.mission : desc;
       if (mission) {
@@ -4721,15 +4737,17 @@ Response format:
           '</div></div>';
       }
 
-      // Heartbeat
+      // Heartbeat — skip H1 (file title), start from H2+
       const heartbeatHeadings = sum?.headings?.heartbeat;
-      if (heartbeatHeadings && heartbeatHeadings.length) {
+      const hbFiltered = heartbeatHeadings ? heartbeatHeadings.filter(h => h.level >= 2) : null;
+      if (hbFiltered && hbFiltered.length) {
         html += '<div class="agent-detail-section">' +
           '<div class="agent-detail-section-label">Heartbeat</div>' +
           '<div class="agent-detail-section-body">' +
-          heartbeatHeadings.map(h => {
-            const indent = Math.max(0, (h.level || 1) - 1) * 16;
-            return '<div class="agent-heartbeat-item" style="padding-left: ' + indent + 'px;">' + escapeHtml(String(h.text)) + '</div>';
+          hbFiltered.map(h => {
+            const isH2 = h.level === 2;
+            const indent = Math.max(0, (h.level || 2) - 2) * 20;
+            return '<div class="agent-heartbeat-item' + (isH2 ? ' agent-heartbeat-h2' : '') + '" style="padding-left: ' + indent + 'px;">' + escapeHtml(String(h.text)) + '</div>';
           }).join('') +
           '</div></div>';
       } else if (!sum) {
