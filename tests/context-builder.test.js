@@ -46,6 +46,33 @@ describe('buildGoalContext', () => {
   });
 });
 
+describe('buildGoalContext null safety', () => {
+  it('handles goal with empty tasks array', () => {
+    const goal = {
+      id: 'g1', title: 'Empty Goal', description: 'No tasks yet',
+      status: 'active', priority: null, deadline: null,
+      tasks: [], sessions: [],
+    };
+    const ctx = buildGoalContext(goal);
+    expect(ctx).toContain('Empty Goal');
+    expect(ctx).toContain('No tasks yet');
+    expect(ctx).not.toContain('## Tasks');
+  });
+
+  it('handles goal with null/missing description', () => {
+    const goal = {
+      id: 'g1', title: 'No Desc', description: null,
+      status: 'active', priority: null, deadline: null,
+      tasks: [{ id: 't1', text: 'Do thing', done: false }],
+      sessions: [],
+    };
+    const ctx = buildGoalContext(goal);
+    expect(ctx).toContain('No Desc');
+    expect(ctx).toContain('Do thing');
+    expect(ctx).not.toContain('null');
+  });
+});
+
 describe('buildGoalContext with sibling sessions', () => {
   const goal = {
     id: 'goal_1', title: 'Ship v2', description: '', status: 'active',
