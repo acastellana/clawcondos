@@ -1,0 +1,5 @@
+{
+  "_note": "Optional ClawCondos runtime config. Keep this file free of secrets. Prefer server-side auth via GATEWAY_AUTH and WS proxy.",
+  "gatewayWsUrl": null,
+  "gatewayHttpUrl": null
+}

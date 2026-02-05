@@ -1,8 +1,8 @@
-# AGENTS.md - Sharp Dashboard
+# AGENTS.md - ClawCondos Dashboard
 
 ## Project Overview
 
-Sharp is the **unified control panel** for the Clawdbot ecosystem:
+ClawCondos is the **unified control panel** for the Clawdbot ecosystem:
 - Agent session management (chat, monitor, control)
 - Real-time WebSocket connection to gateway
 - App embedding with assistant panels
@@ -10,15 +10,16 @@ Sharp is the **unified control panel** for the Clawdbot ecosystem:
 ## Architecture
 
 ```
-sharp/
+clawcondos/
 ├── index.html           # Main dashboard (vanilla JS, all-in-one)
 ├── app.html             # App viewer with assistant panel
+├── serve.js             # Node.js HTTP/WebSocket server
 ├── styles/main.css      # Extracted CSS (referenced by index.html)
 ├── lib/config.js        # Configuration loader
+├── js/                  # Browser JS modules (media upload, voice)
 ├── .registry/
 │   └── apps.json        # App registry (user-specific, gitignored)
 ├── docs/                # Documentation
-├── specs/               # Feature specifications
 └── tests/               # Unit tests (vitest)
 ```
 
@@ -26,7 +27,7 @@ sharp/
 
 ### Quick Start
 ```bash
-cd ~/clawd/projects/sharp
+cd ~/clawd/projects/clawcondos
 
 # Option 1: Python
 python3 -m http.server 9000

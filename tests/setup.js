@@ -73,6 +73,7 @@ export function setupBrowserMocks(options = {}) {
     hostname = 'localhost',
     protocol = 'https:',
     pathname = '/',
+    port = '',
     localStorage = {}
   } = options;
 
@@ -81,15 +82,17 @@ export function setupBrowserMocks(options = {}) {
     hostname,
     protocol,
     pathname,
-    href: `${protocol}//${hostname}${pathname}`,
-    origin: `${protocol}//${hostname}`
+    port,
+    href: `${protocol}//${hostname}${port ? ':' + port : ''}${pathname}`,
+    origin: `${protocol}//${hostname}${port ? ':' + port : ''}`
   };
 
-  // Mock window
+  // Mock window (preserve ClawCondosConfig from lib/config.js import)
+  const prevConfig = global.window?.ClawCondosConfig;
   global.window = {
     location: global.location,
-    SharpConfig: {},
-    SHARP_CONFIG: null,
+    ClawCondosConfig: prevConfig || {},
+    CLAWCONDOS_CONFIG: null,
     localStorage: createMockLocalStorage(localStorage),
     addEventListener: vi.fn(),
     removeEventListener: vi.fn()

@@ -1,5 +1,5 @@
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
-@import url('/styles/main.css?v=8');
+@import url('/styles/main.css?v=10');
 
 :root {
   --bg-dark: #0a0c10;
@@ -235,29 +235,51 @@ body {
   box-shadow: 0 0 0 0 rgba(0,0,0,0);
 }
 
-.goal-dot.idle {
-  background: var(--accent-green);
-  box-shadow: 0 0 6px rgba(34, 197, 94, 0.35);
+.goal-dot.blinker {
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08) inset;
+  cursor: help;
 }
 
-.goal-dot.thinking {
-  background: var(--accent-yellow);
-  animation: goalPulseYellow 1.2s ease-in-out infinite;
+.goal-dot.blink-offline {
+  /* disconnected */
+  background: #f59e0b;
+  animation: goalPulseOrange 1.2s ease-in-out infinite;
 }
 
-.goal-dot.error {
-  background: var(--accent-red);
-  box-shadow: 0 0 6px rgba(239, 68, 68, 0.35);
+.goal-dot.blink-error {
+  /* error/rate_limit/needs attention */
+  background: #f59e0b;
+  animation: goalPulseOrange 1.2s ease-in-out infinite;
 }
 
-.goal-dot.offline {
-  background: var(--text-muted);
-  opacity: 0.6;
+.goal-dot.blink-blocked {
+  /* needs attention */
+  background: #f59e0b;
+  animation: goalPulseOrange 1.2s ease-in-out infinite;
 }
 
-.goal-dot.blocked {
-  background: #a855f7; /* purple */
-  animation: goalPulsePurple 1.2s ease-in-out infinite;
+.goal-dot.blink-needs-user {
+  /* needs attention */
+  background: #f59e0b;
+  animation: goalPulseOrange 1.2s ease-in-out infinite;
+}
+
+.goal-dot.blink-queued {
+  /* active */
+  background: #3b82f6;
+  box-shadow: 0 0 6px rgba(59, 130, 246, 0.35);
+}
+
+.goal-dot.blink-running {
+  /* active */
+  background: #3b82f6;
+  box-shadow: 0 0 6px rgba(59, 130, 246, 0.35);
+}
+
+.goal-dot.blink-idle {
+  /* idle: transparent, rely on border */
+  background: transparent;
+  opacity: 1;
 }
 
 @keyframes goalPulseYellow {
@@ -265,11 +287,73 @@ body {
   50% { opacity: 0.85; box-shadow: 0 0 10px 3px rgba(250, 204, 21, 0.25); transform: scale(1.2); }
 }
 
+@keyframes goalPulseOrange {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.35); transform: scale(1); }
+  50% { opacity: 0.85; box-shadow: 0 0 10px 3px rgba(245, 158, 11, 0.25); transform: scale(1.2); }
+}
+
 @keyframes goalPulsePurple {
   0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(168, 85, 247, 0.35); transform: scale(1); }
   50% { opacity: 0.85; box-shadow: 0 0 10px 3px rgba(168, 85, 247, 0.25); transform: scale(1.2); }
 }
 
+@keyframes goalPulseGreen {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.35); transform: scale(1); }
+  50% { opacity: 0.85; box-shadow: 0 0 10px 3px rgba(34, 197, 94, 0.25); transform: scale(1.2); }
+}
+
+.goal-history {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-right: 8px;
+}
+
+.goal-history-label {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.goal-history-select {
+  background: rgba(15, 23, 42, 0.55);
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  color: var(--text-primary);
+  font-size: 11px;
+  padding: 4px 6px;
+  border-radius: 6px;
+}
+
+.session-state-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: rgba(15, 23, 42, 0.35);
+  color: var(--text-secondary);
+  font-size: 11px;
+  line-height: 1;
+  cursor: default;
+  user-select: none;
+}
+
+.session-state-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  display: inline-block;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08) inset;
+}
+
+/* Reuse the same blink color classes as goal dots (3-state mapping) */
+.session-state-dot.blink-offline { background: #f59e0b; }
+.session-state-dot.blink-error { background: #f59e0b; }
+.session-state-dot.blink-blocked { background: #f59e0b; }
+.session-state-dot.blink-needs-user { background: #f59e0b; }
+.session-state-dot.blink-queued { background: #3b82f6; box-shadow: 0 0 6px rgba(59, 130, 246, 0.35); }
+.session-state-dot.blink-running { background: #3b82f6; box-shadow: 0 0 6px rgba(59, 130, 246, 0.35); }
+.session-state-dot.blink-idle { background: transparent; opacity: 1; }
 
 .goal-name {
   flex: 1;
@@ -517,6 +601,36 @@ body {
   font-weight: 500;
   color: var(--text-muted);
   letter-spacing: 0.02em;
+}
+
+.recurring-filters {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.recurring-filters .form-input {
+  min-width: 180px;
+}
+
+#recurringSearch.form-input {
+  flex: 1;
+  min-width: 220px;
+}
+
+.recurring-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  user-select: none;
+}
+
+.recurring-toggle input[type="checkbox"] {
+  accent-color: var(--accent-blue);
 }
 
 .back-btn {
@@ -1161,6 +1275,213 @@ body {
 }
 
 /* =====================================================================
+   Goal + Condo detail (prototype parity)
+   goal-g2.html + condo-d1.html
+   ===================================================================== */
+
+.goal-shell-v2{
+  display:grid;
+  grid-template-columns: 1.05fr 0.95fr;
+  gap:14px;
+  height:100%;
+  min-height:0;
+}
+
+.goal-chat,
+.goal-right{
+  background: rgba(26,30,36,.72);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: 0 1px 0 rgba(255,255,255,.03) inset;
+  overflow: hidden;
+  min-height:0;
+  display:flex;
+  flex-direction:column;
+}
+
+.goal-chat-header{
+  padding: 12px 14px;
+  border-bottom: 1px solid rgba(255,255,255,.06);
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  background: linear-gradient(180deg, rgba(0,0,0,.16), transparent);
+  font-weight: 800;
+}
+
+.goal-chat-meta{ color: var(--text-muted); font-size: 11px; font-weight: 600; }
+
+.goal-chat-body{
+  flex:1;
+  min-height:0;
+  overflow:auto;
+  padding: 10px 10px;
+}
+
+.goal-chat-body .empty-state{ padding: 18px 14px; }
+
+.goal-chat-footer{
+  padding: 10px 12px;
+  border-top: 1px solid rgba(255,255,255,.06);
+  display:flex;
+  gap:10px;
+  justify-content:flex-end;
+}
+
+.ghost-btn{
+  background: rgba(13,17,23,.92);
+  border: 1px solid rgba(255,255,255,.12);
+  color: rgba(255,255,255,.82);
+  padding: 8px 10px;
+  border-radius: 12px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+}
+.ghost-btn:hover{ border-color: rgba(96,165,250,.55); color: rgba(255,255,255,.92); }
+.ghost-btn.danger:hover{ border-color: rgba(248,113,113,.6); }
+
+.goal-right-header{
+  padding: 14px 14px 10px;
+  border-bottom: 1px solid rgba(255,255,255,.06);
+  background: radial-gradient(1000px 260px at 20% 0%, rgba(96,165,250,.12), transparent 62%);
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap: 14px;
+}
+
+.goal-right-title{
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.goal-right-meta{
+  margin-top: 6px;
+  color: var(--text-muted);
+  font-size: 11px;
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+}
+
+.goal-right-actions{ display:flex; gap:10px; flex-wrap:wrap; }
+
+.goal-def{ padding: 12px 14px; border-bottom: 1px solid rgba(255,255,255,.06); }
+.goal-def-display{ color: rgba(255,255,255,.9); font-size: 13px; line-height: 1.4; cursor: text; }
+.goal-def-display small{ color: var(--text-muted); }
+.goal-def-edit{ display:none; }
+.goal-def-edit.open{ display:block; }
+
+.goal-def textarea{
+  width:100%;
+  background: rgba(13,17,23,.92);
+  border:1px solid rgba(255,255,255,.12);
+  border-radius:14px;
+  color: rgba(255,255,255,.92);
+  padding:10px 12px;
+  outline:none;
+  resize:none;
+  box-shadow: 0 0 0 1px rgba(0,0,0,.25) inset;
+}
+.goal-def textarea:focus{ border-color: rgba(96,165,250,.65); box-shadow: 0 0 0 3px rgba(96,165,250,.18); }
+.goal-def-actions{ margin-top: 8px; display:flex; gap:8px; flex-wrap:wrap; }
+
+.goal-tabs{ display:flex; gap:14px; padding:10px 14px; border-bottom:1px solid rgba(255,255,255,.06); background: rgba(0,0,0,.06); }
+.goal-tab{ font-size:12px; color: var(--text-muted); cursor:pointer; padding:6px 2px; border-bottom:2px solid transparent; }
+.goal-tab.active{ color: rgba(255,255,255,.92); border-bottom-color: rgba(96,165,250,.75); }
+
+.goal-pane{ flex:1; min-height:0; overflow:auto; padding: 10px 14px 14px; }
+
+.goal-task-compose{
+  margin-top: 12px;
+  display:flex;
+  gap:10px;
+  align-items:center;
+  position: sticky;
+  bottom: 0;
+  padding-top: 10px;
+  background: rgba(26,30,36,.92);
+  backdrop-filter: blur(8px);
+  border-top: 1px solid rgba(255,255,255,.06);
+}
+.goal-task-compose .form-input{ flex:1; }
+
+/* Goal chat should feel like a bounded panel */
+#goalView{height:100%;}
+.goal-shell-v2{height:100%;}
+.goal-chat-body{ display:flex; flex-direction:column; }
+#goalChatMessages{ flex:1; min-height:0; overflow:auto; }
+#goalChatMessages .message{ max-width: 100%; }
+#goalChatInput{ font-family: inherit; }
+
+/* tighten empty rows so stage groups don't create huge vertical voids */
+.empty-state{ padding: 12px 14px; }
+
+.goal-group{ padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,.06); }
+.goal-group:last-child{ border-bottom:none; }
+.goal-ghead{ display:flex; justify-content:space-between; align-items:baseline; gap:10px; margin-bottom: 8px; position:sticky; top:0; padding:6px 0; background: rgba(26,30,36,.86); backdrop-filter: blur(6px); }
+.goal-gtitle{ font-size:11px; font-weight:900; letter-spacing:.10em; text-transform:uppercase; color: rgba(148,163,184,.85); }
+.goal-gcount{ font-size:11px; color: var(--text-muted); }
+
+.goal-task-row{ display:flex; align-items:center; gap:10px; padding:8px 8px; border-radius:12px; cursor:pointer; }
+.goal-task-row:hover{ background: rgba(0,0,0,.08); }
+.goal-task-row input{ accent-color: rgba(96,165,250,.85); }
+.goal-badge{ width:10px; height:10px; border-radius:999px; flex-shrink:0; }
+.goal-badge.backlog{ background: rgba(156,163,175,.9); }
+.goal-badge.blocked{ background: rgba(248,113,113,.95); }
+.goal-badge.doing{ background: rgba(96,165,250,.95); }
+.goal-badge.review{ background: rgba(251,191,36,.95); }
+.goal-badge.done{ background: rgba(52,211,153,.95); }
+.goal-rtitle{ flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:13px; font-weight:650; }
+.goal-rmeta{ display:flex; gap:8px; align-items:center; color: var(--text-muted); font-size:11px; }
+
+/* Condo detail */
+.condo-shell{ max-width: 1120px; margin: 0 auto; display:flex; flex-direction:column; gap: 12px; }
+.condo-hero{ background: rgba(26,30,36,.72); border:1px solid var(--border); border-radius:16px; overflow:hidden; box-shadow:0 1px 0 rgba(255,255,255,.03) inset; }
+.condo-hero-top{ padding:14px; border-bottom:1px solid rgba(255,255,255,.06); background: radial-gradient(1000px 260px at 20% 0%, rgba(96,165,250,.14), transparent 62%); }
+.condo-hero-title{ font-size: 22px; font-weight: 850; letter-spacing: -0.02em; }
+.condo-hero-sub{ margin-top: 6px; color: var(--text-muted); display:flex; gap:10px; flex-wrap:wrap; font-size: 12px; }
+.condo-pill{ border: 1px solid rgba(255,255,255,.14); background: rgba(13,17,23,.55); padding:6px 10px; border-radius:999px; color: rgba(255,255,255,.92); }
+
+.condo-hero-stats{ display:grid; grid-template-columns: repeat(4, 1fr); gap:10px; padding: 12px 14px; }
+.condo-stat{ border:1px solid rgba(255,255,255,.08); border-radius:14px; padding:10px; background: rgba(0,0,0,.06); }
+.condo-stat .k{ color: rgba(148,163,184,.75); text-transform:uppercase; letter-spacing:.10em; font-weight:900; font-size:10px; }
+.condo-stat .v{ margin-top:6px; font-weight:850; font-size:14px; }
+.condo-stat .v small{ color: var(--text-muted); font-weight:600; }
+
+.condo-goals-grid{ display:grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.condo-goal-card{ background: rgba(26,30,36,.72); border:1px solid var(--border); border-radius:16px; overflow:hidden; box-shadow:0 1px 0 rgba(255,255,255,.03) inset; cursor:pointer; transition: transform .12s ease, border-color .12s ease; }
+.condo-goal-card:hover{ transform: translateY(-2px); border-color: rgba(96,165,250,.45); }
+.condo-card-top{ padding: 12px 12px 10px; border-bottom:1px solid rgba(255,255,255,.06); display:flex; justify-content:space-between; gap:10px; align-items:flex-start; background: linear-gradient(180deg, rgba(0,0,0,.16), transparent); }
+.condo-card-title{ font-weight:750; font-size:13px; line-height: 1.25; }
+.condo-card-meta{ margin-top:4px; color: var(--text-muted); font-size:11px; display:flex; gap:8px; flex-wrap:wrap; }
+.condo-tag{ font-size:11px; padding:2px 8px; border-radius:999px; border:1px solid rgba(255,255,255,.14); background: rgba(13,17,23,.45); color: rgba(255,255,255,.9); }
+.condo-tag.doing{ border-color: rgba(96,165,250,.55); background: rgba(96,165,250,.10); }
+.condo-tag.review{ border-color: rgba(251,191,36,.55); background: rgba(251,191,36,.10); }
+.condo-tag.blocked{ border-color: rgba(248,113,113,.55); background: rgba(248,113,113,.10); }
+.condo-tag.done{ border-color: rgba(52,211,153,.55); background: rgba(52,211,153,.10); }
+
+.condo-card-body{ padding: 12px; }
+.condo-next-label{ color: rgba(148,163,184,.75); font-weight:900; letter-spacing:.10em; text-transform:uppercase; font-size:10px; }
+.condo-next-task{ margin-top:8px; display:flex; align-items:flex-start; gap:10px; }
+.condo-dot{ width:10px; height:10px; border-radius:999px; background: rgba(96,165,250,.95); margin-top:4px; box-shadow:0 0 0 4px rgba(96,165,250,.12); }
+.condo-dot.blocked{ background: rgba(248,113,113,.95); box-shadow:0 0 0 4px rgba(248,113,113,.12); }
+.condo-dot.review{ background: rgba(251,191,36,.95); box-shadow:0 0 0 4px rgba(251,191,36,.12); }
+.condo-dot.done{ background: rgba(52,211,153,.95); box-shadow:0 0 0 4px rgba(52,211,153,.12); }
+.condo-task-title{ font-weight:700; font-size:13px; line-height:1.25; }
+.condo-task-sub{ margin-top:4px; color: var(--text-muted); font-size:11px; display:flex; gap:10px; flex-wrap:wrap; }
+
+.condo-card-foot{ padding:10px 12px; border-top:1px solid rgba(255,255,255,.06); display:flex; justify-content:space-between; gap:10px; color: var(--text-muted); font-size:11px; }
+
+@media (max-width: 1100px){
+  .goal-shell-v2{ grid-template-columns: 1fr; }
+  .condo-hero-stats{ grid-template-columns: 1fr 1fr; }
+  .condo-goals-grid{ grid-template-columns: 1fr; }
+}
+
+/* =====================================================================
    Chat view (v2)
    Fix layout regressions from v1 classnames (.chat-view)
    ===================================================================== */
@@ -1183,9 +1504,11 @@ body {
 }
 
 /* Ensure message list can actually scroll inside flex column */
-#chatMessages.chat-messages {
+#chatMessages.chat-messages,
+#goal_chatMessages.chat-messages {
   flex: 1;
   min-height: 0;
+  overflow: auto;
 }
 
 /* Remove "inset" look: top & bottom bars should touch the wrapper edges */
@@ -1211,6 +1534,14 @@ body {
 
 #chatArea .chat-messages {
   padding: 16px !important;
+  position: relative;
+  scroll-behavior: smooth;
+  overscroll-behavior: contain;
+}
+
+/* Goal chat uses the same message list component (but outside #chatArea) */
+#goal_chatMessages.chat-messages {
+  padding: 16px;
   position: relative;
   scroll-behavior: smooth;
   overscroll-behavior: contain;
@@ -1401,6 +1732,9 @@ body {
 
 #mediaFileInput { display: none; }
 
+/* Hide any composer-mounted file inputs (e.g. goal_mediaFileInput) */
+.chat-input-area input[type="file"]{ display:none !important; }
+
 .chat-input-area {
   position: relative;
   background: rgba(18, 22, 30, 0.92);
@@ -1451,7 +1785,8 @@ body {
 }
 
 .attach-btn { width: 38px; padding: 0; }
-.attach-btn svg { width: 18px; height: 18px; opacity: 0.9; }
+/* Cleaner paperclip: slightly thinner + centered */
+.attach-btn svg { width: 18px; height: 18px; opacity: 0.92; stroke-width: 1.8; }
 
 .stop-btn { width: 38px; padding: 0; font-size: 14px; }
 
@@ -1522,3 +1857,160 @@ body {
 /* Media preview container is rendered by js/media-upload.js */
 #mediaPreviewContainer { margin-bottom: 10px; }
 
+/* ───────────────────────────────────────────────────────────────
+   Unified "item" rows (Sessions / Apps / Crons lists)
+   Ensures session color reflects *that session's* real-time status.
+   ─────────────────────────────────────────────────────────────── */
+
+.item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+  border: 1px solid transparent;
+}
+
+.item:hover {
+  background: var(--bg-hover);
+  border-color: rgba(255,255,255,0.06);
+}
+
+.item.active {
+  background: rgba(96, 165, 250, 0.10);
+  border-color: rgba(96, 165, 250, 0.18);
+}
+
+.item.unread {
+  border-color: rgba(96, 165, 250, 0.20);
+}
+
+.item.archived-session {
+  opacity: 0.55;
+}
+
+.item .item-icon {
+  width: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.item .item-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.item .item-name {
+  font-weight: 700;
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.item .item-meta {
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.item .item-status {
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.item .agent-status {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-top: 6px;
+  flex-shrink: 0;
+  background: rgba(148, 163, 184, 0.35);
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.06) inset;
+}
+
+.agent-status.idle { background: rgba(148, 163, 184, 0.35); }
+.agent-status.thinking {
+  background: var(--yellow);
+  box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.30), 0 0 10px rgba(245, 158, 11, 0.25);
+}
+.agent-status.error {
+  background: var(--red);
+  box-shadow: 0 0 0 1px rgba(248, 113, 113, 0.30), 0 0 10px rgba(248, 113, 113, 0.22);
+}
+.agent-status.offline {
+  background: rgba(148, 163, 184, 0.20);
+  box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.10);
+}
+
+/* Row tint reflects per-session status (subtle, doesn’t fight unread/active) */
+.item.status-thinking { background: rgba(245, 158, 11, 0.06); }
+.item.status-error { background: rgba(248, 113, 113, 0.06); }
+.item.status-offline { background: rgba(148, 163, 184, 0.04); }
+
+/* Verbose toggle (session header) */
+.verbose-toggle {
+  display: inline-flex;
+  border: 1px solid rgba(255,255,255,0.14);
+  border-radius: 8px;
+  overflow: hidden;
+  margin-right: 10px;
+  background: rgba(255,255,255,0.04);
+}
+
+.verbose-btn {
+  background: transparent;
+  border: none;
+  color: rgba(255,255,255,0.72);
+  padding: 6px 10px;
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.verbose-btn:hover {
+  color: rgba(255,255,255,0.95);
+  background: rgba(255,255,255,0.06);
+}
+
+.verbose-btn.active {
+  color: rgba(91,156,244,0.98);
+  background: rgba(91,156,244,0.14);
+}
+
+/* In-app nav surfaces should NOT look like default links */
+a.condo-header, a.goal-item, a.session-item, a.item-link, a.condo-goal-row, a.condo-card-header, a.condo-goal-card, a.session-card, a.goal-card, a.condo-card {
+  color: inherit;
+  text-decoration: none;
+}
+
+a.condo-header:visited, a.goal-item:visited, a.session-item:visited, a.item-link:visited, a.condo-goal-row:visited, a.condo-card-header:visited, a.condo-goal-card:visited, a.session-card:visited, a.goal-card:visited, a.condo-card:visited {
+  color: inherit;
+}
+
+a.condo-header:hover, a.goal-item:hover, a.session-item:hover, a.item-link:hover, a.condo-goal-row:hover, a.condo-card-header:hover, a.condo-goal-card:hover, a.session-card:hover, a.goal-card:hover, a.condo-card:hover {
+  text-decoration: none;
+}
+
+/* Preserve “row” layout: anchors must behave like the old container */
+a.condo-header, a.goal-item, a.session-item, a.item-link, a.condo-goal-row, a.condo-card-header {
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+/* Card anchors should behave like block cards */
+a.condo-goal-card, a.session-card, a.goal-card, a.condo-card {
+  display: block;
+}

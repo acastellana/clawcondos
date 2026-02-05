@@ -2120,6 +2120,31 @@ body {
   word-break: break-word;
 }
 
+.reply-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-subtle);
+  padding: 4px 8px;
+  border-radius: 999px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.reply-chip:hover {
+  border-color: rgba(91, 156, 244, 0.5);
+  color: var(--text);
+}
+
+.message.flash {
+  outline: 2px solid rgba(91, 156, 244, 0.5);
+  outline-offset: 2px;
+}
+
 .message-time {
   font-size: 0.62rem;
   color: var(--text-muted);
@@ -2945,8 +2970,77 @@ body {
   font-family: var(--font-mono);
 }
 
+.session-model-select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+
+  background: var(--bg-panel);
+  color: var(--text);
+  border: 1px solid rgba(255,255,255,0.06);
+  padding: 2px calc(var(--space-sm) + 16px) 2px var(--space-sm);
+  border-radius: var(--radius-sm);
+  font-size: 0.72rem;
+  font-family: var(--font-mono);
+  line-height: 1.4;
+  cursor: pointer;
+
+  background-image:
+    linear-gradient(45deg, transparent 50%, rgba(255,255,255,0.35) 50%),
+    linear-gradient(135deg, rgba(255,255,255,0.35) 50%, transparent 50%),
+    linear-gradient(to right, transparent, transparent);
+  background-position:
+    calc(100% - 11px) 55%,
+    calc(100% - 6px) 55%,
+    0 0;
+  background-size:
+    5px 5px,
+    5px 5px,
+    100% 100%;
+  background-repeat: no-repeat;
+}
+
+.session-model-select:hover {
+  border-color: rgba(255,255,255,0.12);
+}
+
+.session-model-select:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(120, 180, 255, 0.18);
+}
+
 .session-info-spacer { 
   flex: 1; 
+}
+
+.verbose-toggle {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  margin-right: 10px;
+  background: rgba(255,255,255,0.02);
+}
+
+.verbose-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  padding: var(--space-xs) 10px;
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-family: var(--font-sans);
+  transition: all var(--transition-fast);
+}
+
+.verbose-btn:hover {
+  color: var(--text);
+  background: rgba(255,255,255,0.04);
+}
+
+.verbose-btn.active {
+  color: var(--accent);
+  background: rgba(91,156,244,0.10);
 }
 
 .export-btn {

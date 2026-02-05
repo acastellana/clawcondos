@@ -1,5 +1,5 @@
 {
-  "_comment": "Sharp Dashboard Configuration Example",
+  "_comment": "ClawCondos Dashboard Configuration Example",
   "_usage": "Copy to config.json and customize",
   
   "gatewayWsUrl": "wss://your-domain.com/",

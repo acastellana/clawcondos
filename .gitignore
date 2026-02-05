@@ -1,16 +1,19 @@
-# Sharp .gitignore
+# ClawCondos .gitignore
 
 # User-specific configuration (contains secrets)
-config.json
-Caddyfile
-
-# Apps registry (user-specific)
-.registry/apps.json
+/config.json
+/Caddyfile
 
 # Keep example files
 !config.example.json
 !Caddyfile.example
 !.registry/apps.example.json
+
+# Local runtime registry/data
+.registry/
+
+# User apps (built separately)
+apps/
 
 # Logs
 *.log
@@ -21,6 +24,9 @@ Caddyfile
 *~
 .DS_Store
 
+# Claude Code metadata
+.claude/
+
 # Node
 node_modules/
 package-lock.json
@@ -28,16 +34,18 @@ package-lock.json
 # Build artifacts
 dist/
 .next/
+coverage/
+
+# Runtime uploads / transcripts
+media/voice/
+
+# Old build/copy outputs
+public/v2/js/
+public/v2/styles/
 
 # Python
 __pycache__/
 *.pyc
-
-# Ignore standalone app repos
-apps/prediction-market/
-
-# Local runtime registry/data
-.registry/
 
 # Env files
 .env

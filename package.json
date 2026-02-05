@@ -1,10 +1,11 @@
 {
-  "name": "sharp-dashboard",
+  "name": "clawcondos",
   "version": "1.0.0",
-  "description": "A unified multi-agent dashboard for AI assistants",
+  "description": "A goals-first multi-agent dashboard for the Clawdbot ecosystem",
   "type": "module",
   "main": "index.html",
   "scripts": {
+    "start": "node serve.js",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
@@ -19,13 +20,15 @@
     "dashboard",
     "ai",
     "agent",
+    "multi-agent",
     "websocket",
-    "clawdbot"
+    "clawdbot",
+    "clawcondos"
   ],
-  "author": "",
+  "author": "Albert Castellana",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/acastellana/sharp-claw-app"
+    "url": "https://github.com/acastellana/clawcondos"
   }
 }

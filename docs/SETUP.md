@@ -1,6 +1,6 @@
-# Sharp Setup Guide
+# ClawCondos Setup Guide
 
-This guide covers deploying Sharp with a compatible backend.
+This guide covers deploying ClawCondos with a compatible backend.
 
 ## Prerequisites
 
@@ -14,14 +14,11 @@ For local development without a full backend:
 
 ```bash
 # Clone the repo
-git clone https://github.com/acastellana/sharp.git
-cd sharp
+git clone https://github.com/acastellana/clawcondos.git
+cd clawcondos
 
-# Serve with Python
-python3 -m http.server 9000
-
-# Or with Node.js
-npx serve -p 9000
+# Serve with Node.js
+node serve.js
 ```
 
 Open `http://localhost:9000` — you'll see the dashboard (without backend, sessions won't load).
@@ -37,7 +34,7 @@ Open `http://localhost:9000` — you'll see the dashboard (without backend, sess
 
 2. **Edit the Caddyfile:**
    - Replace `YOUR_GATEWAY_TOKEN` with your gateway's bearer token
-   - Replace `/path/to/sharp` with the actual path
+   - Replace `/path/to/clawcondos` with the actual path
    - Update port numbers as needed
 
 3. **Run Caddy:**
@@ -54,7 +51,7 @@ server {
     
     # Static files
     location / {
-        root /path/to/sharp;
+        root /path/to/clawcondos;
         try_files $uri $uri/ /index.html;
     }
     
@@ -75,7 +72,7 @@ server {
     
     # Apps registry
     location /api/apps {
-        alias /path/to/sharp/.registry/apps.json;
+        alias /path/to/clawcondos/.registry/apps.json;
     }
 }
 ```
@@ -86,14 +83,14 @@ server {
 FROM caddy:2-alpine
 
 COPY Caddyfile /etc/caddy/Caddyfile
-COPY . /srv/sharp
+COPY . /srv/clawcondos
 
 EXPOSE 9000
 ```
 
 ```bash
-docker build -t sharp .
-docker run -p 9000:9000 sharp
+docker build -t clawcondos .
+docker run -p 9000:9000 clawcondos
 ```
 
 ## Configuration
@@ -104,7 +101,7 @@ Add before the closing `</body>` tag in `index.html`:
 
 ```html
 <script>
-  window.SHARP_CONFIG = {
+  window.CLAWCONDOS_CONFIG = {
     gatewayWsUrl: 'wss://your-gateway.example.com/',
     branding: {
       name: 'My Dashboard',
@@ -132,8 +129,8 @@ The config is loaded automatically at startup.
 | `gatewayWsUrl` | Auto-detect | WebSocket URL for backend |
 | `gatewayHttpUrl` | Auto-detect | HTTP URL for REST API |
 | `appsUrl` | `/api/apps` | URL to fetch apps registry |
-| `branding.name` | `"Sharp"` | Dashboard title |
-| `branding.logo` | `"🚀"` | Logo emoji or image URL |
+| `branding.name` | `"ClawCondos"` | Dashboard title |
+| `branding.logo` | `"🏙️"` | Logo emoji or image URL |
 | `sessions.pollInterval` | `30000` | Session refresh interval (ms) |
 | `features.showApps` | `true` | Show apps section |
 | `features.showSubagents` | `true` | Show sub-agents section |
@@ -184,7 +181,7 @@ handle /my-app {
    clawdbot gateway start
    ```
 
-3. Get the gateway token from your config and add it to Sharp's Caddyfile.
+3. Get the gateway token from your config and add it to ClawCondos's Caddyfile.
 
 See [Clawdbot documentation](https://docs.clawd.bot) for full setup.
 
@@ -218,9 +215,9 @@ Implement the [Backend API](BACKEND-API.md) protocol:
 ## Security Notes
 
 - **Never commit** `Caddyfile` or `config.json` with real tokens
-- By default, Sharp **does not** apply markdown/media rendering to **user** messages. To enable it, set:
+- By default, ClawCondos **does not** apply markdown/media rendering to **user** messages. To enable it, set:
   - `features.formatUserMessages: true`
-- By default, Sharp **blocks external http(s) media embeds** (images/audio/links) for safety. To allow external embeds, set:
+- By default, ClawCondos **blocks external http(s) media embeds** (images/audio/links) for safety. To allow external embeds, set:
   - `features.allowExternalMedia: true`
 
 Recommended: keep both flags `false` when viewing chats that may include untrusted user content.

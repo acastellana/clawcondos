@@ -1,10 +1,10 @@
-# Sharp Backend API
+# ClawCondos Backend API
 
-Sharp communicates with its backend via WebSocket using a simple JSON-RPC-style protocol. This document specifies the required API that any compatible backend must implement.
+ClawCondos communicates with its backend via WebSocket using a simple JSON-RPC-style protocol. This document specifies the required API that any compatible backend must implement.
 
 ## Connection
 
-Sharp connects to the WebSocket endpoint at the configured `gatewayWsUrl` (default: same origin with `/ws` path when behind a reverse proxy).
+ClawCondos connects to the WebSocket endpoint at the configured `gatewayWsUrl` (default: same origin with `/ws` path when behind a reverse proxy).
 
 ### Authentication Flow
 
@@ -64,7 +64,7 @@ All messages are JSON objects with the following structure:
 
 ## Required Methods
 
-> Note: Sharp’s UI uses a couple of RPCs beyond the absolute minimum. This section reflects what the current Sharp UI expects.
+> Note: ClawCondos’s UI uses a couple of RPCs beyond the absolute minimum. This section reflects what the current ClawCondos UI expects.
 
 
 ### `connect`
@@ -84,8 +84,8 @@ Authenticate and establish session. Called in response to `connect.challenge` ev
       "token": "your-gateway-token"
     },
     "client": {
-      "id": "sharp-dashboard",
-      "displayName": "Sharp Dashboard",
+      "id": "webchat-ui",
+      "displayName": "ClawCondos Dashboard",
       "version": "2.0.0",
       "platform": "browser",
       "mode": "ui"
@@ -95,6 +95,8 @@ Authenticate and establish session. Called in response to `connect.challenge` ev
 ```
 
 > Avoid using `client.id="openclaw-control-ui"` unless you are implementing the full Control UI device identity flow.
+>
+> **Note:** When connecting via `serve.js`, the proxy rewrites the `connect` frame to set `client.id="webchat-ui"` and inject auth from the `GATEWAY_AUTH` env var. The example above shows the raw frame before rewriting.
 
 
 **Auth Options:**
@@ -251,7 +253,7 @@ Cancel an in-progress agent run.
 
 List available sessions with metadata.
 
-> Sharp also calls `agents.list` to populate the Agents section.
+> ClawCondos also calls `agents.list` to populate the Agents section.
 
 **Request:**
 ```json
@@ -317,7 +319,7 @@ List available sessions with metadata.
 
 ## Optional Methods
 
-These methods are used by Sharp when available, but should be treated as optional by backends:
+These methods are used by ClawCondos when available, but should be treated as optional by backends:
 
 ### `agents.list`
 
@@ -337,13 +339,13 @@ List configured agents.
 
 ### `chat.activeRuns`
 
-Return currently running agent runs. Sharp uses this to mark sessions as “thinking” on first load.
+Return currently running agent runs. ClawCondos uses this to mark sessions as “thinking” on first load.
 
 ---
 
 ### `sessions.pin` / `sessions.archive`
 
-If implemented, Sharp can bulk-pin and bulk-archive sessions.
+If implemented, ClawCondos can bulk-pin and bulk-archive sessions.
 
 ---
 
@@ -425,7 +427,7 @@ Notifies about new messages in sessions.
 
 ## Session Key Format
 
-Sharp uses hierarchical session keys:
+ClawCondos uses hierarchical session keys:
 
 | Pattern | Description |
 |---------|-------------|

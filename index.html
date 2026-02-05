@@ -463,9 +463,18 @@
       <div class="view" id="chatView">
         <div class="session-info" id="sessionInfo">
           <span class="session-info-item">📍 <span id="sessionKeyDisplay">-</span></span>
-          <span class="session-info-item">🤖 <span class="session-badge" id="sessionModel">-</span></span>
+          <span class="session-info-item" title="Session model (switching model will reset the session)">🤖
+            <select class="session-model-select" id="sessionModelSelect" onchange="handleSessionModelChange(this.value)"></select>
+          </span>
           <span class="session-info-item">📊 <span id="sessionTokens">-</span> tokens</span>
           <span class="session-info-spacer"></span>
+
+          <div class="verbose-toggle" id="verboseToggle" title="Debug visibility: sends /verbose on|full|off to this session">
+            <button class="verbose-btn" data-verbose="off" onclick="setVerboseMode('off')">V off</button>
+            <button class="verbose-btn" data-verbose="on" onclick="setVerboseMode('on')">V on</button>
+            <button class="verbose-btn" data-verbose="full" onclick="setVerboseMode('full')">V full</button>
+          </div>
+
           <button class="export-btn" onclick="exportChatAsMarkdown()" title="Export as Markdown">
             <svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
             Export
@@ -538,6 +547,7 @@
 
   <!-- Load configuration before main script -->
   <script src="/lib/config.js"></script>
+  <script src="/lib/message-shaping.js"></script>
   
   <script>
     // ═══════════════════════════════════════════════════════════════
@@ -570,6 +580,11 @@
       chatHistory: [],
       isThinking: false,
       messageQueue: [],  // Queued messages when agent is busy
+
+      // Per-session model overrides (UI-level; model switch is triggered by sending /new <model>)
+      sessionModelOverrides: (() => {
+        try { return JSON.parse(lsGet('session_model_overrides', '{}') || '{}') || {}; } catch { return {}; }
+      })(),
       
       // Audio recording
       mediaRecorder: null,
@@ -633,6 +648,9 @@
       
       // Custom session names
       sessionNames: JSON.parse(localStorage.getItem('sharp_session_names') || '{}'),
+
+      // Per-session UI verbose toggle (best-effort; actual runtime state lives server-side)
+      verboseBySession: JSON.parse(localStorage.getItem('sharp_verbose_by_session') || '{}'),
       
       // Search & Filters
       searchQuery: '',
@@ -2936,11 +2954,11 @@ If none fit well, include a suggestion with goalId:null and a proposed new goal 
       const uncategorized = sessions.filter(s => !assignedSessions.has(s.key));
       
       if (uncategorized.length === 0) {
-        alert('All sessions are already categorized!');
+        showToast('All sessions are already categorized!', 'info');
         return;
       }
       
-      alert(`${uncategorized.length} sessions need categorization. Use the 🏷️ button on each session to categorize one by one.`);
+      showToast(`${uncategorized.length} sessions need categorization. Use the 🏷️ button on each session.`, 'warning', 7000);
     }
     
     async function sendChatMessage(text) {
@@ -2997,7 +3015,7 @@ If none fit well, include a suggestion with goalId:null and a proposed new goal 
       const uncategorized = sessions.filter(s => !assignedSessions.has(s.key));
       
       if (uncategorized.length === 0) {
-        alert('All sessions are already categorized! 🎉');
+        showToast('All sessions are already categorized! 🎉', 'success');
         return;
       }
       
@@ -3309,7 +3327,7 @@ Response format:
         
       } catch (e) {
         console.error('Failed to assign:', e);
-        alert('Failed to assign: ' + e.message);
+        showToast('Failed to assign: ' + e.message, 'error');
       }
     }
     
@@ -3328,7 +3346,7 @@ Response format:
         nextWizardSession();
         
       } catch (e) {
-        alert('Failed to assign: ' + e.message);
+        showToast('Failed to assign: ' + e.message, 'error');
       }
     }
     
@@ -3361,7 +3379,7 @@ Response format:
         nextWizardSession();
         
       } catch (e) {
-        alert('Failed: ' + e.message);
+        showToast('Failed: ' + e.message, 'error');
       }
     }
     
@@ -3559,7 +3577,7 @@ Response format:
           <div class="session-group ${expanded ? 'expanded' : ''}">
             <div class="session-group-header" onclick="toggleAgentExpanded('${escapeHtml(agent.id)}')">
               <span class="group-expand-icon">${expanded ? '▼' : '▶'}</span>
-              <span class="group-icon">${emoji}</span>
+              <span class="group-icon">${escapeHtml(emoji)}</span>
               <span class="group-name">${escapeHtml(name)}${isDefault}</span>
               <span class="group-count">${group.sessions.length + group.subsessions.length}</span>
               <button class="session-action-btn" onclick="event.stopPropagation(); startNewSession('${escapeHtml(agent.id)}')" title="New session">＋</button>
@@ -3603,7 +3621,7 @@ Response format:
       contentArea.innerHTML = `
         <div class="agent-details" style="padding: 24px;">
           <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 24px;">
-            <div style="font-size: 3rem;">${emoji}</div>
+            <div style="font-size: 3rem;">${escapeHtml(emoji)}</div>
             <div>
               <h2 style="margin: 0;">${escapeHtml(name)}</h2>
               <div style="color: var(--text-dim);">ID: ${escapeHtml(agent.id)}</div>
@@ -3651,7 +3669,7 @@ Response format:
         openSession(sessionKey);
       } catch (err) {
         console.error('Failed to start session:', err);
-        alert('Failed to start new session: ' + err.message);
+        showToast('Failed to start new session: ' + err.message, 'error');
       }
     }
     
@@ -4041,7 +4059,7 @@ Response format:
       
       container.innerHTML = state.apps.map(app => `
         <a href="/app?id=${escapeHtml(app.id)}" target="_blank" class="item">
-          <div class="item-icon">${app.icon || '📦'}</div>
+          <div class="item-icon">${escapeHtml(app.icon || '📦')}</div>
           <div class="item-content">
             <div class="item-name">${escapeHtml(app.name)}</div>
             <div class="item-meta">:${app.port}</div>
@@ -4166,8 +4184,9 @@ Response format:
       updateHeaderStatus();
       
       document.getElementById('sessionKeyDisplay').textContent = session.key;
-      document.getElementById('sessionModel').textContent = session.model?.split('/').pop() || 'unknown';
+      renderSessionModelSelector(session);
       document.getElementById('sessionTokens').textContent = session.totalTokens?.toLocaleString() || '0';
+      updateVerboseToggleUI();
       
       const actionBtn = document.getElementById('headerAction');
       if (session.key === 'agent:main:main') {
@@ -4218,7 +4237,8 @@ Response format:
           const text = extractText(m.content);
           if (!text) return '';
           const timeHtml = m.timestamp ? `<div class="message-time">${formatMessageTime(new Date(m.timestamp))}</div>` : '';
-          return `<div class="message user"><div class="message-content">${formatMessage(text)}</div>${timeHtml}</div>`;
+          const msgIdAttr = m.id ? ` data-message-id="${escapeHtml(String(m.id))}"` : '';
+          return `<div class="message user" data-message-idx="${idx}"${msgIdAttr}><div class="message-content">${formatMessage(text)}</div>${timeHtml}</div>`;
         } else if (m.role === 'assistant') {
           const text = extractText(m.content);
           const spawnCards = extractSpawnCards(m.content, m.timestamp);
@@ -4230,7 +4250,12 @@ Response format:
             html += spawnCards.map(card => renderSpawnCard(card, idx)).join('');
           }
           if (text) {
-            html += `<div class="message assistant"><div class="message-content">${formatMessage(text)}</div>${timeHtml}</div>`;
+            const shaped = shapeForDisplay(text);
+            if (!shaped.suppressed) {
+              const replyChip = renderReplyChip(shaped.replyTo, idx - 1);
+              const msgIdAttr = m.id ? ` data-message-id="${escapeHtml(String(m.id))}"` : '';
+              html += `<div class="message assistant" data-message-idx="${idx}"${msgIdAttr}>${replyChip}<div class="message-content">${formatMessage(shaped.text)}</div>${timeHtml}</div>`;
+            }
           }
           return html;
         }
@@ -4329,11 +4354,17 @@ Response format:
             if (messages.length === 0) {
               messagesEl.innerHTML = '<div class="spawn-card-loading">No messages yet</div>';
             } else {
-              messagesEl.innerHTML = messages.map(m => {
+              messagesEl.innerHTML = messages.map((m, idx) => {
                 const text = extractText(m.content);
                 if (!text) return '';
                 const roleClass = m.role === 'user' ? 'user' : 'assistant';
-                return `<div class="message ${roleClass}"><div class="message-content">${formatMessage(text)}</div></div>`;
+                if (roleClass === 'assistant') {
+                  const shaped = shapeForDisplay(text);
+                  if (shaped.suppressed) return '';
+                  const replyChip = renderReplyChip(shaped.replyTo, idx - 1);
+                  return `<div class="message ${roleClass}" data-message-idx="${idx}">${replyChip}<div class="message-content">${formatMessage(shaped.text)}</div></div>`;
+                }
+                return `<div class="message ${roleClass}" data-message-idx="${idx}"><div class="message-content">${formatMessage(text)}</div></div>`;
               }).filter(Boolean).join('');
             }
           } catch (err) {
@@ -4360,6 +4391,54 @@ Response format:
       if (content[0]?.text) return content[0].text;
       
       return '';
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // MESSAGE SHAPING (reply tags + sentinel suppression)
+    // ═══════════════════════════════════════════════════════════════
+
+    function shapeForDisplay(rawText) {
+      const shaper = window.messageShaping && window.messageShaping.shapeMessageText;
+      if (!shaper) {
+        return { text: String(rawText || ''), replyTo: null, suppressed: false, suppressedReason: null };
+      }
+      return shaper(String(rawText || ''));
+    }
+
+    function renderReplyChip(replyTo, fallbackTargetId) {
+      if (!replyTo) return '';
+      const label = replyTo.kind === 'current' ? 'Replying to: current' : `Replying to: ${escapeHtml(replyTo.id)}`;
+      const ref = replyTo.kind === 'current' ? `idx:${escapeHtml(String(fallbackTargetId || ''))}` : `id:${escapeHtml(replyTo.id)}`;
+      return `<div class="reply-chip" onclick="scrollToReplyRef('${ref}')" title="${label}">↩ ${escapeHtml(label)}</div>`;
+    }
+
+    function scrollToReplyRef(ref) {
+      try {
+        if (!ref) return;
+        if (ref.startsWith('id:')) {
+          const id = ref.slice(3);
+          const el = document.querySelector(`[data-message-id='${CSS.escape(id)}']`);
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            el.classList.add('flash');
+            setTimeout(() => el.classList.remove('flash'), 800);
+            return;
+          }
+        }
+        if (ref.startsWith('idx:')) {
+          const idx = ref.slice(4);
+          const el = document.querySelector(`[data-message-idx='${CSS.escape(idx)}']`);
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            el.classList.add('flash');
+            setTimeout(() => el.classList.remove('flash'), 800);
+            return;
+          }
+        }
+        showToast('Replied-to message not found in loaded history', 'info');
+      } catch (e) {
+        // no-op
+      }
     }
     
     // ═══════════════════════════════════════════════════════════════
@@ -4594,21 +4673,31 @@ Response format:
       
       // Format content
       let contentHtml;
+      let replyChip = '';
       const features = (config && config.features) ? config.features : {};
       const formatUserMessages = features.formatUserMessages === true;
       const shouldFormat = role.startsWith('assistant') || (formatUserMessages && role.startsWith('user'));
-      if (shouldFormat && !role.includes('thinking')) {
+
+      if (role.startsWith('assistant') && !role.includes('thinking')) {
+        const shaped = shapeForDisplay(content);
+        if (shaped.suppressed) {
+          return null; // do not render sentinel-only messages
+        }
+        replyChip = renderReplyChip(shaped.replyTo, container.children.length - 1);
+        contentHtml = shouldFormat ? formatMessage(shaped.text) : escapeHtml(shaped.text);
+      } else if (shouldFormat && !role.includes('thinking')) {
         contentHtml = formatMessage(content);
       } else {
         contentHtml = escapeHtml(content);
       }
-      
+
       // Add timestamp
       const time = timestamp ? new Date(timestamp) : new Date();
       const timeStr = formatMessageTime(time);
-      
-      msg.innerHTML = `<div class="message-content">${contentHtml}</div><div class="message-time">${timeStr}</div>`;
-      
+
+      msg.setAttribute('data-message-idx', String(container.children.length));
+      msg.innerHTML = `${replyChip}<div class="message-content">${contentHtml}</div><div class="message-time">${timeStr}</div>`;
+
       container.appendChild(msg);
       scrollChatToBottom();
       return msg;
@@ -4781,6 +4870,142 @@ Response format:
       if (stopBtn) stopBtn.disabled = !state.isThinking;
     }
     
+    function updateVerboseToggleUI() {
+      const wrap = document.getElementById('verboseToggle');
+      if (!wrap) return;
+      const key = state.currentSession?.key;
+      const level = (key && state.verboseBySession[key]) ? state.verboseBySession[key] : 'off';
+      wrap.querySelectorAll('.verbose-btn').forEach(btn => {
+        const v = btn.getAttribute('data-verbose');
+        btn.classList.toggle('active', v === level);
+      });
+    }
+
+    async function setVerboseMode(level) {
+      if (!state.currentSession) return;
+      const key = state.currentSession.key;
+      const normalized = (level === 'full' || level === 'on' || level === 'off') ? level : 'off';
+
+      // Persist for UI purposes (server-side is authoritative, but this keeps UX stable)
+      state.verboseBySession[key] = normalized;
+      localStorage.setItem('sharp_verbose_by_session', JSON.stringify(state.verboseBySession));
+      updateVerboseToggleUI();
+
+      try {
+        const idempotencyKey = `verbose-${key}-${Date.now()}`;
+        await rpcCall('chat.send', {
+          sessionKey: key,
+          message: `/verbose ${normalized}`,
+          idempotencyKey
+        }, 10000);
+        addChatMessage('system', `Verbose → ${normalized}`);
+      } catch (err) {
+        addChatMessage('system', `Failed to set verbose: ${err.message}`);
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // MODEL SELECTOR (per session)
+    // ═══════════════════════════════════════════════════════════════
+
+    function availableModelChoices() {
+      const base = [
+        { value: 'default', label: 'default' },
+        { value: 'gpt', label: 'gpt (gpt-5.2 alias)' },
+        { value: 'opus', label: 'opus (Claude Opus alias)' },
+      ];
+      const seen = new Set(base.map(x => x.value));
+      for (const a of (state.agents || [])) {
+        const m = String(a?.model || a?.models?.primary || '').trim();
+        if (!m) continue;
+        if (seen.has(m)) continue;
+        seen.add(m);
+        base.push({ value: m, label: m });
+      }
+      const head = base.slice(0, 3);
+      const tail = base.slice(3).sort((a, b) => a.label.localeCompare(b.label));
+      return head.concat(tail).concat([{ value: '__custom__', label: 'Custom…' }]);
+    }
+
+    function effectiveSessionModel(session) {
+      if (!session?.key) return session?.model || null;
+      return state.sessionModelOverrides?.[session.key] || session.model || null;
+    }
+
+    function renderSessionModelSelector(session) {
+      const sel = document.getElementById('sessionModelSelect');
+      if (!sel) return;
+
+      const choices = availableModelChoices();
+      const current = effectiveSessionModel(session);
+      const currentValue = current || 'default';
+
+      sel.innerHTML = choices.map(c => {
+        const selected = (c.value === currentValue) ? ' selected' : '';
+        return `<option value="${escapeHtml(String(c.value))}"${selected}>${escapeHtml(String(c.label))}</option>`;
+      }).join('');
+
+      if (current && !choices.some(c => c.value === current)) {
+        const opt = document.createElement('option');
+        opt.value = String(current);
+        opt.textContent = String(current);
+        opt.selected = true;
+        sel.insertBefore(opt, sel.firstChild);
+      }
+    }
+
+    async function handleSessionModelChange(value) {
+      const sessionKey = state.currentSession?.key;
+      if (!sessionKey) return;
+
+      let chosen = String(value || '').trim();
+      if (!chosen) return;
+
+      if (chosen === '__custom__') {
+        const custom = prompt('Enter model alias or full model id (e.g. opus, gpt, anthropic/claude-opus-4-5):', 'opus');
+        if (!custom) {
+          renderSessionModelSelector(state.currentSession);
+          return;
+        }
+        chosen = String(custom).trim();
+      }
+
+      const prev = effectiveSessionModel(state.currentSession) || 'default';
+      if (chosen === prev) return;
+
+      const ok = confirm(`Switch model to "${chosen}"?\n\nThis will reset the session (equivalent to sending: /new ${chosen}).`);
+      if (!ok) {
+        renderSessionModelSelector(state.currentSession);
+        return;
+      }
+
+      state.sessionModelOverrides[sessionKey] = chosen;
+      lsSet('session_model_overrides', JSON.stringify(state.sessionModelOverrides));
+      renderSessionModelSelector(state.currentSession);
+
+      try {
+        const idempotencyKey = `model-${sessionKey}-${Date.now()}`;
+        await rpcCall('chat.send', {
+          sessionKey,
+          message: `/new ${chosen}`,
+          idempotencyKey,
+        }, 15000);
+        showToast(`Model → ${chosen} (session reset)`, 'success', 2500);
+
+        setTimeout(async () => {
+          try {
+            await loadSessions();
+            const updated = state.sessions.find(s => s.key === sessionKey);
+            if (updated) state.currentSession = updated;
+            renderSessionModelSelector(state.currentSession);
+            renderSessions();
+          } catch {}
+        }, 1200);
+      } catch (err) {
+        showToast(`Failed to switch model: ${err.message}`, 'error');
+      }
+    }
+
     async function stopAgent() {
       if (!state.isThinking || !state.currentSession) return;
       
@@ -4812,7 +5037,7 @@ Response format:
         const messages = result?.messages || [];
         
         if (messages.length === 0) {
-          alert('No messages to export');
+          showToast('No messages to export', 'info');
           return;
         }
         
@@ -4877,7 +5102,7 @@ Response format:
         
       } catch (err) {
         console.error('Export failed:', err);
-        alert('Export failed: ' + err.message);
+        showToast('Export failed: ' + err.message, 'error');
       }
     }
     
@@ -5164,7 +5389,7 @@ Response format:
       container.innerHTML = state.apps.map(app => `
         <a href="/app?id=${escapeHtml(app.id)}" target="_blank" class="app-card" style="text-decoration: none; color: inherit;">
           <div class="card-top">
-            <div class="card-icon">${app.icon || '📦'}</div>
+            <div class="card-icon">${escapeHtml(app.icon || '📦')}</div>
             <div class="card-info">
               <div class="card-name">${escapeHtml(app.name)}</div>
               <div class="card-desc">${escapeHtml(app.description || '')}</div>

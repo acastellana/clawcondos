@@ -42,8 +42,8 @@ const MediaUpload = (() => {
   }
 
   function getFileType(mimeType, fileName = '') {
-    // Some browser APIs (MediaRecorder) include codec params in the mime type,
-    // e.g. "audio/webm;codecs=opus". Normalize before matching.
+    // MediaRecorder may include codec parameters in the mime type
+    // (e.g. "audio/webm;codecs=opus"). Normalize before matching.
     const baseMime = String(mimeType || '').split(';')[0].trim();
 
     if (baseMime && CONFIG.allowedTypes.image.includes(baseMime)) return 'image';
@@ -106,16 +106,6 @@ const MediaUpload = (() => {
     emit('filesChanged', { files: pendingFiles });
 
     return fileEntry;
-  }
-
-  // Back-compat: older callers expect addFiles([...])
-  function addFiles(files = []) {
-    const out = [];
-    for (const f of (files || [])) {
-      const entry = addFile(f);
-      if (entry) out.push(entry);
-    }
-    return out;
   }
 
   function removeFile(id) {
@@ -357,13 +347,13 @@ const MediaUpload = (() => {
 
     if (!viewEl || !inputEl || !fileInputEl || !previewEl || !dropOverlayEl) {
       console.warn('[MediaUpload] mount missing elements', { viewId, inputId, fileInputId, previewContainerId, dropOverlayId });
-      return false;
+      return;
     }
 
     // dedupe
     if (mounts.find(m => m.viewEl === viewEl && m.inputEl === inputEl)) {
       renderPreview();
-      return true;
+      return;
     }
 
     const m = { viewEl, inputEl, fileInputEl, previewEl, dropOverlayEl };
@@ -403,7 +393,6 @@ const MediaUpload = (() => {
     fileInputEl.addEventListener('change', handleFileSelect);
 
     renderPreview();
-    return true;
   }
 
   function handlePaste(event) {
@@ -466,26 +455,15 @@ const MediaUpload = (() => {
   // INITIALIZATION
   // ═══════════════════════════════════════════════════════════════
   function init() {
-    // Default mount for main chat composer.
-    // In v2, the composer is mounted dynamically, so these elements may not exist at DOMContentLoaded.
-    // Retry a few times until the app mounts the composer.
-    let attempts = 0;
-    const maxAttempts = 30; // ~3s @ 100ms
+    // default mount for main chat composer
+    mount({
+      viewId: 'chatView',
+      inputId: 'chatInput',
+      fileInputId: 'mediaFileInput',
+      previewContainerId: 'mediaPreviewContainer',
+      dropOverlayId: 'dropOverlay',
+    });
 
-    const tryMount = () => {
-      attempts++;
-      const ok = mount({
-        viewId: 'chatView',
-        inputId: 'chatInput',
-        fileInputId: 'mediaFileInput',
-        previewContainerId: 'mediaPreviewContainer',
-        dropOverlayId: 'dropOverlay',
-      });
-      if (ok) return;
-      if (attempts < maxAttempts) setTimeout(tryMount, 100);
-    };
-
-    tryMount();
     console.log('[MediaUpload] Initialized');
   }
 
@@ -495,7 +473,6 @@ const MediaUpload = (() => {
   return {
     init,
     addFile,
-    addFiles,
     removeFile,
     clearFiles,
     hasPendingFiles,

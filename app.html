@@ -220,7 +220,7 @@
   </header>
   <div class="main-container">
     <div class="app-frame-container">
-      <iframe id="appFrame" class="app-frame" src="about:blank" onload="handleFrameLoad()" onerror="handleFrameError(event)"></iframe>
+      <iframe id="appFrame" class="app-frame" src="about:blank" sandbox="allow-scripts allow-forms allow-popups" onload="handleFrameLoad()" onerror="handleFrameError(event)"></iframe>
     </div>
     <aside class="assistant-panel" id="assistantPanel">
       <div class="assistant-header">
@@ -250,6 +250,7 @@
       </div>
     </aside>
   </div>
+  <script src="/lib/message-shaping.js"></script>
   <script>
     let app = null;
     let assistantOpen = false;
@@ -257,6 +258,30 @@
     let isThinking = false;
     let chatHistory = [];
     let lastErrorDetails = null;
+
+    function showToast(message, type = 'info', durationMs = 4000) {
+      const existing = document.getElementById('toastContainer') || (() => {
+        const c = document.createElement('div');
+        c.id = 'toastContainer';
+        c.style.cssText = 'position:fixed;bottom:18px;right:18px;z-index:9999;display:flex;flex-direction:column;gap:10px;max-width:420px;';
+        document.body.appendChild(c);
+        return c;
+      })();
+
+      const toast = document.createElement('div');
+      const bg = type === 'error' ? '#B91C1C' : type === 'success' ? '#15803D' : type === 'warning' ? '#B45309' : '#0F172A';
+      toast.style.cssText = `background:${bg};color:#fff;padding:10px 12px;border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,0.25);font:14px/1.35 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;`;
+      toast.textContent = String(message || '');
+      existing.appendChild(toast);
+
+      const t = setTimeout(() => {
+        try { toast.remove(); } catch {}
+      }, durationMs);
+      toast.addEventListener('click', () => {
+        clearTimeout(t);
+        try { toast.remove(); } catch {}
+      });
+    }
 
     async function init() {
       const params = new URLSearchParams(window.location.search);
@@ -267,7 +292,7 @@
         const res = await fetch('/api/apps');
         const data = await res.json();
         app = data.apps.find(a => a.id === appId);
-        if (!app) { alert(`App "${appId}" not found`); window.location.href = '/'; return; }
+        if (!app) { showToast(`App "${appId}" not found`, 'error', 6000); window.location.href = '/'; return; }
         
         document.title = `${app.name} | ClawCondos`;
         document.getElementById('appIcon').textContent = app.icon || '📦';
@@ -277,7 +302,7 @@
         const rawFrameUrl = app.url || app.route || `/${app.id}/`;
         const frameUrl = sanitizeAppFrameUrl(rawFrameUrl, app.id);
         if (!frameUrl) {
-          alert('Blocked unsafe app URL in registry.');
+          showToast('Blocked unsafe app URL in registry.', 'error', 8000);
           window.location.href = '/';
           return;
         }
@@ -291,7 +316,7 @@
         setInterval(checkAppStatus, 30000);
       } catch (err) {
         console.error('Init error:', err);
-        alert('Failed to load app: ' + err.message);
+        showToast('Failed to load app: ' + err.message, 'error', 8000);
       }
     }
 
@@ -393,7 +418,7 @@
     
     async function copyErrorToClipboard() {
       if (!lastErrorDetails) {
-        alert('No error details to copy');
+        showToast('No error details to copy', 'info');
         return;
       }
       
@@ -439,7 +464,7 @@ Window URL: ${window.location.href}
         textarea.select();
         document.execCommand('copy');
         document.body.removeChild(textarea);
-        alert('Error details copied to clipboard!');
+        showToast('Error details copied to clipboard!', 'success');
       }
     }
     
@@ -578,8 +603,15 @@ Be concise. ${errorSection ? 'An error has occurred - help debug it.' : 'Start b
       const container = document.getElementById('messages');
       const msg = document.createElement('div');
       msg.className = `message ${role}`;
+
       if (role === 'assistant') {
-        msg.innerHTML = escapeHtml(content)
+        const shaper = window.messageShaping && window.messageShaping.shapeMessageText;
+        const shaped = shaper ? shaper(String(content || '')) : { text: String(content || ''), replyTo: null, suppressed: false };
+        if (shaped.suppressed) {
+          return null; // hide sentinel-only messages
+        }
+
+        msg.innerHTML = escapeHtml(shaped.text)
           .replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>')
           .replace(/`([^`]+)`/g, '<code>$1</code>')
           .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
@@ -587,6 +619,7 @@ Be concise. ${errorSection ? 'An error has occurred - help debug it.' : 'Start b
       } else {
         msg.textContent = content;
       }
+
       container.appendChild(msg);
       container.scrollTop = container.scrollHeight;
       if (role !== 'system' && !role.includes('thinking')) {
