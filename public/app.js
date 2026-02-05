@@ -4664,7 +4664,7 @@ Response format:
         console.warn('agent files load failed', id, e?.message || e);
       } finally {
         state.agentFileLoading = false;
-        if (state.currentView === 'agents') renderDetailPanel();
+        if (state.currentView === 'agents') renderAgentsPage();
       }
     }
 
@@ -4681,7 +4681,220 @@ Response format:
       } catch (e) {
         state.agentFileContent = `Failed to load file: ${e?.message || e}`;
       }
-      renderDetailPanel();
+      if (state.currentView === 'agents') renderAgentsPage();
+    }
+
+    function renderAgentOverviewTab(agent) {
+      const sum = state.agentSummaries?.[agent.id];
+      const skills = state.resolvedSkillsByAgent?.[agent.id];
+      const desc = (agent.description || agent.summary || '').trim();
+
+      let html = '';
+
+      // Mission
+      const mission = sum?.mission && sum.mission !== '(no mission found)' ? sum.mission : desc;
+      if (mission) {
+        html += '<div class="agent-detail-section">' +
+          '<div class="agent-detail-section-label">Mission</div>' +
+          '<div class="agent-detail-section-body" style="white-space: pre-wrap;">' + escapeHtml(mission) + '</div>' +
+          '</div>';
+      } else if (!sum) {
+        html += '<div class="agent-detail-section">' +
+          '<div class="agent-detail-section-label">Mission</div>' +
+          '<div class="agent-detail-section-body" style="color: var(--text-muted);">Loading…</div>' +
+          '</div>';
+      }
+
+      // Skills
+      const skillIds = Array.isArray(agent.skills) ? agent.skills : (Array.isArray(agent.skillIds) ? agent.skillIds : []);
+      if (skillIds.length) {
+        const resolved = skills || skillIds.map(id => ({ id, name: id, description: '' }));
+        html += '<div class="agent-detail-section">' +
+          '<div class="agent-detail-section-label">Skills (' + resolved.length + ')</div>' +
+          '<div class="agent-detail-section-body">' +
+          resolved.map(s =>
+            '<div class="agent-skill-item">' +
+              '<div class="agent-skill-name">' + escapeHtml(String(s.name || s.id)) + '</div>' +
+              (s.description ? '<div class="agent-skill-desc">' + escapeHtml(String(s.description)) + '</div>' : '') +
+            '</div>'
+          ).join('') +
+          '</div></div>';
+      }
+
+      // Heartbeat
+      const heartbeatHeadings = sum?.headings?.heartbeat;
+      if (heartbeatHeadings && heartbeatHeadings.length) {
+        html += '<div class="agent-detail-section">' +
+          '<div class="agent-detail-section-label">Heartbeat</div>' +
+          '<div class="agent-detail-section-body">' +
+          heartbeatHeadings.map(h => {
+            const indent = Math.max(0, (h.level || 1) - 1) * 16;
+            return '<div class="agent-heartbeat-item" style="padding-left: ' + indent + 'px;">' + escapeHtml(String(h.text)) + '</div>';
+          }).join('') +
+          '</div></div>';
+      } else if (!sum) {
+        html += '<div class="agent-detail-section">' +
+          '<div class="agent-detail-section-label">Heartbeat</div>' +
+          '<div class="agent-detail-section-body" style="color: var(--text-muted);">Loading…</div>' +
+          '</div>';
+      }
+
+      if (!html) {
+        html = '<div style="color: var(--text-muted); font-size: 13px;">No additional details available for this agent.</div>';
+      }
+
+      return html;
+    }
+
+    function formatFileSize(bytes) {
+      if (bytes < 1024) return bytes + ' B';
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+      return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    }
+
+    function renderAgentFilesTab(agent) {
+      const entries = state.agentFileEntries;
+      const selectedFile = state.selectedAgentFile;
+      const fileContent = state.agentFileContent;
+
+      if (!entries && state.agentFileLoading) {
+        return '<div style="color: var(--text-muted); font-size: 13px;">Loading files…</div>';
+      }
+
+      if (!entries || !entries.length) {
+        return '<div style="color: var(--text-muted); font-size: 13px;">No browsable files in this agent\'s workspace.</div>';
+      }
+
+      // If viewing a file
+      if (selectedFile) {
+        const content = fileContent != null ? fileContent : 'Loading…';
+        return '<div class="agent-file-viewer">' +
+          '<div class="agent-file-viewer-header">' +
+            '<span style="cursor: pointer; color: var(--accent-blue);" onclick="state.selectedAgentFile = null; state.agentFileContent = null; renderAgentsPage();">← Back</span>' +
+            '<span>' + escapeHtml(selectedFile) + '</span>' +
+          '</div>' +
+          '<div class="agent-file-viewer-content">' + escapeHtml(String(content)) + '</div>' +
+        '</div>';
+      }
+
+      // File list
+      const files = entries.filter(e => e.type === 'file');
+      const dirs = entries.filter(e => e.type === 'dir');
+
+      let html = '<div class="agent-file-list">';
+
+      for (const d of dirs) {
+        html += '<div class="agent-file-item dir">' +
+          '<span class="agent-file-icon">📁</span>' +
+          '<span class="agent-file-name">' + escapeHtml(d.path) + '/</span>' +
+        '</div>';
+      }
+
+      for (const f of files) {
+        const sizeStr = f.size != null ? formatFileSize(f.size) : '';
+        html += '<div class="agent-file-item" onclick="selectAgentFile(\'' + escapeHtml(f.path.replace(/'/g, "\\'")) + '\')">' +
+          '<span class="agent-file-icon">📄</span>' +
+          '<span class="agent-file-name">' + escapeHtml(f.path) + '</span>' +
+          (sizeStr ? '<span class="agent-file-size">' + escapeHtml(sizeStr) + '</span>' : '') +
+        '</div>';
+      }
+
+      html += '</div>';
+      return html;
+    }
+
+    function renderAgentTasksTab(agent) {
+      const jobsLoaded = state.cronJobsLoaded;
+      const allJobs = state.cronJobs || [];
+      const agentKey = String(agent.id);
+      const agentJobs = jobsLoaded ? allJobs.filter(j => String(j.agentId || '') === agentKey) : [];
+      const agentJobSearch = String((state.agentJobsSearchByAgent || {})[agentKey] || '');
+      const agentJobEnabledOnly = !!(state.agentJobsEnabledOnlyByAgent || {})[agentKey];
+
+      let filteredAgentJobs = agentJobs.slice();
+      const search = agentJobSearch.trim().toLowerCase();
+      if (agentJobEnabledOnly) {
+        filteredAgentJobs = filteredAgentJobs.filter(j => j.enabled !== false);
+      }
+      if (search) {
+        filteredAgentJobs = filteredAgentJobs.filter(j => {
+          const name = String(j.name || j.id || '');
+          const schedule = formatSchedule(j.schedule);
+          const agentId = String(j.agentId || 'main');
+          const model = String(getJobModel(j.payload));
+          const outcome = summarizeOutcome(j.payload);
+          const status = String(j.state?.lastStatus || '');
+          const haystack = (name + ' ' + (j.id || '') + ' ' + schedule + ' ' + agentId + ' ' + model + ' ' + outcome + ' ' + status).toLowerCase();
+          return haystack.includes(search);
+        });
+      }
+
+      const jobsHtml = !jobsLoaded
+        ? '<div class="grid-card">Loading recurring tasks…</div>'
+        : (filteredAgentJobs.length ? filteredAgentJobs.map(j => {
+            const name = j.name || j.id;
+            const schedule = formatSchedule(j.schedule);
+            const model = getJobModel(j.payload);
+            const outcome = summarizeOutcome(j.payload);
+            const last = j.state || {};
+            const lastAt = Number(last.lastRunAtMs || 0);
+            const lastStatus = last.lastStatus || '';
+            const line2 = (j.agentId || 'main') + ' · ' + model + ' · ' + (j.enabled === false ? 'disabled' : 'enabled');
+            const line3 = lastAt ? 'last ' + formatRelativeTime(lastAt) + (lastStatus ? ' (' + lastStatus + ')' : '') : '';
+            return '<div class="grid-card" onclick="openCronJobDetail(\'' + escapeHtml(String(j.id)) + '\')">' +
+              '<div class="grid-card-header">' +
+                '<div class="grid-card-icon">⏰</div>' +
+                '<div class="grid-card-actions">' +
+                  '<button class="icon-btn" title="Details" onclick="event.stopPropagation(); openCronJobDetail(\'' + escapeHtml(String(j.id)) + '\')">ℹ️</button>' +
+                '</div>' +
+              '</div>' +
+              '<div class="grid-card-title">' + escapeHtml(String(name)) + '</div>' +
+              '<div class="grid-card-desc">' + escapeHtml(schedule) + '</div>' +
+              '<div class="grid-card-desc">' + escapeHtml(line2) + '</div>' +
+              (line3 ? '<div class="grid-card-desc">' + escapeHtml(line3) + '</div>' : '') +
+              (outcome ? '<div class="grid-card-desc" style="color: var(--text-dim); margin-top:6px;">' + escapeHtml(outcome) + '</div>' : '') +
+            '</div>';
+          }).join('') : '<div class="grid-card">' + (agentJobs.length ? 'No recurring tasks match filters' : 'No recurring tasks for this agent') + '</div>');
+
+      return '<div class="recurring-filters" style="margin: 0 0 12px;">' +
+        '<input type="text" id="agentJobsSearch" class="form-input" placeholder="Search jobs…">' +
+        '<label class="recurring-toggle">' +
+          '<input type="checkbox" id="agentJobsEnabledOnly">' +
+          ' Enabled only' +
+        '</label>' +
+      '</div>' + jobsHtml;
+    }
+
+    function wireAgentTasksTabHandlers(agent) {
+      const agentKey = String(agent.id);
+      const agentJobSearch = String((state.agentJobsSearchByAgent || {})[agentKey] || '');
+      const agentJobEnabledOnly = !!(state.agentJobsEnabledOnlyByAgent || {})[agentKey];
+
+      const agentSearchInput = document.getElementById('agentJobsSearch');
+      const agentEnabledToggle = document.getElementById('agentJobsEnabledOnly');
+
+      if (agentSearchInput) {
+        if (agentSearchInput.value !== agentJobSearch) {
+          agentSearchInput.value = agentJobSearch;
+        }
+        agentSearchInput.oninput = () => {
+          state.agentJobsSearchByAgent = state.agentJobsSearchByAgent || {};
+          state.agentJobsSearchByAgent[agentKey] = agentSearchInput.value || '';
+          lsSet('agent_jobs_search', JSON.stringify(state.agentJobsSearchByAgent));
+          renderAgentsPage();
+        };
+      }
+      if (agentEnabledToggle) {
+        if (agentEnabledToggle.checked !== agentJobEnabledOnly) {
+          agentEnabledToggle.checked = agentJobEnabledOnly;
+        }
+        agentEnabledToggle.onchange = () => {
+          state.agentJobsEnabledOnlyByAgent = state.agentJobsEnabledOnlyByAgent || {};
+          state.agentJobsEnabledOnlyByAgent[agentKey] = agentEnabledToggle.checked;
+          lsSet('agent_jobs_enabled_only', JSON.stringify(state.agentJobsEnabledOnlyByAgent));
+          renderAgentsPage();
+        };
+      }
     }
 
     function renderAgentsPage() {
@@ -4741,105 +4954,37 @@ Response format:
         ].filter(Boolean).join(' ');
       }
 
-      const desc = (agent.description || agent.summary || '').trim();
+      // Tab bar - all content is escaped via escapeHtml() in the tab render functions
+      const activeTab = state.agentTab || 'overview';
+      const tabs = [
+        { id: 'overview', label: 'Overview' },
+        { id: 'files', label: 'Files' },
+        { id: 'tasks', label: 'Tasks' },
+      ];
 
-      const jobsLoaded = state.cronJobsLoaded;
-      const allJobs = state.cronJobs || [];
-      const agentKey = String(agent.id);
-      const agentJobs = jobsLoaded ? allJobs.filter(j => String(j.agentId || '') === agentKey) : [];
-      const agentJobSearch = String((state.agentJobsSearchByAgent || {})[agentKey] || '');
-      const agentJobEnabledOnly = !!(state.agentJobsEnabledOnlyByAgent || {})[agentKey];
+      const tabBarHtml = '<div class="agents-tab-bar">' + tabs.map(t =>
+        '<div class="agents-tab ' + (activeTab === t.id ? 'active' : '') + '" onclick="selectAgentTab(\'' + t.id + '\')">' + t.label + '</div>'
+      ).join('') + '</div>';
 
-      let filteredAgentJobs = agentJobs.slice();
-      const agentSearch = agentJobSearch.trim().toLowerCase();
-      if (agentJobEnabledOnly) {
-        filteredAgentJobs = filteredAgentJobs.filter(j => j.enabled !== false);
-      }
-      if (agentSearch) {
-        filteredAgentJobs = filteredAgentJobs.filter(j => {
-          const name = String(j.name || j.id || '');
-          const schedule = formatSchedule(j.schedule);
-          const agentId = String(j.agentId || 'main');
-          const model = String(getJobModel(j.payload));
-          const outcome = summarizeOutcome(j.payload);
-          const status = String(j.state?.lastStatus || '');
-          const haystack = `${name} ${j.id || ''} ${schedule} ${agentId} ${model} ${outcome} ${status}`.toLowerCase();
-          return haystack.includes(agentSearch);
-        });
+      // Tab content - rendered by dedicated functions that escape all user content
+      let tabContentHtml = '';
+
+      if (activeTab === 'overview') {
+        tabContentHtml = renderAgentOverviewTab(agent);
+      } else if (activeTab === 'files') {
+        tabContentHtml = renderAgentFilesTab(agent);
+      } else if (activeTab === 'tasks') {
+        tabContentHtml = renderAgentTasksTab(agent);
       }
 
-      const jobsHtml = !jobsLoaded
-        ? `<div class="grid-card">Loading recurring tasks…</div>`
-        : (filteredAgentJobs.length ? filteredAgentJobs.map(j => {
-            const name = j.name || j.id;
-            const schedule = formatSchedule(j.schedule);
-            const model = getJobModel(j.payload);
-            const outcome = summarizeOutcome(j.payload);
-            const last = j.state || {};
-            const lastAt = Number(last.lastRunAtMs || 0);
-            const lastStatus = last.lastStatus || '';
-            const line2 = `${j.agentId || 'main'} · ${model} · ${j.enabled === false ? 'disabled' : 'enabled'}`;
-            const line3 = lastAt ? `last ${formatRelativeTime(lastAt)}${lastStatus ? ` (${lastStatus})` : ''}` : '';
-            return `
-              <div class="grid-card" onclick="openCronJobDetail('${escapeHtml(String(j.id))}')">
-                <div class="grid-card-header">
-                  <div class="grid-card-icon">⏰</div>
-                  <div class="grid-card-actions">
-                    <button class="icon-btn" title="Details" onclick="event.stopPropagation(); openCronJobDetail('${escapeHtml(String(j.id))}')">ℹ️</button>
-                  </div>
-                </div>
-                <div class="grid-card-title">${escapeHtml(String(name))}</div>
-                <div class="grid-card-desc">${escapeHtml(schedule)}</div>
-                <div class="grid-card-desc">${escapeHtml(line2)}</div>
-                ${line3 ? `<div class="grid-card-desc">${escapeHtml(line3)}</div>` : ''}
-                ${outcome ? `<div class="grid-card-desc" style="color: var(--text-dim); margin-top:6px;">${escapeHtml(outcome)}</div>` : ''}
-              </div>
-            `;
-          }).join('') : `<div class="grid-card">${agentJobs.length ? 'No recurring tasks match filters' : 'No recurring tasks for this agent'}</div>`);
+      body.innerHTML = tabBarHtml + '<div style="padding: 16px 18px;">' + tabContentHtml + '</div>';
 
-      body.innerHTML = `
-        ${desc ? `<div class="detail-section"><div class="detail-label">Description</div><div class="detail-value" style="white-space: pre-wrap; color: var(--text-dim);">${escapeHtml(desc)}</div></div>` : ''}
-        <div class="detail-section">
-          <div class="detail-label">Recurring Tasks</div>
-          <div class="detail-value">
-            <div class="recurring-filters" style="margin: 6px 0 12px;">
-              <input type="text" id="agentJobsSearch" class="form-input" placeholder="Search jobs…">
-              <label class="recurring-toggle">
-                <input type="checkbox" id="agentJobsEnabledOnly">
-                Enabled only
-              </label>
-            </div>
-            ${jobsHtml}
-          </div>
-        </div>
-      `;
-
-      const agentSearchInput = document.getElementById('agentJobsSearch');
-      const agentEnabledToggle = document.getElementById('agentJobsEnabledOnly');
-      if (agentSearchInput) {
-        if (agentSearchInput.value !== agentJobSearch) {
-          agentSearchInput.value = agentJobSearch;
-        }
-        agentSearchInput.oninput = () => {
-          state.agentJobsSearchByAgent = state.agentJobsSearchByAgent || {};
-          state.agentJobsSearchByAgent[agentKey] = agentSearchInput.value || '';
-          lsSet('agent_jobs_search', JSON.stringify(state.agentJobsSearchByAgent));
-          renderAgentsPage();
-        };
-      }
-      if (agentEnabledToggle) {
-        if (agentEnabledToggle.checked !== agentJobEnabledOnly) {
-          agentEnabledToggle.checked = agentJobEnabledOnly;
-        }
-        agentEnabledToggle.onchange = () => {
-          state.agentJobsEnabledOnlyByAgent = state.agentJobsEnabledOnlyByAgent || {};
-          state.agentJobsEnabledOnlyByAgent[agentKey] = agentEnabledToggle.checked;
-          lsSet('agent_jobs_enabled_only', JSON.stringify(state.agentJobsEnabledOnlyByAgent));
-          renderAgentsPage();
-        };
+      // Wire up Tasks tab event handlers
+      if (activeTab === 'tasks') {
+        wireAgentTasksTabHandlers(agent);
       }
 
-      // Optional async extras (keep, but don't block usefulness)
+      // Kick off async data loads
       const sum = state.agentSummaries?.[agent.id];
       if (!sum) loadAgentSummary(agent.id);
       const skillIds = Array.isArray(agent.skills) ? agent.skills : (Array.isArray(agent.skillIds) ? agent.skillIds : []);
@@ -4856,8 +5001,14 @@ Response format:
       state.agentFileEntries = null;
       state.selectedAgentFile = null;
       state.agentFileContent = null;
+      state.agentTab = 'overview';
       renderAgentsPage();
       renderDetailPanel();
+    }
+
+    function selectAgentTab(tab) {
+      state.agentTab = tab;
+      renderAgentsPage();
     }
 
     async function loadApps() {
