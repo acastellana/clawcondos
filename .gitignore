@@ -31,6 +31,7 @@ package-lock.json
 # Build artifacts
 dist/
 .next/
+coverage/
 
 # Runtime uploads / transcripts
 media/voice/
