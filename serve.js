@@ -470,31 +470,28 @@ const server = createServer(async (req, res) => {
   }
 
   // Proxy to OpenClaw gateway for /api/gateway/* requests
-  // SECURITY: Never hardcode keys. Requires env vars:
+  // Env vars:
   // - GATEWAY_HTTP_HOST (default: localhost)
   // - GATEWAY_HTTP_PORT (default: 18789)
-  // - GATEWAY_AUTH (required)
+  // - GATEWAY_AUTH (optional — injected as Bearer token when set)
   if (pathname.startsWith('/api/gateway/')) {
     const gatewayPath = pathname.replace('/api/gateway', '');
     const GATEWAY_HTTP_HOST = process.env.GATEWAY_HTTP_HOST || 'localhost';
     const GATEWAY_HTTP_PORT = Number(process.env.GATEWAY_HTTP_PORT || 18789);
     const GATEWAY_AUTH = process.env.GATEWAY_AUTH;
 
-    if (!GATEWAY_AUTH) {
-      json(res, 503, { error: { message: 'Gateway proxy disabled: missing GATEWAY_AUTH env', type: 'proxy_config' } });
-      return;
-    }
+    const proxyHeaders = {
+      ...req.headers,
+      host: `${GATEWAY_HTTP_HOST}:${GATEWAY_HTTP_PORT}`,
+    };
+    if (GATEWAY_AUTH) proxyHeaders['Authorization'] = `Bearer ${GATEWAY_AUTH}`;
 
     const options = {
       hostname: GATEWAY_HTTP_HOST,
       port: GATEWAY_HTTP_PORT,
       path: gatewayPath + url.search,
       method: req.method,
-      headers: {
-        ...req.headers,
-        host: `${GATEWAY_HTTP_HOST}:${GATEWAY_HTTP_PORT}`,
-        'Authorization': `Bearer ${GATEWAY_AUTH}`,
-      },
+      headers: proxyHeaders,
     };
 
     const proxyReq = httpRequest(options, (proxyRes) => {
