@@ -324,4 +324,181 @@ describe('GoalHandlers', () => {
       expect(Object.keys(getResult().payload.sessionCondoIndex)).toHaveLength(2);
     });
   });
+
+  describe('goals.addTask', () => {
+    it('adds a task with extended schema', () => {
+      const r1 = makeResponder();
+      handlers['goals.create']({ params: { title: 'G' }, respond: r1.respond });
+      const goalId = r1.getResult().payload.goal.id;
+
+      const r2 = makeResponder();
+      handlers['goals.addTask']({
+        params: {
+          goalId,
+          text: 'Build the API',
+          description: 'REST endpoints for user management',
+          priority: 'P1',
+        },
+        respond: r2.respond,
+      });
+      const task = r2.getResult().payload.task;
+      expect(task.id).toMatch(/^task_/);
+      expect(task.text).toBe('Build the API');
+      expect(task.status).toBe('pending');
+      expect(task.sessionKey).toBeNull();
+      expect(task.done).toBe(false);
+    });
+
+    it('rejects missing goalId or text', () => {
+      const { respond, getResult } = makeResponder();
+      handlers['goals.addTask']({ params: { goalId: 'x' }, respond });
+      expect(getResult().ok).toBe(false);
+    });
+
+    it('rejects unknown goal', () => {
+      const { respond, getResult } = makeResponder();
+      handlers['goals.addTask']({ params: { goalId: 'goal_nope', text: 'X' }, respond });
+      expect(getResult().ok).toBe(false);
+    });
+
+    it('trims task text', () => {
+      const r1 = makeResponder();
+      handlers['goals.create']({ params: { title: 'G' }, respond: r1.respond });
+      const goalId = r1.getResult().payload.goal.id;
+
+      const r2 = makeResponder();
+      handlers['goals.addTask']({
+        params: { goalId, text: '  Trimmed  ' },
+        respond: r2.respond,
+      });
+      expect(r2.getResult().payload.task.text).toBe('Trimmed');
+    });
+  });
+
+  describe('goals.updateTask', () => {
+    it('updates task fields', () => {
+      const r1 = makeResponder();
+      handlers['goals.create']({ params: { title: 'G' }, respond: r1.respond });
+      const goalId = r1.getResult().payload.goal.id;
+
+      const r2 = makeResponder();
+      handlers['goals.addTask']({
+        params: { goalId, text: 'Do thing' },
+        respond: r2.respond,
+      });
+      const taskId = r2.getResult().payload.task.id;
+
+      const r3 = makeResponder();
+      handlers['goals.updateTask']({
+        params: { goalId, taskId, status: 'in-progress', sessionKey: 'agent:main:main' },
+        respond: r3.respond,
+      });
+      const updated = r3.getResult().payload.task;
+      expect(updated.status).toBe('in-progress');
+      expect(updated.sessionKey).toBe('agent:main:main');
+    });
+
+    it('syncs done flag with status', () => {
+      const r1 = makeResponder();
+      handlers['goals.create']({ params: { title: 'G' }, respond: r1.respond });
+      const goalId = r1.getResult().payload.goal.id;
+
+      const r2 = makeResponder();
+      handlers['goals.addTask']({
+        params: { goalId, text: 'Task' },
+        respond: r2.respond,
+      });
+      const taskId = r2.getResult().payload.task.id;
+
+      const r3 = makeResponder();
+      handlers['goals.updateTask']({
+        params: { goalId, taskId, status: 'done' },
+        respond: r3.respond,
+      });
+      expect(r3.getResult().payload.task.done).toBe(true);
+    });
+
+    it('syncs status from done flag', () => {
+      const r1 = makeResponder();
+      handlers['goals.create']({ params: { title: 'G' }, respond: r1.respond });
+      const goalId = r1.getResult().payload.goal.id;
+
+      const r2 = makeResponder();
+      handlers['goals.addTask']({
+        params: { goalId, text: 'Task' },
+        respond: r2.respond,
+      });
+      const taskId = r2.getResult().payload.task.id;
+
+      const r3 = makeResponder();
+      handlers['goals.updateTask']({
+        params: { goalId, taskId, done: true },
+        respond: r3.respond,
+      });
+      expect(r3.getResult().payload.task.status).toBe('done');
+    });
+
+    it('ignores internal fields in patch', () => {
+      const r1 = makeResponder();
+      handlers['goals.create']({ params: { title: 'G' }, respond: r1.respond });
+      const goalId = r1.getResult().payload.goal.id;
+
+      const r2 = makeResponder();
+      handlers['goals.addTask']({
+        params: { goalId, text: 'Task' },
+        respond: r2.respond,
+      });
+      const task = r2.getResult().payload.task;
+
+      const r3 = makeResponder();
+      handlers['goals.updateTask']({
+        params: { goalId, taskId: task.id, createdAtMs: 0, id: 'hacked', text: 'Safe' },
+        respond: r3.respond,
+      });
+      const updated = r3.getResult().payload.task;
+      expect(updated.text).toBe('Safe');
+      expect(updated.createdAtMs).toBe(task.createdAtMs);
+      expect(updated.id).toBe(task.id);
+    });
+  });
+
+  describe('goals.deleteTask', () => {
+    it('deletes a task from a goal', () => {
+      const r1 = makeResponder();
+      handlers['goals.create']({ params: { title: 'G' }, respond: r1.respond });
+      const goalId = r1.getResult().payload.goal.id;
+
+      const r2 = makeResponder();
+      handlers['goals.addTask']({
+        params: { goalId, text: 'Doomed' },
+        respond: r2.respond,
+      });
+      const taskId = r2.getResult().payload.task.id;
+
+      const r3 = makeResponder();
+      handlers['goals.deleteTask']({
+        params: { goalId, taskId },
+        respond: r3.respond,
+      });
+      expect(r3.getResult().ok).toBe(true);
+
+      // Verify task is gone
+      const r4 = makeResponder();
+      handlers['goals.get']({ params: { id: goalId }, respond: r4.respond });
+      expect(r4.getResult().payload.goal.tasks).toHaveLength(0);
+    });
+
+    it('returns error for unknown task', () => {
+      const r1 = makeResponder();
+      handlers['goals.create']({ params: { title: 'G' }, respond: r1.respond });
+      const goalId = r1.getResult().payload.goal.id;
+
+      const { respond, getResult } = makeResponder();
+      handlers['goals.deleteTask']({
+        params: { goalId, taskId: 'task_nope' },
+        respond,
+      });
+      expect(getResult().ok).toBe(false);
+    });
+  });
 });

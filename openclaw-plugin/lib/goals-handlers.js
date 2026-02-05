@@ -207,5 +207,105 @@ export function createGoalHandlers(store) {
         respond(false, undefined, { message: String(err) });
       }
     },
+
+    'goals.addTask': ({ params, respond }) => {
+      try {
+        const { goalId, text, description, priority, dependsOn } = params;
+        if (!goalId || !text) {
+          respond(false, undefined, { message: 'goalId and text are required' });
+          return;
+        }
+        const data = loadData();
+        const goal = data.goals.find(g => g.id === goalId);
+        if (!goal) {
+          respond(false, undefined, { message: 'Goal not found' });
+          return;
+        }
+        const now = Date.now();
+        const task = {
+          id: store.newId('task'),
+          text: text.trim(),
+          description: description || '',
+          status: 'pending',
+          done: false,
+          priority: priority || null,
+          sessionKey: null,
+          dependsOn: Array.isArray(dependsOn) ? dependsOn : [],
+          summary: '',
+          createdAtMs: now,
+          updatedAtMs: now,
+        };
+        goal.tasks.push(task);
+        goal.updatedAtMs = now;
+        saveData(data);
+        respond(true, { task });
+      } catch (err) {
+        respond(false, undefined, { message: String(err) });
+      }
+    },
+
+    'goals.updateTask': ({ params, respond }) => {
+      try {
+        const { goalId, taskId } = params;
+        if (!goalId || !taskId) {
+          respond(false, undefined, { message: 'goalId and taskId are required' });
+          return;
+        }
+        const data = loadData();
+        const goal = data.goals.find(g => g.id === goalId);
+        if (!goal) {
+          respond(false, undefined, { message: 'Goal not found' });
+          return;
+        }
+        const task = (goal.tasks || []).find(t => t.id === taskId);
+        if (!task) {
+          respond(false, undefined, { message: 'Task not found' });
+          return;
+        }
+        // Whitelist allowed patch fields
+        const allowed = ['text', 'description', 'status', 'done', 'priority', 'sessionKey', 'dependsOn', 'summary'];
+        for (const f of allowed) {
+          if (f in params) task[f] = params[f];
+        }
+        if (typeof task.text === 'string') task.text = task.text.trim();
+        task.updatedAtMs = Date.now();
+
+        // Sync done/status
+        if ('status' in params) {
+          task.done = task.status === 'done';
+        } else if ('done' in params) {
+          task.status = task.done ? 'done' : 'pending';
+        }
+
+        goal.updatedAtMs = Date.now();
+        saveData(data);
+        respond(true, { task });
+      } catch (err) {
+        respond(false, undefined, { message: String(err) });
+      }
+    },
+
+    'goals.deleteTask': ({ params, respond }) => {
+      try {
+        const { goalId, taskId } = params;
+        const data = loadData();
+        const goal = data.goals.find(g => g.id === goalId);
+        if (!goal) {
+          respond(false, undefined, { message: 'Goal not found' });
+          return;
+        }
+        const idx = (goal.tasks || []).findIndex(t => t.id === taskId);
+        if (idx === -1) {
+          respond(false, undefined, { message: 'Task not found' });
+          return;
+        }
+        goal.tasks.splice(idx, 1);
+        goal.updatedAtMs = Date.now();
+        saveData(data);
+        respond(true, { ok: true });
+      } catch (err) {
+        respond(false, undefined, { message: String(err) });
+      }
+    },
   };
 }
