@@ -48,6 +48,57 @@ describe('goal_update tool', () => {
     expect(task.done).toBe(true);
   });
 
+  it('syncs task.status to in-progress', async () => {
+    await execute('call1', {
+      sessionKey: 'agent:main:main',
+      taskId: 'task_1',
+      status: 'in-progress',
+    });
+
+    const data = store.load();
+    const task = data.goals[0].tasks.find(t => t.id === 'task_1');
+    expect(task.done).toBe(false);
+    expect(task.status).toBe('in-progress');
+  });
+
+  it('syncs task.status to blocked', async () => {
+    await execute('call1', {
+      sessionKey: 'agent:main:main',
+      taskId: 'task_2',
+      status: 'blocked',
+      summary: 'Waiting on API keys',
+    });
+
+    const data = store.load();
+    const task = data.goals[0].tasks.find(t => t.id === 'task_2');
+    expect(task.done).toBe(false);
+    expect(task.status).toBe('blocked');
+    expect(task.summary).toBe('Waiting on API keys');
+  });
+
+  it('syncs task.status to done', async () => {
+    await execute('call1', {
+      sessionKey: 'agent:main:main',
+      taskId: 'task_1',
+      status: 'done',
+      summary: 'Built all endpoints',
+    });
+
+    const data = store.load();
+    const task = data.goals[0].tasks.find(t => t.id === 'task_1');
+    expect(task.done).toBe(true);
+    expect(task.status).toBe('done');
+  });
+
+  it('returns error for unknown task', async () => {
+    const result = await execute('call1', {
+      sessionKey: 'agent:main:main',
+      taskId: 'task_nonexistent',
+      status: 'done',
+    });
+    expect(result.content[0].text).toContain('not found');
+  });
+
   it('returns error for unknown session', async () => {
     const result = await execute('call2', {
       sessionKey: 'agent:unknown:main',

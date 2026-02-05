@@ -19,6 +19,7 @@ export function createGoalUpdateExecutor(store) {
         return { content: [{ type: 'text', text: `Error: task ${taskId} not found in goal.` }] };
       }
       task.done = status === 'done';
+      task.status = status;
       if (summary) task.summary = summary;
     }
 

@@ -32,7 +32,7 @@ export function createGoalHandlers(store) {
           condoId: condoId || null,
           priority: priority || null,
           deadline: deadline || null,
-          tasks: Array.isArray(tasks) ? tasks : [],
+          tasks: [],
           sessions: [],
           createdAtMs: now,
           updatedAtMs: now,
@@ -68,6 +68,12 @@ export function createGoalHandlers(store) {
           return;
         }
         const goal = data.goals[idx];
+
+        // Validate title if provided
+        if ('title' in params && (typeof params.title !== 'string' || !params.title.trim())) {
+          respond(false, undefined, { message: 'title must be a non-empty string' });
+          return;
+        }
 
         // Whitelist allowed patch fields (prevent overwriting internal fields)
         const allowed = ['title', 'description', 'status', 'completed', 'condoId', 'priority', 'deadline', 'notes', 'tasks'];
@@ -148,6 +154,10 @@ export function createGoalHandlers(store) {
     'goals.removeSession': ({ params, respond }) => {
       try {
         const { id, sessionKey } = params;
+        if (!sessionKey) {
+          respond(false, undefined, { message: 'sessionKey is required' });
+          return;
+        }
         const data = loadData();
         const goal = data.goals.find(g => g.id === id);
         if (!goal) {

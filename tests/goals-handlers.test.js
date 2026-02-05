@@ -45,6 +45,16 @@ describe('GoalHandlers', () => {
       expect(getResult().ok).toBe(false);
     });
 
+    it('ignores tasks param (must use addTask)', () => {
+      const { respond, getResult } = makeResponder();
+      handlers['goals.create']({
+        params: { title: 'G', tasks: [{ id: 'injected', text: 'Hacked' }] },
+        respond,
+      });
+      expect(getResult().ok).toBe(true);
+      expect(getResult().payload.goal.tasks).toEqual([]);
+    });
+
     it('accepts optional fields', () => {
       const { respond, getResult } = makeResponder();
       handlers['goals.create']({
@@ -119,6 +129,28 @@ describe('GoalHandlers', () => {
       const r2 = makeResponder();
       handlers['goals.update']({ params: { id, title: '  Trimmed  ' }, respond: r2.respond });
       expect(r2.getResult().payload.goal.title).toBe('Trimmed');
+    });
+
+    it('rejects empty title', () => {
+      const r1 = makeResponder();
+      handlers['goals.create']({ params: { title: 'G' }, respond: r1.respond });
+      const id = r1.getResult().payload.goal.id;
+
+      const r2 = makeResponder();
+      handlers['goals.update']({ params: { id, title: '' }, respond: r2.respond });
+      expect(r2.getResult().ok).toBe(false);
+      expect(r2.getResult().error.message).toBe('title must be a non-empty string');
+    });
+
+    it('rejects non-string title', () => {
+      const r1 = makeResponder();
+      handlers['goals.create']({ params: { title: 'G' }, respond: r1.respond });
+      const id = r1.getResult().payload.goal.id;
+
+      const r2 = makeResponder();
+      handlers['goals.update']({ params: { id, title: 123 }, respond: r2.respond });
+      expect(r2.getResult().ok).toBe(false);
+      expect(r2.getResult().error.message).toBe('title must be a non-empty string');
     });
 
     it('ignores internal fields in patch', () => {
@@ -246,6 +278,17 @@ describe('GoalHandlers', () => {
   });
 
   describe('goals.removeSession', () => {
+    it('rejects missing sessionKey', () => {
+      const r1 = makeResponder();
+      handlers['goals.create']({ params: { title: 'G' }, respond: r1.respond });
+      const id = r1.getResult().payload.goal.id;
+
+      const { respond, getResult } = makeResponder();
+      handlers['goals.removeSession']({ params: { id }, respond });
+      expect(getResult().ok).toBe(false);
+      expect(getResult().error.message).toBe('sessionKey is required');
+    });
+
     it('removes a session from a goal and cleans up index', () => {
       const r1 = makeResponder();
       handlers['goals.create']({ params: { title: 'G' }, respond: r1.respond });
