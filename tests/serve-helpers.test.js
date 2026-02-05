@@ -1,0 +1,149 @@
+/**
+ * Tests for serve.js helper functions
+ *
+ * Run with: npx vitest run tests/serve-helpers.test.js
+ */
+
+import { describe, it, expect } from 'vitest';
+import { rewriteConnectFrame, validateStaticPath, isDotfilePath } from '../lib/serve-helpers.js';
+
+describe('rewriteConnectFrame', () => {
+  it('should inject auth into connect frame when missing', () => {
+    const frame = {
+      type: 'req',
+      id: 'r1',
+      method: 'connect',
+      params: { minProtocol: 3, maxProtocol: 3 }
+    };
+    const result = JSON.parse(rewriteConnectFrame(JSON.stringify(frame), 'secret-token'));
+    expect(result.params.auth).toEqual({ password: 'secret-token' });
+  });
+
+  it('should set client.id to webchat-ui', () => {
+    const frame = {
+      type: 'req',
+      id: 'r1',
+      method: 'connect',
+      params: { client: { displayName: 'MyUI' } }
+    };
+    const result = JSON.parse(rewriteConnectFrame(JSON.stringify(frame), null));
+    expect(result.params.client.id).toBe('webchat-ui');
+    expect(result.params.client.mode).toBe('webchat');
+    expect(result.params.client.displayName).toBe('MyUI');
+  });
+
+  it('should set default displayName to ClawCondos when not provided', () => {
+    const frame = {
+      type: 'req',
+      id: 'r1',
+      method: 'connect',
+      params: {}
+    };
+    const result = JSON.parse(rewriteConnectFrame(JSON.stringify(frame), null));
+    expect(result.params.client.displayName).toBe('ClawCondos');
+  });
+
+  it('should not clobber existing auth.password', () => {
+    const frame = {
+      type: 'req',
+      id: 'r1',
+      method: 'connect',
+      params: { auth: { password: 'existing' } }
+    };
+    const result = JSON.parse(rewriteConnectFrame(JSON.stringify(frame), 'new-token'));
+    expect(result.params.auth.password).toBe('existing');
+  });
+
+  it('should inject password when auth exists but password is missing', () => {
+    const frame = {
+      type: 'req',
+      id: 'r1',
+      method: 'connect',
+      params: { auth: { token: 'some-token' } }
+    };
+    const result = JSON.parse(rewriteConnectFrame(JSON.stringify(frame), 'gateway-pw'));
+    expect(result.params.auth.password).toBe('gateway-pw');
+    expect(result.params.auth.token).toBe('some-token');
+  });
+
+  it('should not inject auth when gatewayAuth is null', () => {
+    const frame = {
+      type: 'req',
+      id: 'r1',
+      method: 'connect',
+      params: {}
+    };
+    const result = JSON.parse(rewriteConnectFrame(JSON.stringify(frame), null));
+    expect(result.params.auth).toBeUndefined();
+  });
+
+  it('should pass through non-connect frames unchanged', () => {
+    const frame = {
+      type: 'req',
+      id: 'r2',
+      method: 'chat.send',
+      params: { message: 'hello' }
+    };
+    const raw = JSON.stringify(frame);
+    expect(rewriteConnectFrame(raw, 'token')).toBe(raw);
+  });
+
+  it('should pass through invalid JSON unchanged', () => {
+    const raw = 'not json{{{';
+    expect(rewriteConnectFrame(raw, 'token')).toBe(raw);
+  });
+
+  it('should pass through event frames unchanged', () => {
+    const frame = { type: 'event', event: 'chat', payload: {} };
+    const raw = JSON.stringify(frame);
+    expect(rewriteConnectFrame(raw, 'token')).toBe(raw);
+  });
+});
+
+describe('validateStaticPath', () => {
+  it('should return null for safe paths', () => {
+    expect(validateStaticPath('styles/main.css')).toBeNull();
+    expect(validateStaticPath('js/app.js')).toBeNull();
+    expect(validateStaticPath('index.html')).toBeNull();
+  });
+
+  it('should reject empty paths', () => {
+    expect(validateStaticPath('')).toBe('empty');
+  });
+
+  it('should reject path traversal', () => {
+    expect(validateStaticPath('../etc/passwd')).toBe('traversal');
+    expect(validateStaticPath('foo/../../bar')).toBe('traversal');
+    expect(validateStaticPath('..')).toBe('traversal');
+  });
+
+  it('should reject null bytes', () => {
+    expect(validateStaticPath('foo\0bar')).toBe('null-byte');
+    expect(validateStaticPath('\0')).toBe('null-byte');
+  });
+});
+
+describe('isDotfilePath', () => {
+  it('should block dotfiles', () => {
+    expect(isDotfilePath('.env')).toBe(true);
+    expect(isDotfilePath('.gitignore')).toBe(true);
+    expect(isDotfilePath('.registry/goals.json')).toBe(true);
+  });
+
+  it('should block hidden directories', () => {
+    expect(isDotfilePath('.git/config')).toBe(true);
+    expect(isDotfilePath('foo/.hidden/bar')).toBe(true);
+  });
+
+  it('should allow normal paths', () => {
+    expect(isDotfilePath('styles/main.css')).toBe(false);
+    expect(isDotfilePath('js/app.js')).toBe(false);
+    expect(isDotfilePath('index.html')).toBe(false);
+    expect(isDotfilePath('lib/config.js')).toBe(false);
+  });
+
+  it('should allow files with dots in name (not at start)', () => {
+    expect(isDotfilePath('app.min.js')).toBe(false);
+    expect(isDotfilePath('styles/main.v2.css')).toBe(false);
+  });
+});

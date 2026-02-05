@@ -6,7 +6,7 @@
 # Requirements:
 # - Caddy 2.x (https://caddyserver.com)
 # - Clawdbot Gateway running on localhost:18789 (or your configured port)
-# - ClawCondos files in /path/to/sharp
+# - ClawCondos files in /path/to/clawcondos
 #
 # Usage:
 #   cp Caddyfile.example Caddyfile
@@ -60,13 +60,13 @@
     }
     
     # ═══════════════════════════════════════════════════════════════
-    # SHARP STATIC FILES
+    # CLAWCONDOS STATIC FILES
     # Serve the ClawCondos dashboard and supporting files
     # ═══════════════════════════════════════════════════════════════
     
     # App page (assistant chat interface)
     handle /app {
-        root * /path/to/sharp
+        root * /path/to/clawcondos
         header Cache-Control "no-cache, no-store, must-revalidate"
         rewrite * /app.html
         file_server
@@ -74,7 +74,7 @@
     
     # Dashboard root
     handle / {
-        root * /path/to/sharp
+        root * /path/to/clawcondos
         header Cache-Control "no-cache, no-store, must-revalidate"
         file_server
         try_files {path} /index.html
@@ -82,7 +82,7 @@
     
     # Library files (JS modules)
     handle /lib/* {
-        root * /path/to/sharp
+        root * /path/to/clawcondos
         file_server
     }
     
@@ -92,7 +92,7 @@
     # ═══════════════════════════════════════════════════════════════
     
     handle /api/apps {
-        root * /path/to/sharp/.registry
+        root * /path/to/clawcondos/.registry
         rewrite * /apps.json
         file_server
     }
@@ -116,13 +116,13 @@
     # ═══════════════════════════════════════════════════════════════
     
     handle {
-        root * /path/to/sharp
+        root * /path/to/clawcondos
         file_server
     }
     
     # Logging (optional - adjust path as needed)
     log {
-        output file /tmp/sharp-caddy.log
+        output file /tmp/clawcondos-caddy.log
         format console
     }
 }

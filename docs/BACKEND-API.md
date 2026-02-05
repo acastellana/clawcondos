@@ -84,7 +84,7 @@ Authenticate and establish session. Called in response to `connect.challenge` ev
       "token": "your-gateway-token"
     },
     "client": {
-      "id": "sharp-dashboard",
+      "id": "webchat-ui",
       "displayName": "ClawCondos Dashboard",
       "version": "2.0.0",
       "platform": "browser",
@@ -95,6 +95,8 @@ Authenticate and establish session. Called in response to `connect.challenge` ev
 ```
 
 > Avoid using `client.id="openclaw-control-ui"` unless you are implementing the full Control UI device identity flow.
+>
+> **Note:** When connecting via `serve.js`, the proxy rewrites the `connect` frame to set `client.id="webchat-ui"` and inject auth from the `GATEWAY_AUTH` env var. The example above shows the raw frame before rewriting.
 
 
 **Auth Options:**

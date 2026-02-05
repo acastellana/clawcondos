@@ -8,11 +8,12 @@
 
 import { createServer, request as httpRequest } from 'http';
 import WebSocket, { WebSocketServer } from 'ws';
-import { readFileSync, writeFileSync, existsSync, statSync, mkdirSync, readdirSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync, statSync, mkdirSync, readdirSync, renameSync } from 'fs';
 import { join, extname, resolve as resolvePath } from 'path';
 import { fileURLToPath } from 'url';
 import { spawn } from 'child_process';
 import crypto from 'crypto';
+import { rewriteConnectFrame, validateStaticPath, isDotfilePath } from './lib/serve-helpers.js';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const PORT = parseInt(process.argv[2]) || 9000;
@@ -41,15 +42,19 @@ const MIME_TYPES = {
 // Load apps registry
 function loadApps() {
   const appsFile = join(__dirname, '.registry', 'apps.json');
-  if (existsSync(appsFile)) {
-    return JSON.parse(readFileSync(appsFile, 'utf-8')).apps || [];
+  try {
+    if (existsSync(appsFile)) {
+      return JSON.parse(readFileSync(appsFile, 'utf-8')).apps || [];
+    }
+  } catch (err) {
+    console.error('loadApps: failed to parse apps.json:', err.message);
   }
   return [];
 }
 
 // Goals storage (file-backed, simple JSON)
-// Schema (v1): { version: 1, goals: Goal[], sessionIndex: Record<sessionKey, { goalId, threadId? }> }
-// Goal: { id, title, status, priority?, deadline?, createdAtMs, updatedAtMs, notes?, tasks?, sessions?: string[] }
+// Schema (v2): { version: 2, goals: Goal[], sessionIndex: Record<sessionKey, { goalId }>, sessionCondoIndex: Record<sessionKey, condoId> }
+// Goal: { id, title, description, completed, status, condoId?, priority?, deadline?, createdAtMs, updatedAtMs, notes?, tasks?, sessions?: string[] }
 function goalsFilePath() {
   return join(__dirname, '.registry', 'goals.json');
 }
@@ -81,18 +86,25 @@ function loadGoalsStore() {
       sessionIndex: parsed.sessionIndex && typeof parsed.sessionIndex === 'object' ? parsed.sessionIndex : {},
       sessionCondoIndex: parsed.sessionCondoIndex && typeof parsed.sessionCondoIndex === 'object' ? parsed.sessionCondoIndex : {},
     };
-  } catch {
-    return { version: 2, goals: [], sessionIndex: {}, sessionCondoIndex: {} };
+  } catch (err) {
+    console.error('loadGoalsStore: failed to parse goals file, returning empty store:', err.message);
+    return { version: 2, goals: [], sessionIndex: {}, sessionCondoIndex: {}, _loadError: true };
   }
 }
 
 function saveGoalsStore(store) {
+  if (store._loadError) {
+    console.error('saveGoalsStore: refusing to save — store was loaded with errors (would destroy data)');
+    return;
+  }
   const file = goalsFilePath();
   const dir = join(__dirname, '.registry');
   if (!existsSync(dir)) {
     mkdirSync(dir, { recursive: true });
   }
-  writeFileSync(file, JSON.stringify(store, null, 2));
+  const tmp = file + '.tmp';
+  writeFileSync(tmp, JSON.stringify(store, null, 2));
+  renameSync(tmp, file);
 }
 
 function json(res, status, body) {
@@ -233,9 +245,14 @@ function whisperTranscribeLocal(filePath) {
   });
 }
 
-async function readJsonBody(req) {
+async function readJsonBody(req, maxBytes = 1024 * 1024) {
   const chunks = [];
-  for await (const c of req) chunks.push(c);
+  let total = 0;
+  for await (const c of req) {
+    total += c.length;
+    if (total > maxBytes) throw Object.assign(new Error('Body too large'), { statusCode: 413 });
+    chunks.push(c);
+  }
   const raw = Buffer.concat(chunks).toString('utf-8').trim();
   if (!raw) return {};
   return JSON.parse(raw);
@@ -419,35 +436,7 @@ function getGatewayWsUrl() {
   return process.env.GATEWAY_WS_URL || `ws://${host}:${port}/ws`;
 }
 
-function rewriteConnectFrame(raw, gatewayAuth) {
-  let frame;
-  try { frame = JSON.parse(raw.toString()); } catch { return raw; }
-
-  if (frame && frame.type === 'req' && frame.method === 'connect' && frame.params && typeof frame.params === 'object') {
-    const p = frame.params;
-
-    // Ensure it is treated as a webchat-style client to avoid Control UI secure-context gating.
-    p.client = {
-      ...(p.client || {}),
-      id: 'webchat-ui',
-      mode: 'webchat',
-      displayName: (p.client && p.client.displayName) ? p.client.displayName : 'ClawCondos',
-    };
-
-    // Inject auth if missing.
-    if (!p.auth && gatewayAuth) {
-      p.auth = { password: gatewayAuth };
-    } else if (p.auth && gatewayAuth) {
-      // Some older UI code sends {password:<token>} but we accept anything and avoid clobbering.
-      if (!p.auth.password) p.auth.password = gatewayAuth;
-    }
-
-    frame.params = p;
-    return JSON.stringify(frame);
-  }
-
-  return raw;
-}
+// rewriteConnectFrame imported from lib/serve-helpers.js
 
 const server = createServer(async (req, res) => {
   const url = new URL(req.url, `http://localhost:${PORT}`);
@@ -635,7 +624,10 @@ const server = createServer(async (req, res) => {
       json(res, 201, { goal });
       return;
     } catch (e) {
-      json(res, 400, { error: 'Invalid JSON body' });
+      if (e?.statusCode === 413) { json(res, 413, { error: 'Body too large' }); return; }
+      if (e instanceof SyntaxError) { json(res, 400, { error: 'Invalid JSON body' }); return; }
+      console.error('POST /api/goals error:', e);
+      json(res, 500, { error: 'Internal server error' });
       return;
     }
   }
@@ -685,8 +677,11 @@ const server = createServer(async (req, res) => {
         saveGoalsStore(store);
         json(res, 200, { goal: store.goals[idx] });
         return;
-      } catch {
-        json(res, 400, { error: 'Invalid JSON body' });
+      } catch (e) {
+        if (e?.statusCode === 413) { json(res, 413, { error: 'Body too large' }); return; }
+        if (e instanceof SyntaxError) { json(res, 400, { error: 'Invalid JSON body' }); return; }
+        console.error('PUT /api/goals/:id error:', e);
+        json(res, 500, { error: 'Internal server error' });
         return;
       }
     }
@@ -726,7 +721,7 @@ const server = createServer(async (req, res) => {
 
       // Move semantics: remove this session from any other goal first
       for (const other of store.goals) {
-        if (!other || other.id == goal.id) continue;
+        if (!other || other.id === goal.id) continue;
         if (!Array.isArray(other.sessions)) continue;
         const before = other.sessions.length;
         other.sessions = other.sessions.filter(k => k !== sessionKey);
@@ -742,8 +737,11 @@ const server = createServer(async (req, res) => {
       saveGoalsStore(store);
       json(res, 200, { ok: true, goal });
       return;
-    } catch {
-      json(res, 400, { error: 'Invalid JSON body' });
+    } catch (e) {
+      if (e?.statusCode === 413) { json(res, 413, { error: 'Body too large' }); return; }
+      if (e instanceof SyntaxError) { json(res, 400, { error: 'Invalid JSON body' }); return; }
+      console.error('POST /api/goals/:id/sessions error:', e);
+      json(res, 500, { error: 'Internal server error' });
       return;
     }
   }
@@ -793,8 +791,11 @@ const server = createServer(async (req, res) => {
       saveGoalsStore(store);
       json(res, 200, { ok: true, sessionKey, condoId });
       return;
-    } catch {
-      json(res, 400, { ok: false, error: 'Invalid JSON body' });
+    } catch (e) {
+      if (e?.statusCode === 413) { json(res, 413, { ok: false, error: 'Body too large' }); return; }
+      if (e instanceof SyntaxError) { json(res, 400, { ok: false, error: 'Invalid JSON body' }); return; }
+      console.error('POST /api/session-condo error:', e);
+      json(res, 500, { ok: false, error: 'Internal server error' });
       return;
     }
   }
@@ -962,7 +963,7 @@ const server = createServer(async (req, res) => {
   // Prefer serving static assets from ./public/ (so /app.css maps to public/app.css)
   // SECURITY: prevent absolute-path reads and path traversal.
   const rel = String(pathname || '').replace(/^\/+/, '');
-  if (!rel || rel.includes('..') || rel.includes('\\0')) {
+  if (validateStaticPath(rel)) {
     res.writeHead(400);
     res.end('Bad path');
     return;
@@ -980,6 +981,12 @@ const server = createServer(async (req, res) => {
 
   if (!existsSync(filePath)) {
     // Fallback to repo-root relative paths only when needed (still traversal-safe)
+    // Block dotfiles and hidden directories (e.g. .env, .registry/) from repo root
+    if (isDotfilePath(rel)) {
+      res.writeHead(404);
+      res.end('Not Found');
+      return;
+    }
     const candidate = resolvePath(repoRoot, rel);
     if (!candidate.startsWith(repoRoot + '/') && candidate !== repoRoot) {
       res.writeHead(403);
@@ -1059,7 +1066,8 @@ server.on('upgrade', (req, socket, head) => {
         try { if (clientWs.readyState === WebSocket.OPEN) clientWs.close(code, reason?.toString()); } catch {}
       });
 
-      upstreamWs.on('error', () => {
+      upstreamWs.on('error', (err) => {
+        console.error('upstream WS error:', err.message || err);
         closeBoth(1011, 'gateway ws error');
       });
 
@@ -1080,11 +1088,13 @@ server.on('upgrade', (req, socket, head) => {
         try { if (upstreamWs.readyState === WebSocket.OPEN) upstreamWs.close(code, reason); } catch {}
       });
 
-      clientWs.on('error', () => {
+      clientWs.on('error', (err) => {
+        console.error('client WS error:', err.message || err);
         closeBoth(1011, 'client ws error');
       });
     });
-  } catch {
+  } catch (err) {
+    console.error('WS upgrade error:', err.message || err);
     socket.destroy();
   }
 });

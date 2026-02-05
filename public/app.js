@@ -1073,7 +1073,7 @@ function initAutoArchiveUI() {
       // Challenge for auth (comes as event type)
       if (msg.type === 'event' && msg.event === 'connect.challenge') {
         state.connectNonce = msg.payload?.nonce;
-        // Auto-connect (password hardcoded for Tailscale-only access)
+        // Auto-connect
         sendConnect();
         return;
       }
@@ -2168,8 +2168,8 @@ function initAutoArchiveUI() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ sessionKey: key, condoId: cid }),
         });
-      } catch {
-        // ignore
+      } catch (err) {
+        console.warn('persistSessionCondo failed:', err.message || err);
       }
     }
 
@@ -3000,7 +3000,9 @@ function initAutoArchiveUI() {
                     const resp = await fetch(`/api/whisper/transcribe?path=${encodeURIComponent(u.serverPath)}&cb=${Date.now()}`);
                     const data = await resp.json();
                     if (data?.ok && data.text) transcripts.push(data.text.trim());
-                  } catch {}
+                  } catch (e) {
+                    console.error('Whisper transcription failed:', e);
+                  }
                 }
               }
 
@@ -3081,7 +3083,9 @@ function initAutoArchiveUI() {
                   const resp = await fetch(`/api/whisper/transcribe?path=${encodeURIComponent(u.serverPath)}&cb=${Date.now()}`);
                   const data = await resp.json();
                   if (data?.ok && data.text) transcripts.push(data.text.trim());
-                } catch {}
+                } catch (e) {
+                  console.error('Whisper transcription failed:', e);
+                }
               }
             }
 
@@ -3337,14 +3341,14 @@ function initAutoArchiveUI() {
         if (idx !== -1 && data?.goal) state.goals[idx] = data.goal;
 
         if (!opts.skipRender) {
-          try { renderGoals(); } catch {}
-          try { renderGoalsGrid(); } catch {}
+          try { renderGoals(); } catch (e) { console.error('renderGoals error:', e); }
+          try { renderGoalsGrid(); } catch (e) { console.error('renderGoalsGrid error:', e); }
 
           // Avoid nuking chat contents when we're in goal view; prefer lighter refresh.
           if (!(opts.skipGoalViewRerender) && state.currentView === 'goal' && state.currentGoalOpenId === goalId) {
-            try { renderGoalView(); } catch {}
+            try { renderGoalView(); } catch (e) { console.error('renderGoalView error:', e); }
           } else {
-            try { renderDetailPanel(); } catch {}
+            try { renderDetailPanel(); } catch (e) { console.error('renderDetailPanel error:', e); }
           }
         }
 
@@ -7027,7 +7031,9 @@ Response format:
                     const resp = await fetch(`/api/whisper/transcribe?path=${encodeURIComponent(u.serverPath)}&cb=${Date.now()}`);
                     const data = await resp.json();
                     if (data?.ok && data.text) transcripts.push(data.text.trim());
-                  } catch {}
+                  } catch (e) {
+                    console.error('Whisper transcription failed:', e);
+                  }
                 }
               }
 
@@ -7123,7 +7129,9 @@ Response format:
                   const resp = await fetch(`/api/whisper/transcribe?path=${encodeURIComponent(u.serverPath)}&cb=${Date.now()}`);
                   const data = await resp.json();
                   if (data?.ok && data.text) transcripts.push(data.text.trim());
-                } catch {}
+                } catch (e) {
+                  console.error('Whisper transcription failed:', e);
+                }
               }
             }
 

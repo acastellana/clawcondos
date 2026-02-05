@@ -46,8 +46,8 @@ The frontend is vanilla JS with no framework and no build pipeline. Edit files a
 - **`app.html`** - Separate page for the app viewer with assistant panel.
 - **`serve.js`** - Node.js HTTP/WebSocket server (~1100 lines). Serves static files, proxies WebSocket and HTTP requests to the OpenClaw gateway (with auth injection), handles media upload, goal CRUD, agent introspection, and the apps registry.
 - **`lib/config.js`** - Configuration loader used by both browser and server. Priority: `window.CLAWCONDOS_CONFIG` > `/config.json` > auto-detect from hostname.
-- **`lib/goal-session-links.js`** - File-backed goal-to-session mapping (Node.js only, uses `.registry/goals.json`).
-- **`lib/message-shaping.js`** - Message formatting and reply tag extraction, shared between frontend and server.
+- **`lib/goal-session-links.js`** - Dead code (unused). File-backed goal-to-session mapping, superseded by inline logic in `serve.js`.
+- **`lib/message-shaping.js`** - Message formatting and reply tag extraction (frontend only, loaded via `<script>` tag).
 - **`js/media-upload.js`** - Browser file upload handler (images/audio).
 - **`js/voice-recorder.js`** - In-browser voice recording via MediaRecorder API.
 - **`styles/`** - CSS files: `main.css` (5300+ lines, all theming/variables), `agents.css`, `media-upload.css`, `voice-recorder.css`.
@@ -98,7 +98,7 @@ Tests use **Vitest 2.0** in Node environment. Test files live in `tests/` and ma
 
 ## Code Conventions
 
-- **Vanilla JS (ES6+)** - No frameworks. ES module syntax (`import`/`export`).
+- **Vanilla JS (ES6+)** - No frameworks. Server uses ES modules (`import`/`export`); browser code uses IIFEs and globals (no module bundler).
 - **`escapeHtml()`** - Must be used for all user-generated content rendered as HTML to prevent XSS. Defined in `js/media-upload.js` and `app.html`; `index.html` handles escaping inline.
 - **CSS variables** - Theming via custom properties defined in `styles/main.css`.
 - **Inline event handlers** - The dashboard uses `onclick=`, `onkeypress=` patterns in generated HTML.
@@ -111,6 +111,10 @@ Tests use **Vitest 2.0** in Node environment. Test files live in `tests/` and ma
 - `GATEWAY_WS_URL` - Custom WebSocket URL for gateway
 - `MEDIA_UPLOAD_HOST` / `MEDIA_UPLOAD_PORT` - Media upload service
 - `CLAWCONDOS_DEV_CORS` - Set to `1` to enable CORS for local development
+- `ENABLE_MEDIA_UPLOAD_PROXY` - Set to `1` to enable legacy proxy to external media-upload service
+- `CLAWCONDOS_WHISPER_MODEL` - Whisper model name (default: `base`)
+- `CLAWCONDOS_WHISPER_DEVICE` - Whisper device (default: `cpu`)
+- `CLAWCONDOS_WHISPER_TIMEOUT_MS` - Whisper transcription timeout in ms (default: `120000`)
 
 ## Reference Files
 
