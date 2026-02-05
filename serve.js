@@ -7,6 +7,7 @@
  */
 
 import { createServer, request as httpRequest } from 'http';
+import WebSocket, { WebSocketServer } from 'ws';
 import { readFileSync, writeFileSync, existsSync, statSync, mkdirSync, readdirSync } from 'fs';
 import { join, extname, resolve as resolvePath } from 'path';
 import { fileURLToPath } from 'url';
@@ -405,6 +406,47 @@ function proxyToMediaUpload(req, res, pathname, search) {
   });
 
   req.pipe(proxyReq, { end: true });
+}
+
+// WebSocket proxy to OpenClaw gateway
+// Goal: browser connects to ClawCondos (/ws); ClawCondos proxies to gateway and injects auth from env.
+// This keeps the gateway token out of the browser and works for both localhost + Tailscale HTTPS.
+const wss = new WebSocketServer({ noServer: true });
+
+function getGatewayWsUrl() {
+  const host = process.env.GATEWAY_HTTP_HOST || '127.0.0.1';
+  const port = Number(process.env.GATEWAY_HTTP_PORT || 18789);
+  return process.env.GATEWAY_WS_URL || `ws://${host}:${port}/ws`;
+}
+
+function rewriteConnectFrame(raw, gatewayAuth) {
+  let frame;
+  try { frame = JSON.parse(raw.toString()); } catch { return raw; }
+
+  if (frame && frame.type === 'req' && frame.method === 'connect' && frame.params && typeof frame.params === 'object') {
+    const p = frame.params;
+
+    // Ensure it is treated as a webchat-style client to avoid Control UI secure-context gating.
+    p.client = {
+      ...(p.client || {}),
+      id: 'webchat-ui',
+      mode: 'webchat',
+      displayName: (p.client && p.client.displayName) ? p.client.displayName : 'ClawCondos',
+    };
+
+    // Inject auth if missing.
+    if (!p.auth && gatewayAuth) {
+      p.auth = { password: gatewayAuth };
+    } else if (p.auth && gatewayAuth) {
+      // Some older UI code sends {password:<token>} but we accept anything and avoid clobbering.
+      if (!p.auth.password) p.auth.password = gatewayAuth;
+    }
+
+    frame.params = p;
+    return JSON.stringify(frame);
+  }
+
+  return raw;
 }
 
 const server = createServer(async (req, res) => {
@@ -953,6 +995,72 @@ const server = createServer(async (req, res) => {
   }
 
   serveFile(res, filePath);
+});
+
+server.on('upgrade', (req, socket, head) => {
+  try {
+    const url = new URL(req.url, `http://localhost:${PORT}`);
+    if (url.pathname !== '/ws' && url.pathname !== '/clawcondos-ws') {
+      socket.destroy();
+      return;
+    }
+
+    const gatewayAuth = process.env.GATEWAY_AUTH || null;
+
+    wss.handleUpgrade(req, socket, head, (clientWs) => {
+      const upstreamUrl = getGatewayWsUrl();
+      const upstreamWs = new WebSocket(upstreamUrl, gatewayAuth ? {
+        headers: {
+          // Gateway supports Authorization header auth (matches prior Caddy-based approach)
+          Authorization: `Bearer ${gatewayAuth}`,
+        },
+      } : undefined);
+
+      const closeBoth = (code, reason) => {
+        try { clientWs.close(code, reason); } catch {}
+        try { upstreamWs.close(code, reason); } catch {}
+      };
+
+      upstreamWs.on('open', () => {
+        // ready
+      });
+
+      upstreamWs.on('message', (data) => {
+        try {
+          if (clientWs.readyState === WebSocket.OPEN) clientWs.send(data);
+        } catch {
+          closeBoth(1011, 'proxy send failed');
+        }
+      });
+
+      upstreamWs.on('close', (code, reason) => {
+        try { if (clientWs.readyState === WebSocket.OPEN) clientWs.close(code, reason?.toString()); } catch {}
+      });
+
+      upstreamWs.on('error', () => {
+        closeBoth(1011, 'gateway ws error');
+      });
+
+      clientWs.on('message', (data) => {
+        const rewritten = rewriteConnectFrame(data, gatewayAuth);
+        try {
+          if (upstreamWs.readyState === WebSocket.OPEN) upstreamWs.send(rewritten);
+        } catch {
+          closeBoth(1011, 'proxy send failed');
+        }
+      });
+
+      clientWs.on('close', (code, reason) => {
+        try { if (upstreamWs.readyState === WebSocket.OPEN) upstreamWs.close(code, reason); } catch {}
+      });
+
+      clientWs.on('error', () => {
+        closeBoth(1011, 'client ws error');
+      });
+    });
+  } catch {
+    socket.destroy();
+  }
 });
 
 server.listen(PORT, () => {

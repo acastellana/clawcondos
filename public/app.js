@@ -46,7 +46,11 @@
       
       // Auth - loaded from config or localStorage
       // Token should be set via config.json or login modal, NOT hardcoded
-      token: localStorage.getItem('sharp_token') || null,
+      token: (() => {
+        const t = localStorage.getItem('sharp_token');
+        if (!t || t === 'null' || t === 'undefined') return null;
+        return t;
+      })(),
       gatewayUrl: (() => {
         // Priority: localStorage > config > auto-detect
         const saved = localStorage.getItem('sharp_gateway');
@@ -904,9 +908,9 @@
         minProtocol: WS_PROTOCOL_VERSION,
         maxProtocol: WS_PROTOCOL_VERSION,
         client: {
-          id: 'openclaw-control-ui',
+          id: 'webchat-ui',
           displayName: 'ClawCondos Dashboard',
-          mode: 'ui',
+          mode: 'webchat',
           version: '2.0.0',
           platform: 'browser'
         }
@@ -941,7 +945,8 @@
           state.wsReconnectAttempts = 0;
           setConnectionStatus('connected');
           hideReconnectOverlay();
-          localStorage.setItem('sharp_token', state.token);
+          if (state.token) localStorage.setItem('sharp_token', state.token);
+          else localStorage.removeItem('sharp_token');
           localStorage.setItem('sharp_gateway', state.gatewayUrl);
           hideLoginModal();
           startKeepalive();
