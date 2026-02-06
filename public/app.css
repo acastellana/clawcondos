@@ -1307,6 +1307,12 @@ body {
 .goal-def{ padding: 12px 14px; border-bottom: 1px solid rgba(255,255,255,.06); }
 .goal-def-display{ color: rgba(255,255,255,.9); font-size: 13px; line-height: 1.4; cursor: text; }
 .goal-def-display small{ color: var(--text-muted); }
+.goal-def-rendered p{ margin: 0 0 6px; }
+.goal-def-rendered h1,.goal-def-rendered h2,.goal-def-rendered h3{ font-size: 14px; font-weight: 700; margin: 8px 0 4px; }
+.goal-def-rendered ul,.goal-def-rendered ol{ margin: 4px 0; padding-left: 18px; }
+.goal-def-rendered code{ background: rgba(0,0,0,.25); padding: 1px 4px; border-radius: 3px; font-size: 12px; }
+.goal-def-rendered pre{ background: rgba(0,0,0,.25); padding: 8px; border-radius: 6px; overflow-x: auto; margin: 6px 0; }
+.goal-def-rendered pre code{ background: none; padding: 0; }
 .goal-def-edit{ display:none; }
 .goal-def-edit.open{ display:block; }
 

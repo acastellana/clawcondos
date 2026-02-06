@@ -2706,7 +2706,7 @@ function initAutoArchiveUI() {
       const defDisplay = document.getElementById('goalDefDisplay');
       const notes = (goal.notes || goal.description || '').trim();
       if (defDisplay) {
-        defDisplay.innerHTML = notes ? `${escapeHtml(notes)} <small>(click to edit)</small>` : `Click to add a definition… <small>(click to edit)</small>`;
+        defDisplay.innerHTML = notes ? `<div class="goal-def-rendered">${formatMessage(notes)}</div><small>(click to edit)</small>` : `Click to add a definition… <small>(click to edit)</small>`;
       }
 
       // Goal chat should load the latest session for this goal (unless user chose a history entry)
