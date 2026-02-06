@@ -706,13 +706,15 @@
       state.searchQuery = value.toLowerCase().trim();
       renderSessions();
       renderSessionsGrid();
+      renderGoalsGrid();
     }
-    
+
     function clearSearch() {
       state.searchQuery = '';
       document.getElementById('sessionSearchInput').value = '';
       renderSessions();
       renderSessionsGrid();
+      renderGoalsGrid();
     }
     
     function handleSearchKeydown(event) {
@@ -2082,7 +2084,7 @@ function initAutoArchiveUI() {
           console.log('[ClawCondos] No activeRuns in response, result:', result);
         }
       } catch (err) {
-        console.error('[ClawCondos] chat.activeRuns error:', err);
+        console.warn('[ClawCondos] chat.activeRuns not available, using localStorage fallback');
         // Fallback to localStorage restore (for older Clawdbot versions)
         restoreActiveRuns();
       }
@@ -2186,11 +2188,10 @@ function initAutoArchiveUI() {
     function updateStatsGrid() {
       const sessions = state.sessions || [];
       const goals = state.goals || [];
-      const runs = state.runs || {};
-      
-      // Active sessions: sessions with recent activity or active runs
-      const activeRuns = Object.keys(runs).filter(k => runs[k] && runs[k] !== 'done');
-      const activeSessions = activeRuns.length;
+      const runsStore = state.activeRunsStore || {};
+
+      // Active sessions: sessions with active runs tracked in activeRunsStore
+      const activeSessions = Object.keys(runsStore).length;
       
       // Pending goals: goals with status !== 'done'
       const pendingGoals = goals.filter(g => !isGoalCompleted(g) && !isGoalDropped(g)).length;
@@ -2199,7 +2200,7 @@ function initAutoArchiveUI() {
       const completedGoals = goals.filter(g => isGoalCompleted(g) && !isGoalDropped(g)).length;
       
       // Errors: sessions with error state
-      const errorCount = sessions.filter(s => s.lastError || (runs[s.key] && runs[s.key] === 'error')).length;
+      const errorCount = sessions.filter(s => s.lastError).length;
       
       // Update DOM
       const elActive = document.getElementById('statActiveSessions');
@@ -2239,8 +2240,7 @@ function initAutoArchiveUI() {
     // Show sessions with errors
     function showErrorSessions() {
       const sessions = state.sessions || [];
-      const runs = state.runs || {};
-      const errorSessions = sessions.filter(s => s.lastError || (runs[s.key] && runs[s.key] === 'error'));
+      const errorSessions = sessions.filter(s => s.lastError);
       
       if (errorSessions.length === 0) {
         showToast('No sessions with errors', 'info');
@@ -4704,7 +4704,9 @@ Response format:
         return;
       }
       try {
-        const data = await rpcCall('goals.create', { title, deadline: deadline || null, condoId: state.currentCondoId || state.newGoalCondoId || null });
+        const condoId = state.newGoalCondoId || state.currentCondoId || null;
+        state.newGoalCondoId = null;
+        const data = await rpcCall('goals.create', { title, deadline: deadline || null, condoId });
         hideCreateGoalModal();
         await loadGoals();
         if (data?.goal?.id) setCurrentGoal(data.goal.id);
@@ -8646,6 +8648,17 @@ Response format:
         condos.get(condoId).goals.push(g);
       }
 
+      // When searching, filter condos to those with matching goals or matching condo name
+      if (state.searchQuery) {
+        for (const [condoId, condo] of condos) {
+          const nameMatch = (condo.name || '').toLowerCase().includes(state.searchQuery);
+          const hasMatchingGoal = condo.goals.some(g => matchesGoalSearch(g));
+          if (!nameMatch && !hasMatchingGoal) {
+            condos.delete(condoId);
+          }
+        }
+      }
+
       const sorted = Array.from(condos.values()).sort((a, b) => (b.latest || 0) - (a.latest || 0));
 
       if (!sorted.length) {
@@ -8677,7 +8690,7 @@ Response format:
           : condoErrors > 0 ? `<span class="badge error">${condoErrors}</span>` : '';
 
         // Pick up to 3 non-completed goals (prototype shows a few rows)
-        const goalsForCondo = (condo.goals || []).filter(g => !isGoalCompleted(g)).slice(0, 3);
+        const goalsForCondo = (condo.goals || []).filter(g => !isGoalCompleted(g) && matchesGoalSearch(g)).slice(0, 3);
         const rows = goalsForCondo.map(g => {
           const sessionCount = Array.isArray(g.sessions) ? g.sessions.length : 0;
           const meta = sessionCount ? `${sessionCount} session${sessionCount === 1 ? '' : 's'}` : '';

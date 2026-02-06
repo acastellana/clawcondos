@@ -91,22 +91,18 @@ export default function register(api) {
   api.registerTool(
     (ctx) => {
       if (!ctx.sessionKey) return null;
-      const data = store.load();
 
-      // Available for both sessionIndex (single-goal) and sessionCondoIndex (condo) sessions
-      const entry = data.sessionIndex[ctx.sessionKey];
-      const condoId = data.sessionCondoIndex[ctx.sessionKey];
-      if (!entry && !condoId) return null;
-
+      // Always expose the tool for any session with a key.  The executor validates
+      // that the session is actually assigned to a goal at call time, which avoids
+      // timing issues between goals.addSession and tool-factory evaluation.
       return {
         name: 'goal_update',
         label: 'Update Goal/Task Status',
-        description: 'Update your assigned goal: report task progress, create tasks, set next task, or mark the goal done.' +
-          (condoId ? ' Specify goalId to identify which goal in the condo.' : ''),
+        description: 'Update your assigned goal: report task progress, create tasks, set next task, or mark the goal done. For condo sessions, specify goalId.',
         parameters: {
           type: 'object',
           properties: {
-            ...(condoId ? { goalId: { type: 'string', description: 'ID of the goal to update (required for condo sessions)' } } : {}),
+            goalId: { type: 'string', description: 'ID of the goal to update (required for condo sessions, optional for single-goal sessions)' },
             taskId: { type: 'string', description: 'ID of the task to update (from goal context, shown in brackets like [task_abc])' },
             status: { type: 'string', enum: ['done', 'in-progress', 'blocked'], description: 'New task status (use with taskId)' },
             summary: { type: 'string', description: 'Brief summary of what was accomplished or what is blocking' },

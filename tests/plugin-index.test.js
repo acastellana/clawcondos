@@ -279,9 +279,11 @@ describe('Plugin index.js', () => {
       expect(factory({})).toBeNull();
     });
 
-    it('returns null for session not assigned to a goal or condo', () => {
+    it('returns tool for session not yet assigned to a goal (validation deferred to execute)', () => {
       const factory = api._getToolFactory('goal_update');
-      expect(factory({ sessionKey: 'agent:orphan:main' })).toBeNull();
+      const tool = factory({ sessionKey: 'agent:orphan:main' });
+      expect(tool).not.toBeNull();
+      expect(tool.name).toBe('goal_update');
     });
 
     it('returns tool definition for assigned session', () => {
@@ -301,21 +303,18 @@ describe('Plugin index.js', () => {
       expect(result.content[0].text).toContain('updated');
     });
 
-    it('includes goalId parameter for condo-bound sessions', () => {
-      let condoResult;
-      api._methods['condos.create']({
-        params: { name: 'Tool Condo' },
-        respond: (ok, payload) => { condoResult = payload; },
-      });
-      api._methods['goals.setSessionCondo']({
-        params: { sessionKey: 'agent:main:telegram:123', condoId: condoResult.condo.id },
-        respond: () => {},
-      });
-
+    it('always includes goalId parameter in schema', () => {
       const factory = api._getToolFactory('goal_update');
-      const tool = factory({ sessionKey: 'agent:main:telegram:123' });
+      const tool = factory({ sessionKey: 'agent:main:any:123' });
       expect(tool).not.toBeNull();
       expect(tool.parameters.properties).toHaveProperty('goalId');
+    });
+
+    it('execute returns error for unassigned session without goalId', async () => {
+      const factory = api._getToolFactory('goal_update');
+      const tool = factory({ sessionKey: 'agent:orphan:main' });
+      const result = await tool.execute('call1', { nextTask: 'test' });
+      expect(result.content[0].text).toContain('Error');
     });
   });
 
