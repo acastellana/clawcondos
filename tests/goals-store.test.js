@@ -23,7 +23,18 @@ describe('GoalsStore', () => {
       const data = store.load();
       expect(data.version).toBe(2);
       expect(data.goals).toEqual([]);
+      expect(data.condos).toEqual([]);
       expect(data.sessionIndex).toEqual({});
+      expect(data.sessionCondoIndex).toEqual({});
+    });
+
+    it('round-trips condos through save and load', () => {
+      const data = store.load();
+      data.condos.push({ id: 'condo_test1', name: 'Test Condo', description: '', color: null });
+      store.save(data);
+      const loaded = store.load();
+      expect(loaded.condos).toHaveLength(1);
+      expect(loaded.condos[0].name).toBe('Test Condo');
     });
 
     it('round-trips data through save and load', () => {

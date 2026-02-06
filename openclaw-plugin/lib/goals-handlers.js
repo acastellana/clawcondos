@@ -309,6 +309,11 @@ export function createGoalHandlers(store) {
           respond(false, undefined, { message: 'Task not found' });
           return;
         }
+        const removed = goal.tasks[idx];
+        // Clean up sessionIndex if this task had an assigned session
+        if (removed.sessionKey && data.sessionIndex[removed.sessionKey]) {
+          delete data.sessionIndex[removed.sessionKey];
+        }
         goal.tasks.splice(idx, 1);
         goal.updatedAtMs = Date.now();
         saveData(data);

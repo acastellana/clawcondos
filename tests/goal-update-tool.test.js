@@ -107,4 +107,22 @@ describe('goal_update tool', () => {
     });
     expect(result.content[0].text).toContain('not assigned');
   });
+
+  it('updates goal timestamp without taskId (goal-level update)', async () => {
+    const before = store.load().goals[0].updatedAtMs;
+    await new Promise(r => setTimeout(r, 5));
+
+    const result = await execute('call1', {
+      sessionKey: 'agent:main:main',
+      status: 'in-progress',
+    });
+    expect(result.content[0].text).toContain('updated');
+    expect(result.content[0].text).toContain('goal');
+
+    const after = store.load().goals[0].updatedAtMs;
+    expect(after).toBeGreaterThan(before);
+    // Tasks should be unchanged
+    expect(store.load().goals[0].tasks[0].done).toBe(false);
+    expect(store.load().goals[0].tasks[1].done).toBe(false);
+  });
 });

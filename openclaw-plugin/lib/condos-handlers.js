@@ -15,7 +15,7 @@ export function createCondoHandlers(store) {
         const condo = {
           id: store.newId('condo'),
           name: name.trim(),
-          description: description || '',
+          description: typeof description === 'string' ? description : '',
           color: color || null,
           createdAtMs: now,
           updatedAtMs: now,
@@ -100,6 +100,10 @@ export function createCondoHandlers(store) {
           if (goal.condoId === params.id) {
             goal.condoId = null;
           }
+        }
+        // Clean up sessionCondoIndex entries pointing to this condo
+        for (const [key, val] of Object.entries(data.sessionCondoIndex)) {
+          if (val === params.id) delete data.sessionCondoIndex[key];
         }
         data.condos.splice(idx, 1);
         saveData(data);

@@ -574,5 +574,38 @@ describe('GoalHandlers', () => {
       });
       expect(getResult().ok).toBe(false);
     });
+
+    it('cleans up sessionIndex when task had sessionKey', () => {
+      const r1 = makeResponder();
+      handlers['goals.create']({ params: { title: 'G' }, respond: r1.respond });
+      const goalId = r1.getResult().payload.goal.id;
+
+      const r2 = makeResponder();
+      handlers['goals.addTask']({
+        params: { goalId, text: 'Spawned task' },
+        respond: r2.respond,
+      });
+      const taskId = r2.getResult().payload.task.id;
+
+      // Manually set sessionKey on the task (simulating spawnTaskSession)
+      const data = store.load();
+      const task = data.goals[0].tasks.find(t => t.id === taskId);
+      task.sessionKey = 'agent:main:sub1';
+      data.sessionIndex['agent:main:sub1'] = { goalId };
+      store.save(data);
+
+      // Delete the task
+      const r3 = makeResponder();
+      handlers['goals.deleteTask']({ params: { goalId, taskId }, respond: r3.respond });
+      expect(r3.getResult().ok).toBe(true);
+
+      // sessionIndex should be cleaned up
+      const r4 = makeResponder();
+      handlers['goals.sessionLookup']({
+        params: { sessionKey: 'agent:main:sub1' },
+        respond: r4.respond,
+      });
+      expect(r4.getResult().payload.goalId).toBeNull();
+    });
   });
 });

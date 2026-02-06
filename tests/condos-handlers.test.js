@@ -117,6 +117,11 @@ describe('CondoHandlers', () => {
       expect(condo.description).toBe('');
     });
 
+    it('coerces non-string description to empty string', () => {
+      const condo = createCondo(handlers, { name: 'Test', description: 42 });
+      expect(condo.description).toBe('');
+    });
+
     it('defaults color to null when omitted', () => {
       const condo = createCondo(handlers, { name: 'Test' });
       expect(condo.color).toBeNull();
@@ -627,6 +632,34 @@ describe('CondoHandlers', () => {
       const { respond, getResult } = makeResponder();
       freshHandlers['condos.list']({ params: {}, respond });
       expect(getResult().payload.condos).toHaveLength(0);
+    });
+
+    it('cleans up sessionCondoIndex entries pointing to deleted condo', () => {
+      const condo = createCondo(handlers, { name: 'Doomed' });
+
+      // Map sessions to the condo
+      const goalH = createGoalHandlers(store);
+      goalH['goals.setSessionCondo']({
+        params: { sessionKey: 'agent:main:main', condoId: condo.id },
+        respond: makeResponder().respond,
+      });
+      goalH['goals.setSessionCondo']({
+        params: { sessionKey: 'agent:other:main', condoId: 'condo_other' },
+        respond: makeResponder().respond,
+      });
+
+      // Delete the condo
+      handlers['condos.delete']({ params: { id: condo.id }, respond: makeResponder().respond });
+
+      // Session mapped to deleted condo should be gone
+      const r1 = makeResponder();
+      goalH['goals.getSessionCondo']({ params: { sessionKey: 'agent:main:main' }, respond: r1.respond });
+      expect(r1.getResult().payload.condoId).toBeNull();
+
+      // Session mapped to other condo should be untouched
+      const r2 = makeResponder();
+      goalH['goals.getSessionCondo']({ params: { sessionKey: 'agent:other:main' }, respond: r2.respond });
+      expect(r2.getResult().payload.condoId).toBe('condo_other');
     });
   });
 
