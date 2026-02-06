@@ -13,7 +13,7 @@ import { join, extname, resolve as resolvePath } from 'path';
 import { fileURLToPath } from 'url';
 import { spawn } from 'child_process';
 import crypto from 'crypto';
-import { rewriteConnectFrame, validateStaticPath, isDotfilePath } from './lib/serve-helpers.js';
+import { rewriteConnectFrame, validateStaticPath, isDotfilePath, filterProxyHeaders, stripSensitiveHeaders } from './lib/serve-helpers.js';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 
@@ -143,7 +143,7 @@ function safeExtFromMime(mime, filename) {
   if (String(mime).includes('mpeg')) return '.mp3';
   if (String(mime).includes('wav')) return '.wav';
   if (String(mime).includes('mp4') || String(mime).includes('m4a')) return '.m4a';
-  return extname(filename || '') || '.bin';
+  return '.bin';
 }
 
 function whisperTranscribeLocal(filePath) {
@@ -335,18 +335,18 @@ function proxyToApp(req, res, app, path) {
     port: app.port,
     path: path || '/',
     method: req.method,
-    headers: { ...req.headers, host: `localhost:${app.port}` },
+    headers: { ...stripSensitiveHeaders(req.headers), host: `localhost:${app.port}` },
   };
 
   const proxyReq = httpRequest(options, (proxyRes) => {
-    res.writeHead(proxyRes.statusCode, proxyRes.headers);
+    res.writeHead(proxyRes.statusCode, filterProxyHeaders(proxyRes.headers));
     proxyRes.pipe(res, { end: true });
   });
 
   proxyReq.on('error', (err) => {
     console.error(`Proxy error for ${app.id}:`, err.message);
     res.writeHead(503);
-    res.end(`App "${app.name}" is offline. Start it with: ${app.startCommand}`);
+    res.end(`App "${app.name}" is unavailable`);
   });
 
   req.pipe(proxyReq, { end: true });
@@ -368,11 +368,11 @@ function proxyToMediaUpload(req, res, pathname, search) {
     port: MEDIA_UPLOAD_PORT,
     path: targetPath + (search || ''),
     method: req.method,
-    headers: { ...req.headers, host: `${MEDIA_UPLOAD_HOST}:${MEDIA_UPLOAD_PORT}` },
+    headers: { ...stripSensitiveHeaders(req.headers), host: `${MEDIA_UPLOAD_HOST}:${MEDIA_UPLOAD_PORT}` },
   };
 
   const proxyReq = httpRequest(options, (proxyRes) => {
-    res.writeHead(proxyRes.statusCode, proxyRes.headers);
+    res.writeHead(proxyRes.statusCode, filterProxyHeaders(proxyRes.headers));
     proxyRes.pipe(res, { end: true });
   });
 
@@ -387,7 +387,9 @@ function proxyToMediaUpload(req, res, pathname, search) {
 // WebSocket proxy to OpenClaw gateway
 // Goal: browser connects to ClawCondos (/ws); ClawCondos proxies to gateway and injects auth from env.
 // This keeps the gateway token out of the browser and works for both localhost + Tailscale HTTPS.
-const wss = new WebSocketServer({ noServer: true });
+const wss = new WebSocketServer({ noServer: true, maxPayload: 2 * 1024 * 1024 });
+const MAX_WS_CONNECTIONS = 50;
+let wsConnectionCount = 0;
 
 function getGatewayWsUrl() {
   const host = process.env.GATEWAY_HTTP_HOST || '127.0.0.1';
@@ -446,7 +448,7 @@ const server = createServer(async (req, res) => {
     };
 
     const proxyReq = httpRequest(options, (proxyRes) => {
-      res.writeHead(proxyRes.statusCode, proxyRes.headers);
+      res.writeHead(proxyRes.statusCode, filterProxyHeaders(proxyRes.headers));
       proxyRes.pipe(res, { end: true });
     });
 
@@ -534,7 +536,7 @@ const server = createServer(async (req, res) => {
       return;
     }
     const full = join(workspace, rel);
-    if (!full.startsWith(workspace)) {
+    if (!full.startsWith(workspace + '/')) {
       json(res, 400, { ok: false, error: 'Bad path' });
       return;
     }
@@ -577,7 +579,7 @@ const server = createServer(async (req, res) => {
       json(res, 200, {
         ok: true,
         url: `/media/voice/${outName}`,
-        serverPath: outPath,
+        serverPath: `media/voice/${outName}`,
         mimeType: file.mimeType,
         fileName: file.filename,
         sizeBytes,
@@ -760,9 +762,16 @@ server.on('upgrade', (req, socket, head) => {
       return;
     }
 
+    if (wsConnectionCount >= MAX_WS_CONNECTIONS) {
+      socket.destroy();
+      return;
+    }
+
     const gatewayAuth = process.env.GATEWAY_AUTH || null;
 
     wss.handleUpgrade(req, socket, head, (clientWs) => {
+      wsConnectionCount++;
+      clientWs.on('close', () => { wsConnectionCount--; });
       const upstreamUrl = getGatewayWsUrl();
       const gatewayHost = process.env.GATEWAY_HTTP_HOST || '127.0.0.1';
       const gatewayPort = Number(process.env.GATEWAY_HTTP_PORT || 18789);

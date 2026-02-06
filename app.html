@@ -596,7 +596,7 @@ Be concise. ${errorSection ? 'An error has occurred - help debug it.' : 'Start b
     function escapeHtml(text) {
       const div = document.createElement('div');
       div.textContent = text;
-      return div.innerHTML.replace(/'/g, '&#39;');
+      return div.innerHTML.replace(/'/g, '&#39;').replace(/"/g, '&quot;');
     }
 
     function addMessage(role, content) {

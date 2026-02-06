@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { rewriteConnectFrame, validateStaticPath, isDotfilePath } from '../lib/serve-helpers.js';
+import { rewriteConnectFrame, validateStaticPath, isDotfilePath, filterProxyHeaders, stripSensitiveHeaders } from '../lib/serve-helpers.js';
 
 describe('rewriteConnectFrame', () => {
   it('should inject auth into connect frame when missing', () => {
@@ -145,5 +145,107 @@ describe('isDotfilePath', () => {
   it('should allow files with dots in name (not at start)', () => {
     expect(isDotfilePath('app.min.js')).toBe(false);
     expect(isDotfilePath('styles/main.v2.css')).toBe(false);
+  });
+});
+
+describe('filterProxyHeaders', () => {
+  it('should keep allowlisted headers', () => {
+    const raw = {
+      'content-type': 'application/json',
+      'content-length': '42',
+      'cache-control': 'no-cache',
+      'etag': '"abc"',
+      'last-modified': 'Thu, 01 Jan 2025 00:00:00 GMT',
+      'vary': 'Accept',
+      'location': '/redirect',
+    };
+    const filtered = filterProxyHeaders(raw);
+    expect(filtered).toEqual(raw);
+  });
+
+  it('should strip hop-by-hop and internal headers', () => {
+    const raw = {
+      'content-type': 'text/html',
+      'set-cookie': 'session=abc',
+      'x-powered-by': 'Express',
+      'transfer-encoding': 'chunked',
+      'connection': 'keep-alive',
+      'keep-alive': 'timeout=5',
+      'server': 'nginx',
+    };
+    const filtered = filterProxyHeaders(raw);
+    expect(filtered).toEqual({ 'content-type': 'text/html' });
+  });
+
+  it('should return empty object for no allowlisted headers', () => {
+    const raw = { 'x-custom': 'foo', 'server': 'bar' };
+    expect(filterProxyHeaders(raw)).toEqual({});
+  });
+
+  it('should handle empty input', () => {
+    expect(filterProxyHeaders({})).toEqual({});
+  });
+
+  it('should be case-insensitive', () => {
+    const raw = { 'Content-Type': 'text/html', 'CACHE-CONTROL': 'no-store' };
+    const filtered = filterProxyHeaders(raw);
+    expect(filtered['Content-Type']).toBe('text/html');
+    expect(filtered['CACHE-CONTROL']).toBe('no-store');
+  });
+
+  it('should keep CORS headers', () => {
+    const raw = {
+      'access-control-allow-origin': '*',
+      'access-control-allow-methods': 'GET, POST',
+      'access-control-allow-headers': 'Content-Type',
+      'access-control-expose-headers': 'X-Custom',
+    };
+    expect(filterProxyHeaders(raw)).toEqual(raw);
+  });
+});
+
+describe('stripSensitiveHeaders', () => {
+  it('should strip cookie header', () => {
+    const headers = { 'content-type': 'text/html', 'cookie': 'session=abc' };
+    const out = stripSensitiveHeaders(headers);
+    expect(out['cookie']).toBeUndefined();
+    expect(out['content-type']).toBe('text/html');
+  });
+
+  it('should strip authorization header', () => {
+    const headers = { 'authorization': 'Bearer secret', 'accept': '*/*' };
+    const out = stripSensitiveHeaders(headers);
+    expect(out['authorization']).toBeUndefined();
+    expect(out['accept']).toBe('*/*');
+  });
+
+  it('should strip all x-forwarded-* headers', () => {
+    const headers = {
+      'x-forwarded-for': '1.2.3.4',
+      'x-forwarded-host': 'example.com',
+      'x-forwarded-proto': 'https',
+      'host': 'localhost',
+    };
+    const out = stripSensitiveHeaders(headers);
+    expect(out['x-forwarded-for']).toBeUndefined();
+    expect(out['x-forwarded-host']).toBeUndefined();
+    expect(out['x-forwarded-proto']).toBeUndefined();
+    expect(out['host']).toBe('localhost');
+  });
+
+  it('should not mutate original headers', () => {
+    const headers = { 'cookie': 'a=1', 'host': 'localhost' };
+    stripSensitiveHeaders(headers);
+    expect(headers['cookie']).toBe('a=1');
+  });
+
+  it('should pass through safe headers unchanged', () => {
+    const headers = { 'content-type': 'application/json', 'accept': '*/*', 'host': 'localhost' };
+    const out = stripSensitiveHeaders(headers);
+    expect(out).toEqual(headers);
+  });
+
+  it('should handle empty input', () => {
+    expect(stripSensitiveHeaders({})).toEqual({});
   });
 });
