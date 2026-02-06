@@ -25,6 +25,7 @@ export function createGoalsStore(dataDir) {
           description: g?.description ?? g?.notes ?? '',
           sessions: Array.isArray(g?.sessions) ? g.sessions : [],
           tasks: Array.isArray(g?.tasks) ? g.tasks : [],
+          files: Array.isArray(g?.files) ? g.files : [],
         };
       });
       return {

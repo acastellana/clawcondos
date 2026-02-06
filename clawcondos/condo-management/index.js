@@ -105,7 +105,7 @@ export default function register(api) {
           properties: {
             goalId: { type: 'string', description: 'ID of the goal to update (required for condo sessions, optional for single-goal sessions)' },
             taskId: { type: 'string', description: 'ID of the task to update (from goal context, shown in brackets like [task_abc])' },
-            status: { type: 'string', enum: ['done', 'in-progress', 'blocked'], description: 'New task status (use with taskId)' },
+            status: { type: 'string', enum: ['done', 'in-progress', 'blocked', 'waiting'], description: 'New task status (use with taskId)' },
             summary: { type: 'string', description: 'Brief summary of what was accomplished or what is blocking' },
             addTasks: {
               type: 'array',
@@ -122,6 +122,11 @@ export default function register(api) {
             nextTask: { type: 'string', description: 'What you are working on next (shown in dashboard)' },
             goalStatus: { type: 'string', enum: ['active', 'done'], description: 'Mark overall goal as done (only if all tasks are complete) or re-activate' },
             notes: { type: 'string', description: 'Append notes to the goal' },
+            files: {
+              type: 'array',
+              description: 'Files created or modified while working on this goal/task. Paths (strings).',
+              items: { type: 'string' },
+            },
           },
         },
         async execute(toolCallId, params) {

@@ -1,0 +1,915 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ClawCondos — Living Agent Intelligence</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --deep-void: #0a0d14;
+      --ocean-dark: #0f1a2a;
+      --biolum-cyan: #00f5d4;
+      --biolum-magenta: #f72585;
+      --biolum-purple: #7209b7;
+      --biolum-blue: #4cc9f0;
+      --soft-white: #e8f4f8;
+      --muted-text: #8ba3b5;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html {
+      font-size: 16px;
+      scroll-behavior: smooth;
+    }
+
+    body {
+      background: var(--deep-void);
+      color: var(--soft-white);
+      font-family: 'DM Sans', sans-serif;
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    /* ANIMATED GRADIENT BACKGROUND */
+    .gradient-bg {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+      overflow: hidden;
+    }
+
+    .gradient-orb {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(100px);
+      opacity: 0.4;
+      animation: float 20s ease-in-out infinite;
+    }
+
+    .orb-1 {
+      width: 600px;
+      height: 600px;
+      background: radial-gradient(circle, var(--biolum-cyan) 0%, transparent 70%);
+      top: -200px;
+      right: -100px;
+      animation-delay: 0s;
+    }
+
+    .orb-2 {
+      width: 500px;
+      height: 500px;
+      background: radial-gradient(circle, var(--biolum-magenta) 0%, transparent 70%);
+      bottom: -150px;
+      left: -100px;
+      animation-delay: -7s;
+    }
+
+    .orb-3 {
+      width: 400px;
+      height: 400px;
+      background: radial-gradient(circle, var(--biolum-purple) 0%, transparent 70%);
+      top: 40%;
+      left: 30%;
+      animation-delay: -14s;
+    }
+
+    .orb-4 {
+      width: 300px;
+      height: 300px;
+      background: radial-gradient(circle, var(--biolum-blue) 0%, transparent 70%);
+      bottom: 30%;
+      right: 20%;
+      animation-delay: -10s;
+    }
+
+    @keyframes float {
+      0%, 100% {
+        transform: translate(0, 0) scale(1);
+      }
+      25% {
+        transform: translate(50px, -30px) scale(1.1);
+      }
+      50% {
+        transform: translate(-30px, 50px) scale(0.9);
+      }
+      75% {
+        transform: translate(-50px, -20px) scale(1.05);
+      }
+    }
+
+    /* PARTICLE FIELD */
+    .particles {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+      pointer-events: none;
+    }
+
+    .particle {
+      position: absolute;
+      width: 3px;
+      height: 3px;
+      background: var(--biolum-cyan);
+      border-radius: 50%;
+      opacity: 0;
+      animation: particle-rise 8s ease-in-out infinite;
+    }
+
+    @keyframes particle-rise {
+      0% {
+        opacity: 0;
+        transform: translateY(100vh) scale(0);
+      }
+      10% {
+        opacity: 0.8;
+      }
+      90% {
+        opacity: 0.8;
+      }
+      100% {
+        opacity: 0;
+        transform: translateY(-100px) scale(1);
+      }
+    }
+
+    /* MAIN CONTENT */
+    main {
+      position: relative;
+      z-index: 2;
+    }
+
+    /* NAVIGATION */
+    nav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 100;
+      padding: 24px 60px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: linear-gradient(to bottom, rgba(10,13,20,0.9) 0%, transparent 100%);
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.5rem;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+    }
+
+    .logo-glow {
+      width: 32px;
+      height: 32px;
+      background: radial-gradient(circle, var(--biolum-cyan) 0%, transparent 70%);
+      border-radius: 50%;
+      animation: logo-pulse 3s ease-in-out infinite;
+    }
+
+    @keyframes logo-pulse {
+      0%, 100% { transform: scale(1); opacity: 0.8; }
+      50% { transform: scale(1.2); opacity: 1; }
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 48px;
+    }
+
+    .nav-links a {
+      color: var(--muted-text);
+      text-decoration: none;
+      font-size: 0.9rem;
+      font-weight: 500;
+      transition: color 0.3s, text-shadow 0.3s;
+    }
+
+    .nav-links a:hover {
+      color: var(--biolum-cyan);
+      text-shadow: 0 0 20px var(--biolum-cyan);
+    }
+
+    /* HERO */
+    .hero {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      padding: 120px 40px;
+      position: relative;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 20px;
+      background: rgba(0, 245, 212, 0.1);
+      border: 1px solid rgba(0, 245, 212, 0.3);
+      border-radius: 100px;
+      font-size: 0.8rem;
+      color: var(--biolum-cyan);
+      margin-bottom: 40px;
+      animation: badge-glow 4s ease-in-out infinite;
+    }
+
+    @keyframes badge-glow {
+      0%, 100% { box-shadow: 0 0 20px rgba(0, 245, 212, 0.2); }
+      50% { box-shadow: 0 0 40px rgba(0, 245, 212, 0.4); }
+    }
+
+    .badge-dot {
+      width: 6px;
+      height: 6px;
+      background: var(--biolum-cyan);
+      border-radius: 50%;
+      animation: badge-dot-pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes badge-dot-pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    .hero-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: clamp(3rem, 10vw, 7rem);
+      font-weight: 600;
+      line-height: 1.1;
+      margin-bottom: 32px;
+      letter-spacing: -0.02em;
+    }
+
+    .hero-title .glow-text {
+      background: linear-gradient(135deg, var(--biolum-cyan), var(--biolum-blue), var(--biolum-magenta));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      animation: gradient-shift 8s ease-in-out infinite;
+      background-size: 200% 200%;
+    }
+
+    @keyframes gradient-shift {
+      0%, 100% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+    }
+
+    .hero-subtitle {
+      font-size: 1.25rem;
+      color: var(--muted-text);
+      max-width: 600px;
+      margin: 0 auto 48px;
+      line-height: 1.8;
+    }
+
+    .hero-cta {
+      display: flex;
+      gap: 20px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 16px 32px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      text-decoration: none;
+      border-radius: 100px;
+      transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+      cursor: pointer;
+      border: none;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--biolum-cyan), var(--biolum-blue));
+      color: var(--deep-void);
+      box-shadow: 0 0 30px rgba(0, 245, 212, 0.3);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 0 50px rgba(0, 245, 212, 0.5);
+    }
+
+    .btn-secondary {
+      background: transparent;
+      color: var(--soft-white);
+      border: 1px solid rgba(255,255,255,0.2);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255,255,255,0.05);
+      border-color: var(--biolum-cyan);
+    }
+
+    /* FLOWING DIVIDER */
+    .wave-divider {
+      position: relative;
+      height: 200px;
+      overflow: hidden;
+    }
+
+    .wave-divider svg {
+      position: absolute;
+      bottom: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    .wave-path {
+      fill: none;
+      stroke: url(#wave-gradient);
+      stroke-width: 2;
+      opacity: 0.5;
+    }
+
+    /* FEATURES */
+    .features {
+      padding: 120px 40px;
+      position: relative;
+    }
+
+    .features-header {
+      text-align: center;
+      max-width: 700px;
+      margin: 0 auto 80px;
+    }
+
+    .features-label {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.3em;
+      color: var(--biolum-magenta);
+      margin-bottom: 16px;
+    }
+
+    .features-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: clamp(2rem, 5vw, 3.5rem);
+      font-weight: 600;
+      margin-bottom: 20px;
+    }
+
+    .features-desc {
+      color: var(--muted-text);
+      font-size: 1.1rem;
+    }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 32px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .feature-card {
+      background: linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 24px;
+      padding: 48px 40px;
+      transition: all 0.5s cubic-bezier(0.23, 1, 0.32, 1);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .feature-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--biolum-cyan), transparent);
+      opacity: 0;
+      transition: opacity 0.5s;
+    }
+
+    .feature-card:hover {
+      transform: translateY(-8px);
+      border-color: rgba(0, 245, 212, 0.3);
+      box-shadow: 0 20px 60px rgba(0, 245, 212, 0.1);
+    }
+
+    .feature-card:hover::before {
+      opacity: 1;
+    }
+
+    .feature-icon {
+      width: 64px;
+      height: 64px;
+      background: linear-gradient(135deg, rgba(0, 245, 212, 0.2), rgba(114, 9, 183, 0.2));
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 28px;
+      font-size: 28px;
+    }
+
+    .feature-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.5rem;
+      font-weight: 600;
+      margin-bottom: 16px;
+    }
+
+    .feature-desc {
+      color: var(--muted-text);
+      line-height: 1.7;
+    }
+
+    /* DIAGRAM SECTION */
+    .diagram-section {
+      padding: 120px 40px;
+      position: relative;
+    }
+
+    .diagram-container {
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+
+    .diagram-header {
+      text-align: center;
+      margin-bottom: 60px;
+    }
+
+    .diagram-label {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.3em;
+      color: var(--biolum-blue);
+      margin-bottom: 16px;
+    }
+
+    .diagram-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: clamp(2rem, 5vw, 3rem);
+      font-weight: 600;
+    }
+
+    .flow-diagram {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 24px;
+      flex-wrap: wrap;
+      margin-bottom: 60px;
+    }
+
+    .flow-node {
+      background: linear-gradient(135deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02));
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 20px;
+      padding: 32px 40px;
+      text-align: center;
+      min-width: 180px;
+      position: relative;
+    }
+
+    .flow-node.central {
+      background: linear-gradient(135deg, rgba(0, 245, 212, 0.15), rgba(114, 9, 183, 0.15));
+      border-color: var(--biolum-cyan);
+      box-shadow: 0 0 40px rgba(0, 245, 212, 0.2);
+    }
+
+    .flow-node-label {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.2em;
+      color: var(--muted-text);
+      margin-bottom: 8px;
+    }
+
+    .flow-node-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.25rem;
+      font-weight: 600;
+    }
+
+    .flow-arrow {
+      color: var(--biolum-cyan);
+      font-size: 1.5rem;
+      animation: arrow-pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes arrow-pulse {
+      0%, 100% { opacity: 0.5; transform: translateX(0); }
+      50% { opacity: 1; transform: translateX(5px); }
+    }
+
+    .diagram-details {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 40px;
+    }
+
+    .detail-item {
+      text-align: center;
+    }
+
+    .detail-number {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 3rem;
+      font-weight: 600;
+      background: linear-gradient(135deg, var(--biolum-cyan), var(--biolum-magenta));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 8px;
+    }
+
+    .detail-label {
+      font-size: 0.85rem;
+      color: var(--muted-text);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+
+    /* TESTIMONIAL / QUOTE */
+    .quote-section {
+      padding: 120px 40px;
+      text-align: center;
+      position: relative;
+    }
+
+    .quote-container {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+    .quote-text {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: clamp(1.5rem, 4vw, 2.5rem);
+      font-style: italic;
+      font-weight: 400;
+      line-height: 1.6;
+      margin-bottom: 32px;
+    }
+
+    .quote-author {
+      color: var(--muted-text);
+      font-size: 0.9rem;
+    }
+
+    .quote-author strong {
+      color: var(--soft-white);
+    }
+
+    /* CTA SECTION */
+    .cta-section {
+      padding: 120px 40px;
+      text-align: center;
+      position: relative;
+    }
+
+    .cta-container {
+      max-width: 700px;
+      margin: 0 auto;
+      background: linear-gradient(135deg, rgba(0, 245, 212, 0.1), rgba(114, 9, 183, 0.1));
+      border: 1px solid rgba(0, 245, 212, 0.2);
+      border-radius: 32px;
+      padding: 80px 60px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .cta-container::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background: radial-gradient(circle, rgba(0, 245, 212, 0.1) 0%, transparent 50%);
+      animation: cta-rotate 20s linear infinite;
+    }
+
+    @keyframes cta-rotate {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    .cta-content {
+      position: relative;
+      z-index: 1;
+    }
+
+    .cta-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: clamp(2rem, 5vw, 3rem);
+      font-weight: 600;
+      margin-bottom: 20px;
+    }
+
+    .cta-desc {
+      color: var(--muted-text);
+      margin-bottom: 32px;
+      font-size: 1.1rem;
+    }
+
+    /* FOOTER */
+    footer {
+      padding: 60px 40px;
+      border-top: 1px solid rgba(255,255,255,0.05);
+    }
+
+    .footer-content {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 24px;
+    }
+
+    .footer-logo {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.25rem;
+      font-weight: 600;
+    }
+
+    .footer-links {
+      display: flex;
+      gap: 32px;
+    }
+
+    .footer-links a {
+      color: var(--muted-text);
+      text-decoration: none;
+      font-size: 0.85rem;
+      transition: color 0.3s;
+    }
+
+    .footer-links a:hover {
+      color: var(--biolum-cyan);
+    }
+
+    .footer-copy {
+      color: var(--muted-text);
+      font-size: 0.8rem;
+    }
+
+    /* RESPONSIVE */
+    @media (max-width: 768px) {
+      nav {
+        padding: 20px 24px;
+      }
+
+      .nav-links {
+        display: none;
+      }
+
+      .hero {
+        padding: 100px 24px;
+      }
+
+      .features, .diagram-section, .quote-section, .cta-section {
+        padding: 80px 24px;
+      }
+
+      .flow-diagram {
+        flex-direction: column;
+      }
+
+      .flow-arrow {
+        transform: rotate(90deg);
+      }
+
+      .diagram-details {
+        grid-template-columns: 1fr;
+        gap: 24px;
+      }
+
+      .cta-container {
+        padding: 60px 32px;
+      }
+
+      .footer-content {
+        flex-direction: column;
+        text-align: center;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="gradient-bg">
+    <div class="gradient-orb orb-1"></div>
+    <div class="gradient-orb orb-2"></div>
+    <div class="gradient-orb orb-3"></div>
+    <div class="gradient-orb orb-4"></div>
+  </div>
+
+  <div class="particles" id="particles"></div>
+
+  <nav>
+    <div class="logo">
+      <div class="logo-glow"></div>
+      ClawCondos
+    </div>
+    <div class="nav-links">
+      <a href="#features">Features</a>
+      <a href="#architecture">How It Works</a>
+      <a href="https://github.com/acastellana/clawcondos">GitHub</a>
+    </div>
+  </nav>
+
+  <main>
+    <section class="hero">
+      <div class="hero-badge">
+        <span class="badge-dot"></span>
+        Living Intelligence
+      </div>
+
+      <h1 class="hero-title">
+        Where <span class="glow-text">AI Agents</span><br>
+        Come to Life
+      </h1>
+
+      <p class="hero-subtitle">
+        A goals-first dashboard where multiple AI agents coexist, collaborate, 
+        and evolve. Embed any app. Watch your agents think in real time.
+      </p>
+
+      <div class="hero-cta">
+        <a href="https://github.com/acastellana/clawcondos" class="btn btn-primary">
+          Explore the Source
+        </a>
+        <a href="#architecture" class="btn btn-secondary">
+          See the Flow →
+        </a>
+      </div>
+    </section>
+
+    <section class="features" id="features">
+      <div class="features-header">
+        <div class="features-label">Capabilities</div>
+        <h2 class="features-title">Intelligence, Organized</h2>
+        <p class="features-desc">
+          Group your agents into condos. Give each project its own living space.
+        </p>
+      </div>
+
+      <div class="features-grid">
+        <div class="feature-card">
+          <div class="feature-icon">🏠</div>
+          <h3 class="feature-title">Goals as Homes</h3>
+          <p class="feature-desc">
+            Each "condo" is a goal container with its own context, history, 
+            and embedded tools. Agents live where they work.
+          </p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">🔮</div>
+          <h3 class="feature-title">Apps Platform</h3>
+          <p class="feature-desc">
+            Register any web app and instantly get an AI assistant sidebar 
+            that understands your code, logs, and stack.
+          </p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">💫</div>
+          <h3 class="feature-title">Real-Time Streaming</h3>
+          <p class="feature-desc">
+            Watch your agents think, plan, and execute. WebSocket-based 
+            streaming with tool activity indicators.
+          </p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">🌿</div>
+          <h3 class="feature-title">No Build Step</h3>
+          <p class="feature-desc">
+            Pure HTML, CSS, JavaScript. Edit and refresh. 
+            Simple infrastructure for complex intelligence.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section class="diagram-section" id="architecture">
+      <div class="diagram-container">
+        <div class="diagram-header">
+          <div class="diagram-label">System Architecture</div>
+          <h2 class="diagram-title">The Living Flow</h2>
+        </div>
+
+        <div class="flow-diagram">
+          <div class="flow-node">
+            <div class="flow-node-label">Input</div>
+            <div class="flow-node-title">Your Apps</div>
+          </div>
+          <span class="flow-arrow">→</span>
+          <div class="flow-node central">
+            <div class="flow-node-label">Core</div>
+            <div class="flow-node-title">ClawCondos</div>
+          </div>
+          <span class="flow-arrow">→</span>
+          <div class="flow-node">
+            <div class="flow-node-label">Backend</div>
+            <div class="flow-node-title">AI Gateway</div>
+          </div>
+        </div>
+
+        <div class="diagram-details">
+          <div class="detail-item">
+            <div class="detail-number">21</div>
+            <div class="detail-label">RPC Methods</div>
+          </div>
+          <div class="detail-item">
+            <div class="detail-number">∞</div>
+            <div class="detail-label">Apps Supported</div>
+          </div>
+          <div class="detail-item">
+            <div class="detail-number">0</div>
+            <div class="detail-label">Build Steps</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="quote-section">
+      <div class="quote-container">
+        <p class="quote-text">
+          "The best infrastructure is invisible. It just works, 
+          letting intelligence flow freely."
+        </p>
+        <p class="quote-author">
+          — The philosophy behind <strong>ClawCondos</strong>
+        </p>
+      </div>
+    </section>
+
+    <section class="cta-section">
+      <div class="cta-container">
+        <div class="cta-content">
+          <h2 class="cta-title">Ready to Begin?</h2>
+          <p class="cta-desc">
+            Clone the repo, configure your gateway, and watch your agents come alive.
+          </p>
+          <a href="https://github.com/acastellana/clawcondos" class="btn btn-primary">
+            Get Started →
+          </a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="footer-content">
+      <div class="footer-logo">ClawCondos</div>
+      <div class="footer-links">
+        <a href="https://github.com/acastellana/clawcondos">GitHub</a>
+        <a href="https://github.com/acastellana/clawcondos/blob/main/docs/SETUP.md">Documentation</a>
+        <a href="https://github.com/acastellana/clawcondos/blob/main/LICENSE">License</a>
+      </div>
+      <div class="footer-copy">© 2024-2026 Albert Castellana</div>
+    </div>
+  </footer>
+
+  <script>
+    // Generate floating particles
+    const particlesContainer = document.getElementById('particles');
+    const particleCount = 30;
+
+    for (let i = 0; i < particleCount; i++) {
+      const particle = document.createElement('div');
+      particle.className = 'particle';
+      particle.style.left = Math.random() * 100 + '%';
+      particle.style.animationDelay = Math.random() * 8 + 's';
+      particle.style.animationDuration = (6 + Math.random() * 4) + 's';
+      
+      // Random colors
+      const colors = ['#00f5d4', '#4cc9f0', '#f72585', '#7209b7'];
+      particle.style.background = colors[Math.floor(Math.random() * colors.length)];
+      
+      particlesContainer.appendChild(particle);
+    }
+  </script>
+</body>
+</html>

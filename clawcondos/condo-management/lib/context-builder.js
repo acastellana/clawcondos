@@ -16,20 +16,21 @@ export function buildGoalContext(goal, opts = {}) {
   if (goal.description) lines.push('', goal.description);
 
   if (goal.tasks?.length) {
-    const doneCount = goal.tasks.filter(t => t.done).length;
+    const doneCount = goal.tasks.filter(t => t.done || t.status === 'done').length;
     lines.push('', `Tasks (${doneCount}/${goal.tasks.length} done):`);
     for (const t of goal.tasks) {
-      const marker = t.done ? 'x' : ' ';
+      const status = t.status || (t.done ? 'done' : 'pending');
+      const isDone = t.done || status === 'done';
       let suffix = '';
       if (currentSessionKey && t.sessionKey === currentSessionKey) {
         suffix = ' ← you';
       } else if (t.sessionKey) {
         suffix = ` (agent: ${t.sessionKey})`;
-      } else if (!t.done) {
+      } else if (!isDone) {
         suffix = ' — unassigned';
       }
-      lines.push(`- [${marker}] ${t.text} [${t.id}]${suffix}`);
-      if (t.done && t.summary) {
+      lines.push(`- [${status}] ${t.text} [${t.id}]${suffix}`);
+      if (isDone && t.summary) {
         lines.push(`  > ${t.summary}`);
       }
     }
@@ -58,7 +59,7 @@ export function buildProjectSummary(condo, goals, currentGoalId) {
     if (g.id === currentGoalId) {
       suffix = ' ← this goal';
     } else if (status === 'active' && g.tasks?.length) {
-      const done = g.tasks.filter(t => t.done).length;
+      const done = g.tasks.filter(t => t.done || t.status === 'done').length;
       suffix = ` — ${done}/${g.tasks.length} tasks`;
     }
     lines.push(`${i + 1}. [${status}] ${g.title} (${g.id})${suffix}`);
@@ -105,7 +106,7 @@ export function buildCondoContext(condo, goals, opts = {}) {
   // Summary line
   const active = goals.filter(g => g.status !== 'done');
   const completed = goals.filter(g => g.status === 'done');
-  const pendingTasks = goals.reduce((n, g) => n + (g.tasks || []).filter(t => !t.done).length, 0);
+  const pendingTasks = goals.reduce((n, g) => n + (g.tasks || []).filter(t => !t.done && t.status !== 'done').length, 0);
   lines.push('', '---');
   lines.push(`Active: ${active.length} goals, ${pendingTasks} pending tasks | Completed: ${completed.length} goals`);
 

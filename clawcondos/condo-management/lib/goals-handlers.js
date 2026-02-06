@@ -76,7 +76,7 @@ export function createGoalHandlers(store) {
         }
 
         // Whitelist allowed patch fields (prevent overwriting internal fields)
-        const allowed = ['title', 'description', 'status', 'completed', 'condoId', 'priority', 'deadline', 'notes', 'tasks', 'nextTask', 'dropped', 'droppedAtMs'];
+        const allowed = ['title', 'description', 'status', 'completed', 'condoId', 'priority', 'deadline', 'notes', 'tasks', 'nextTask', 'dropped', 'droppedAtMs', 'files'];
         for (const f of allowed) {
           if (f in params) goal[f] = params[f];
         }
@@ -339,6 +339,71 @@ export function createGoalHandlers(store) {
         goal.updatedAtMs = Date.now();
         saveData(data);
         respond(true, { ok: true });
+      } catch (err) {
+        respond(false, undefined, { message: String(err) });
+      }
+    },
+
+    'goals.addFiles': ({ params, respond }) => {
+      try {
+        const { goalId, files } = params;
+        if (!goalId || !Array.isArray(files) || !files.length) {
+          respond(false, undefined, { message: 'goalId and files (array) are required' });
+          return;
+        }
+        const data = loadData();
+        const goal = data.goals.find(g => g.id === goalId);
+        if (!goal) {
+          respond(false, undefined, { message: 'Goal not found' });
+          return;
+        }
+        if (!Array.isArray(goal.files)) goal.files = [];
+        const now = Date.now();
+        let added = 0;
+        for (const f of files) {
+          const path = (typeof f === 'string' ? f : f?.path || '').trim();
+          if (!path) continue;
+          goal.files = goal.files.filter(e => e.path !== path);
+          goal.files.push({
+            path,
+            taskId: null,
+            sessionKey: null,
+            addedAtMs: now,
+            source: 'manual',
+          });
+          added++;
+        }
+        goal.updatedAtMs = now;
+        saveData(data);
+        respond(true, { ok: true, added, files: goal.files });
+      } catch (err) {
+        respond(false, undefined, { message: String(err) });
+      }
+    },
+
+    'goals.removeFile': ({ params, respond }) => {
+      try {
+        const { goalId, path } = params;
+        if (!goalId || !path) {
+          respond(false, undefined, { message: 'goalId and path are required' });
+          return;
+        }
+        const data = loadData();
+        const goal = data.goals.find(g => g.id === goalId);
+        if (!goal) {
+          respond(false, undefined, { message: 'Goal not found' });
+          return;
+        }
+        if (!Array.isArray(goal.files)) goal.files = [];
+        const before = goal.files.length;
+        goal.files = goal.files.filter(e => e.path !== path);
+        if (goal.files.length === before) {
+          respond(false, undefined, { message: 'File not found in goal' });
+          return;
+        }
+        goal.updatedAtMs = Date.now();
+        saveData(data);
+        respond(true, { ok: true, files: goal.files });
       } catch (err) {
         respond(false, undefined, { message: String(err) });
       }

@@ -61,6 +61,21 @@ describe('goal_update tool', () => {
     expect(task.status).toBe('in-progress');
   });
 
+  it('syncs task.status to waiting', async () => {
+    await execute('call1', {
+      sessionKey: 'agent:main:main',
+      taskId: 'task_1',
+      status: 'waiting',
+      summary: 'Waiting for deployment',
+    });
+
+    const data = store.load();
+    const task = data.goals[0].tasks.find(t => t.id === 'task_1');
+    expect(task.done).toBe(false);
+    expect(task.status).toBe('waiting');
+    expect(task.summary).toBe('Waiting for deployment');
+  });
+
   it('syncs task.status to blocked', async () => {
     await execute('call1', {
       sessionKey: 'agent:main:main',
@@ -622,5 +637,124 @@ describe('goal_update cross-goal boundaries', () => {
     });
     expect(result.content[0].text).toContain('updated');
     expect(result.content[0].text).not.toContain('Error');
+  });
+});
+
+describe('goal_update file tracking', () => {
+  let store, execute;
+
+  beforeEach(() => {
+    rmSync(TEST_DIR, { recursive: true, force: true });
+    mkdirSync(TEST_DIR, { recursive: true });
+    store = createGoalsStore(TEST_DIR);
+    execute = createGoalUpdateExecutor(store);
+
+    const data = store.load();
+    data.goals.push({
+      id: 'goal_1', title: 'Ship v2', status: 'active', completed: false,
+      sessions: ['agent:main:main'], tasks: [
+        { id: 'task_1', text: 'Build API', done: false },
+        { id: 'task_2', text: 'Write tests', done: false },
+      ],
+      files: [],
+      condoId: null, priority: null, deadline: null, description: '', notes: '',
+      createdAtMs: Date.now(), updatedAtMs: Date.now(),
+    });
+    data.sessionIndex['agent:main:main'] = { goalId: 'goal_1' };
+    store.save(data);
+  });
+
+  afterEach(() => {
+    rmSync(TEST_DIR, { recursive: true, force: true });
+  });
+
+  it('tracks files via string paths', async () => {
+    const result = await execute('call1', {
+      sessionKey: 'agent:main:main',
+      files: ['src/index.js', 'src/api.js'],
+    });
+    expect(result.content[0].text).toContain('2 files tracked');
+
+    const data = store.load();
+    expect(data.goals[0].files).toHaveLength(2);
+    expect(data.goals[0].files[0].path).toBe('src/index.js');
+    expect(data.goals[0].files[1].path).toBe('src/api.js');
+  });
+
+  it('tracks files via object with path property', async () => {
+    const result = await execute('call1', {
+      sessionKey: 'agent:main:main',
+      files: [{ path: 'src/index.js' }, { path: 'README.md' }],
+    });
+    expect(result.content[0].text).toContain('2 files tracked');
+
+    const data = store.load();
+    expect(data.goals[0].files).toHaveLength(2);
+    expect(data.goals[0].files[0].path).toBe('src/index.js');
+  });
+
+  it('deduplicates files by path (latest wins)', async () => {
+    await execute('call1', {
+      sessionKey: 'agent:main:main',
+      files: ['src/index.js'],
+    });
+    await execute('call2', {
+      sessionKey: 'agent:main:main',
+      files: ['src/index.js'],
+    });
+
+    const data = store.load();
+    expect(data.goals[0].files).toHaveLength(1);
+    expect(data.goals[0].files[0].path).toBe('src/index.js');
+  });
+
+  it('skips empty and whitespace-only paths', async () => {
+    const result = await execute('call1', {
+      sessionKey: 'agent:main:main',
+      files: ['src/index.js', '', '   ', { path: '' }],
+    });
+    expect(result.content[0].text).toContain('1 file tracked');
+    expect(store.load().goals[0].files).toHaveLength(1);
+  });
+
+  it('files-only call is valid (no other params needed)', async () => {
+    const result = await execute('call1', {
+      sessionKey: 'agent:main:main',
+      files: ['src/index.js'],
+    });
+    expect(result.content[0].text).not.toContain('Error');
+    expect(result.content[0].text).toContain('1 file tracked');
+  });
+
+  it('stores correct taskId, sessionKey, and source', async () => {
+    await execute('call1', {
+      sessionKey: 'agent:main:main',
+      taskId: 'task_1',
+      status: 'in-progress',
+      files: ['src/api.js'],
+    });
+
+    const data = store.load();
+    const file = data.goals[0].files[0];
+    expect(file.path).toBe('src/api.js');
+    expect(file.taskId).toBe('task_1');
+    expect(file.sessionKey).toBe('agent:main:main');
+    expect(file.source).toBe('agent');
+    expect(file.addedAtMs).toBeGreaterThan(0);
+  });
+
+  it('files without taskId store null taskId', async () => {
+    await execute('call1', {
+      sessionKey: 'agent:main:main',
+      files: ['src/config.js'],
+    });
+
+    const data = store.load();
+    expect(data.goals[0].files[0].taskId).toBeNull();
+  });
+
+  it('files default is empty array on loaded goals', () => {
+    const data = store.load();
+    expect(data.goals[0].files).toEqual(expect.any(Array));
   });
 });

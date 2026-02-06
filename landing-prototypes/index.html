@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ClawCondos Landing Prototypes</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: #0f0f0f;
+      color: #fff;
+      min-height: 100vh;
+      padding: 60px 40px;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    h1 {
+      font-size: 3rem;
+      font-weight: 700;
+      margin-bottom: 12px;
+      background: linear-gradient(135deg, #7c3aed, #ec4899);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .subtitle {
+      font-size: 1.1rem;
+      color: #888;
+      margin-bottom: 60px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+      gap: 24px;
+    }
+    .card {
+      background: #1a1a1a;
+      border-radius: 16px;
+      overflow: hidden;
+      border: 1px solid #2a2a2a;
+      transition: all 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+    }
+    .card:hover {
+      transform: translateY(-8px);
+      border-color: #7c3aed;
+      box-shadow: 0 20px 60px rgba(124, 58, 237, 0.2);
+    }
+    .card-preview {
+      height: 200px;
+      position: relative;
+      overflow: hidden;
+    }
+    .card-preview iframe {
+      width: 200%;
+      height: 200%;
+      transform: scale(0.5);
+      transform-origin: top left;
+      border: none;
+      pointer-events: none;
+    }
+    .card-content {
+      padding: 24px;
+    }
+    .card-number {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: #7c3aed;
+      letter-spacing: 0.1em;
+      margin-bottom: 8px;
+    }
+    .card-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+    .card-desc {
+      font-size: 0.9rem;
+      color: #888;
+      line-height: 1.6;
+      margin-bottom: 20px;
+    }
+    .card-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: #7c3aed;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 0.9rem;
+      transition: gap 0.3s;
+    }
+    .card-link:hover {
+      gap: 12px;
+    }
+    .footer {
+      margin-top: 80px;
+      text-align: center;
+      color: #666;
+      font-size: 0.85rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Landing Prototypes</h1>
+    <p class="subtitle">5 radically different design directions for ClawCondos</p>
+
+    <div class="grid">
+      <div class="card">
+        <div class="card-preview">
+          <iframe src="01-brutalist.html" loading="lazy"></iframe>
+        </div>
+        <div class="card-content">
+          <div class="card-number">01</div>
+          <h2 class="card-title">Brutalist Industrial</h2>
+          <p class="card-desc">
+            Harsh typography, exposed grid, raw materials aesthetic. 
+            Monospace fonts, rust/yellow accents, industrial blocks.
+          </p>
+          <a href="01-brutalist.html" class="card-link">
+            View Prototype →
+          </a>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-preview">
+          <iframe src="02-bioluminescent.html" loading="lazy"></iframe>
+        </div>
+        <div class="card-content">
+          <div class="card-number">02</div>
+          <h2 class="card-title">Organic Bioluminescent</h2>
+          <p class="card-desc">
+            Flowing gradient orbs, particle animations, nature-meets-tech.
+            Cyan/magenta/purple glows, organic floating shapes.
+          </p>
+          <a href="02-bioluminescent.html" class="card-link">
+            View Prototype →
+          </a>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-preview">
+          <iframe src="03-terminal.html" loading="lazy"></iframe>
+        </div>
+        <div class="card-content">
+          <div class="card-number">03</div>
+          <h2 class="card-title">Retro Terminal CRT</h2>
+          <p class="card-desc">
+            Scanlines, phosphor glow, command-line aesthetic.
+            ASCII art logo, boot sequence, green-on-black terminal vibes.
+          </p>
+          <a href="03-terminal.html" class="card-link">
+            View Prototype →
+          </a>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-preview">
+          <iframe src="04-editorial.html" loading="lazy"></iframe>
+        </div>
+        <div class="card-content">
+          <div class="card-number">04</div>
+          <h2 class="card-title">Luxury Editorial</h2>
+          <p class="card-desc">
+            Magazine-style layout, refined serif typography.
+            Dramatic white space, gold accents, sophisticated elegance.
+          </p>
+          <a href="04-editorial.html" class="card-link">
+            View Prototype →
+          </a>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-preview">
+          <iframe src="05-playful.html" loading="lazy"></iframe>
+        </div>
+        <div class="card-content">
+          <div class="card-number">05</div>
+          <h2 class="card-title">Playful Isometric</h2>
+          <p class="card-desc">
+            Bouncy spring animations, gradient shapes, emoji icons.
+            Candy colors, game-like feel, delightful micro-interactions.
+          </p>
+          <a href="05-playful.html" class="card-link">
+            View Prototype →
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <p>Built for ClawCondos • February 2026</p>
+    </div>
+  </div>
+</body>
+</html>

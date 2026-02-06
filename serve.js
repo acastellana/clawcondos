@@ -426,6 +426,43 @@ const server = createServer(async (req, res) => {
     }
   }
 
+  // Export bounce endpoint: client POSTs markdown content + filename via
+  // hidden form, server returns it with Content-Disposition so the browser
+  // downloads with the correct filename.  Accepts both JSON and form-encoded.
+  if (pathname === '/api/export' && req.method === 'POST') {
+    const MAX_EXPORT = 5 * 1024 * 1024; // 5 MB
+    let body = '';
+    let overflow = false;
+    req.on('data', chunk => {
+      body += chunk;
+      if (body.length > MAX_EXPORT) overflow = true;
+    });
+    req.on('end', () => {
+      if (overflow) { json(res, 413, { error: 'Export too large' }); return; }
+      try {
+        let filename, content;
+        const ct = String(req.headers['content-type'] || '');
+        if (ct.includes('application/json')) {
+          ({ filename, content } = JSON.parse(body));
+        } else {
+          const params = new URLSearchParams(body);
+          filename = params.get('filename');
+          content = params.get('content');
+        }
+        const safe = String(filename || 'export.md').replace(/[^a-zA-Z0-9._-]/g, '_');
+        res.writeHead(200, {
+          'Content-Type': 'text/markdown; charset=utf-8',
+          'Content-Disposition': `attachment; filename="${safe}"`,
+          'Cache-Control': 'no-store',
+        });
+        res.end(content || '');
+      } catch {
+        json(res, 400, { error: 'Invalid request' });
+      }
+    });
+    return;
+  }
+
   // Proxy to OpenClaw gateway for /api/gateway/* requests
   // Env vars:
   // - GATEWAY_HTTP_HOST (default: localhost)

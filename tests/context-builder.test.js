@@ -39,10 +39,25 @@ describe('buildGoalContext', () => {
     expect(ctx).toContain('Launch the v2 release');
   });
 
-  it('includes task list with completion markers and IDs', () => {
+  it('includes task list with status markers and IDs', () => {
     const ctx = buildGoalContext(baseGoal);
-    expect(ctx).toContain('[x] Build API endpoints [t1]');
-    expect(ctx).toContain('[ ] Wire up frontend [t2]');
+    expect(ctx).toContain('[done] Build API endpoints [t1]');
+    expect(ctx).toContain('[pending] Wire up frontend [t2]');
+  });
+
+  it('shows in-progress, waiting, and blocked status markers', () => {
+    const goal = {
+      ...baseGoal,
+      tasks: [
+        { id: 't1', text: 'Task A', done: false, status: 'in-progress' },
+        { id: 't2', text: 'Task B', done: false, status: 'waiting' },
+        { id: 't3', text: 'Task C', done: false, status: 'blocked' },
+      ],
+    };
+    const ctx = buildGoalContext(goal);
+    expect(ctx).toContain('[in-progress] Task A [t1]');
+    expect(ctx).toContain('[waiting] Task B [t2]');
+    expect(ctx).toContain('[blocked] Task C [t3]');
   });
 
   it('includes compact meta with priority and deadline', () => {
@@ -59,6 +74,18 @@ describe('buildGoalContext', () => {
   it('shows task progress count', () => {
     const ctx = buildGoalContext(baseGoal);
     expect(ctx).toContain('Tasks (1/3 done):');
+  });
+
+  it('counts tasks with status:"done" even if done flag is missing', () => {
+    const goal = {
+      ...baseGoal,
+      tasks: [
+        { id: 't1', text: 'A', done: false, status: 'done' },
+        { id: 't2', text: 'B', done: false, status: 'pending' },
+      ],
+    };
+    const ctx = buildGoalContext(goal);
+    expect(ctx).toContain('Tasks (1/2 done):');
   });
 
   it('does not include instruction blockquote', () => {
@@ -137,7 +164,7 @@ describe('buildGoalContext with sibling sessions', () => {
       sessions: [],
     };
     const ctx = buildGoalContext(g, { currentSessionKey: 'agent:main:s1' });
-    expect(ctx).toContain('[x] Completed thing [t1]');
+    expect(ctx).toContain('[done] Completed thing [t1]');
     expect(ctx).not.toContain('— unassigned');
     expect(ctx).not.toContain('← you');
   });

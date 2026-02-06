@@ -42,20 +42,21 @@ describe('Plugin index.js', () => {
   });
 
   describe('registration', () => {
-    it('registers all 21 gateway methods', () => {
+    it('registers all 23 gateway methods', () => {
       const expected = [
         'goals.list', 'goals.create', 'goals.get', 'goals.update', 'goals.delete',
         'goals.addSession', 'goals.removeSession', 'goals.sessionLookup',
         'goals.setSessionCondo', 'goals.getSessionCondo', 'goals.listSessionCondos',
         'goals.removeSessionCondo',
         'goals.addTask', 'goals.updateTask', 'goals.deleteTask',
+        'goals.addFiles', 'goals.removeFile',
         'condos.create', 'condos.list', 'condos.get', 'condos.update', 'condos.delete',
         'goals.spawnTaskSession',
       ];
       for (const name of expected) {
         expect(api._methods).toHaveProperty(name);
       }
-      expect(Object.keys(api._methods)).toHaveLength(21);
+      expect(Object.keys(api._methods)).toHaveLength(23);
     });
 
     it('registers before_agent_start and agent_end hooks', () => {

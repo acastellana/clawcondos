@@ -2,7 +2,7 @@ export function createGoalUpdateExecutor(store) {
   const error = (text) => ({ content: [{ type: 'text', text: `Error: ${text}` }] });
 
   return async function execute(toolCallId, params) {
-    const { sessionKey, goalId, taskId, status, summary, addTasks, nextTask, goalStatus, notes } = params;
+    const { sessionKey, goalId, taskId, status, summary, addTasks, nextTask, goalStatus, notes, files } = params;
 
     // Require at least one actionable param.
     const hasTaskUpdate = taskId && status;
@@ -10,8 +10,9 @@ export function createGoalUpdateExecutor(store) {
     const hasNextTask = typeof nextTask === 'string';
     const hasGoalStatus = typeof goalStatus === 'string';
     const hasNotes = typeof notes === 'string' && notes.trim();
-    if (!hasTaskUpdate && !hasAddTasks && !hasNextTask && !hasGoalStatus && !hasNotes) {
-      return error('provide at least one of: taskId+status, addTasks, nextTask, goalStatus, notes.');
+    const hasFiles = Array.isArray(files) && files.length > 0;
+    if (!hasTaskUpdate && !hasAddTasks && !hasNextTask && !hasGoalStatus && !hasNotes && !hasFiles) {
+      return error('provide at least one of: taskId+status, addTasks, nextTask, goalStatus, notes, files.');
     }
 
     const data = store.load();
@@ -140,6 +141,30 @@ export function createGoalUpdateExecutor(store) {
       const existing = (goal.notes || '').trim();
       goal.notes = existing ? `${existing}\n\n${notes.trim()}` : notes.trim();
       results.push('notes updated');
+    }
+
+    // ── Files tracking ──
+    if (hasFiles) {
+      if (!Array.isArray(goal.files)) goal.files = [];
+      const now = Date.now();
+      let added = 0;
+      for (const f of files) {
+        const path = (typeof f === 'string' ? f : f?.path || '').trim();
+        if (!path) continue;
+        // Deduplicate: remove existing entry with same path
+        goal.files = goal.files.filter(e => e.path !== path);
+        goal.files.push({
+          path,
+          taskId: taskId || null,
+          sessionKey,
+          addedAtMs: now,
+          source: 'agent',
+        });
+        added++;
+      }
+      if (added) {
+        results.push(`${added} file${added !== 1 ? 's' : ''} tracked`);
+      }
     }
 
     goal.updatedAtMs = Date.now();

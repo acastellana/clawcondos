@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ClawCondos — Multi-Agent Architecture</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Source+Sans+3:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --ivory: #faf9f6;
+      --cream: #f5f4f0;
+      --charcoal: #1a1a1a;
+      --graphite: #2d2d2d;
+      --warm-gray: #6b6b6b;
+      --accent-gold: #b8860b;
+      --accent-terracotta: #c67d5f;
+      --line-subtle: rgba(0,0,0,0.08);
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html {
+      font-size: 18px;
+      scroll-behavior: smooth;
+    }
+
+    body {
+      background: var(--ivory);
+      color: var(--charcoal);
+      font-family: 'Source Sans 3', sans-serif;
+      font-weight: 400;
+      line-height: 1.7;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* NAVIGATION - MINIMAL */
+    nav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 100;
+      padding: 28px 60px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--ivory);
+      border-bottom: 1px solid var(--line-subtle);
+      transition: all 0.4s;
+    }
+
+    nav.scrolled {
+      padding: 20px 60px;
+      box-shadow: 0 2px 20px rgba(0,0,0,0.04);
+    }
+
+    .logo {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.25rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      color: var(--charcoal);
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 48px;
+    }
+
+    .nav-links a {
+      color: var(--warm-gray);
+      text-decoration: none;
+      font-size: 0.8rem;
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      transition: color 0.3s;
+      position: relative;
+    }
+
+    .nav-links a::after {
+      content: '';
+      position: absolute;
+      bottom: -4px;
+      left: 0;
+      width: 0;
+      height: 1px;
+      background: var(--accent-gold);
+      transition: width 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+    }
+
+    .nav-links a:hover {
+      color: var(--charcoal);
+    }
+
+    .nav-links a:hover::after {
+      width: 100%;
+    }
+
+    /* HERO - EDITORIAL LAYOUT */
+    .hero {
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      padding-top: 100px;
+    }
+
+    .hero-content {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 80px 80px 80px 100px;
+    }
+
+    .hero-label {
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      color: var(--accent-gold);
+      margin-bottom: 32px;
+    }
+
+    .hero-title {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(2.5rem, 5vw, 4rem);
+      font-weight: 400;
+      line-height: 1.15;
+      margin-bottom: 40px;
+      letter-spacing: -0.01em;
+    }
+
+    .hero-title em {
+      font-style: italic;
+      color: var(--accent-terracotta);
+    }
+
+    .hero-subtitle {
+      font-size: 1.1rem;
+      font-weight: 300;
+      color: var(--warm-gray);
+      max-width: 480px;
+      line-height: 1.9;
+      margin-bottom: 48px;
+    }
+
+    .hero-cta {
+      display: flex;
+      gap: 24px;
+      align-items: center;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      text-decoration: none;
+      transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+      cursor: pointer;
+    }
+
+    .btn-primary {
+      padding: 18px 36px;
+      background: var(--charcoal);
+      color: var(--ivory);
+      border: none;
+    }
+
+    .btn-primary:hover {
+      background: var(--graphite);
+      transform: translateY(-2px);
+    }
+
+    .btn-link {
+      color: var(--charcoal);
+      padding: 18px 0;
+    }
+
+    .btn-link:hover {
+      color: var(--accent-gold);
+    }
+
+    .btn-link .arrow {
+      transition: transform 0.3s;
+    }
+
+    .btn-link:hover .arrow {
+      transform: translateX(6px);
+    }
+
+    /* HERO IMAGE SIDE */
+    .hero-visual {
+      background: var(--cream);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero-visual::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: linear-gradient(135deg, var(--cream) 0%, rgba(200,190,180,0.3) 100%);
+    }
+
+    .visual-decoration {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+    }
+
+    .visual-number {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(8rem, 20vw, 16rem);
+      font-weight: 400;
+      color: rgba(0,0,0,0.04);
+      line-height: 1;
+    }
+
+    .visual-label {
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      color: var(--warm-gray);
+      margin-top: 20px;
+    }
+
+    /* FEATURES SECTION - MAGAZINE GRID */
+    .features {
+      padding: 140px 100px;
+      max-width: 1600px;
+      margin: 0 auto;
+    }
+
+    .section-header {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 80px;
+      margin-bottom: 100px;
+      align-items: end;
+    }
+
+    .section-title {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(2rem, 4vw, 3rem);
+      font-weight: 400;
+      line-height: 1.2;
+    }
+
+    .section-desc {
+      font-size: 1rem;
+      font-weight: 300;
+      color: var(--warm-gray);
+      line-height: 1.9;
+    }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1px;
+      background: var(--line-subtle);
+    }
+
+    .feature-card {
+      background: var(--ivory);
+      padding: 60px 50px;
+      position: relative;
+      transition: all 0.5s cubic-bezier(0.23, 1, 0.32, 1);
+    }
+
+    .feature-card:hover {
+      background: var(--cream);
+    }
+
+    .feature-number {
+      font-family: 'Playfair Display', serif;
+      font-size: 3.5rem;
+      font-weight: 400;
+      color: rgba(0,0,0,0.06);
+      position: absolute;
+      top: 40px;
+      right: 50px;
+      line-height: 1;
+    }
+
+    .feature-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.4rem;
+      font-weight: 600;
+      margin-bottom: 20px;
+      padding-right: 80px;
+    }
+
+    .feature-desc {
+      font-size: 0.95rem;
+      font-weight: 300;
+      color: var(--warm-gray);
+      line-height: 1.8;
+    }
+
+    /* QUOTE SECTION */
+    .quote-section {
+      padding: 140px 100px;
+      background: var(--charcoal);
+      color: var(--ivory);
+    }
+
+    .quote-container {
+      max-width: 900px;
+      margin: 0 auto;
+      text-align: center;
+    }
+
+    .quote-mark {
+      font-family: 'Playfair Display', serif;
+      font-size: 6rem;
+      color: var(--accent-gold);
+      line-height: 0.5;
+      margin-bottom: 40px;
+    }
+
+    .quote-text {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(1.5rem, 3vw, 2rem);
+      font-weight: 400;
+      font-style: italic;
+      line-height: 1.6;
+      margin-bottom: 40px;
+    }
+
+    .quote-author {
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--accent-gold);
+    }
+
+    /* ARCHITECTURE SECTION */
+    .architecture {
+      padding: 140px 100px;
+      max-width: 1600px;
+      margin: 0 auto;
+    }
+
+    .arch-header {
+      text-align: center;
+      max-width: 700px;
+      margin: 0 auto 80px;
+    }
+
+    .arch-title {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(2rem, 4vw, 3rem);
+      font-weight: 400;
+      margin-bottom: 24px;
+    }
+
+    .arch-subtitle {
+      font-size: 1rem;
+      font-weight: 300;
+      color: var(--warm-gray);
+    }
+
+    .arch-diagram {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 40px;
+      flex-wrap: wrap;
+      margin-bottom: 80px;
+    }
+
+    .arch-node {
+      text-align: center;
+      padding: 40px 48px;
+      border: 1px solid var(--line-subtle);
+      min-width: 200px;
+      transition: all 0.4s;
+    }
+
+    .arch-node:hover {
+      border-color: var(--accent-gold);
+      box-shadow: 0 8px 40px rgba(0,0,0,0.06);
+    }
+
+    .arch-node.central {
+      border-color: var(--accent-gold);
+      background: linear-gradient(135deg, rgba(184,134,11,0.03), transparent);
+    }
+
+    .arch-node-label {
+      font-size: 0.65rem;
+      font-weight: 600;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--warm-gray);
+      margin-bottom: 12px;
+    }
+
+    .arch-node-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.25rem;
+      font-weight: 600;
+    }
+
+    .arch-arrow {
+      font-size: 1.5rem;
+      color: var(--accent-gold);
+    }
+
+    .arch-details {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 60px;
+      padding-top: 60px;
+      border-top: 1px solid var(--line-subtle);
+    }
+
+    .detail-item {
+      text-align: center;
+    }
+
+    .detail-value {
+      font-family: 'Playfair Display', serif;
+      font-size: 3.5rem;
+      font-weight: 400;
+      color: var(--charcoal);
+      margin-bottom: 8px;
+    }
+
+    .detail-label {
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--warm-gray);
+    }
+
+    /* CTA SECTION */
+    .cta-section {
+      padding: 140px 100px;
+      background: var(--cream);
+    }
+
+    .cta-container {
+      max-width: 800px;
+      margin: 0 auto;
+      text-align: center;
+    }
+
+    .cta-label {
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      color: var(--accent-gold);
+      margin-bottom: 24px;
+    }
+
+    .cta-title {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(2rem, 4vw, 3rem);
+      font-weight: 400;
+      margin-bottom: 24px;
+    }
+
+    .cta-subtitle {
+      font-size: 1rem;
+      font-weight: 300;
+      color: var(--warm-gray);
+      margin-bottom: 48px;
+    }
+
+    /* FOOTER */
+    footer {
+      padding: 60px 100px;
+      border-top: 1px solid var(--line-subtle);
+    }
+
+    .footer-content {
+      max-width: 1600px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 24px;
+    }
+
+    .footer-logo {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.1rem;
+      font-weight: 600;
+    }
+
+    .footer-links {
+      display: flex;
+      gap: 40px;
+    }
+
+    .footer-links a {
+      color: var(--warm-gray);
+      text-decoration: none;
+      font-size: 0.8rem;
+      font-weight: 500;
+      letter-spacing: 0.05em;
+      transition: color 0.3s;
+    }
+
+    .footer-links a:hover {
+      color: var(--charcoal);
+    }
+
+    .footer-copy {
+      font-size: 0.75rem;
+      color: var(--warm-gray);
+    }
+
+    /* RESPONSIVE */
+    @media (max-width: 1024px) {
+      .hero {
+        grid-template-columns: 1fr;
+      }
+
+      .hero-content {
+        padding: 60px 40px;
+      }
+
+      .hero-visual {
+        display: none;
+      }
+
+      .section-header {
+        grid-template-columns: 1fr;
+        gap: 24px;
+      }
+
+      .features-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 768px) {
+      nav {
+        padding: 20px 24px;
+      }
+
+      .nav-links {
+        display: none;
+      }
+
+      .features, .architecture, .quote-section, .cta-section {
+        padding: 80px 24px;
+      }
+
+      .arch-diagram {
+        flex-direction: column;
+      }
+
+      .arch-arrow {
+        transform: rotate(90deg);
+      }
+
+      .arch-details {
+        grid-template-columns: 1fr;
+        gap: 32px;
+      }
+
+      footer {
+        padding: 40px 24px;
+      }
+
+      .footer-content {
+        flex-direction: column;
+        text-align: center;
+      }
+
+      .footer-links {
+        flex-direction: column;
+        gap: 16px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <nav>
+    <div class="logo">ClawCondos</div>
+    <div class="nav-links">
+      <a href="#features">Capabilities</a>
+      <a href="#architecture">Architecture</a>
+      <a href="https://github.com/acastellana/clawcondos">Source</a>
+    </div>
+  </nav>
+
+  <main>
+    <section class="hero">
+      <div class="hero-content">
+        <div class="hero-label">Multi-Agent Infrastructure</div>
+        <h1 class="hero-title">
+          Where <em>intelligence</em><br>
+          finds its architecture
+        </h1>
+        <p class="hero-subtitle">
+          A goals-first dashboard for orchestrating AI agents. 
+          Embed any application. Watch your agents reason in real time. 
+          No build step. Pure elegance.
+        </p>
+        <div class="hero-cta">
+          <a href="https://github.com/acastellana/clawcondos" class="btn btn-primary">
+            Explore the Source
+          </a>
+          <a href="#architecture" class="btn btn-link">
+            View Architecture <span class="arrow">→</span>
+          </a>
+        </div>
+      </div>
+      <div class="hero-visual">
+        <div class="visual-decoration">
+          <div class="visual-number">∞</div>
+          <div class="visual-label">Agents Orchestrated</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="features" id="features">
+      <div class="section-header">
+        <h2 class="section-title">
+          Thoughtfully designed<br>
+          for serious operators
+        </h2>
+        <p class="section-desc">
+          ClawCondos organizes AI agents into "condos" - goal-centric containers 
+          where each project has its own context, history, and embedded tools.
+        </p>
+      </div>
+
+      <div class="features-grid">
+        <div class="feature-card">
+          <div class="feature-number">01</div>
+          <h3 class="feature-title">Goals-First Organization</h3>
+          <p class="feature-desc">
+            Group agent sessions into high-level goals. Each "condo" is a project 
+            container with its own context, history, and embedded tools.
+          </p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-number">02</div>
+          <h3 class="feature-title">Embedded Apps Platform</h3>
+          <p class="feature-desc">
+            Register any web application and instantly receive an AI assistant 
+            sidebar that understands your code, logs, and stack traces.
+          </p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-number">03</div>
+          <h3 class="feature-title">Real-Time Streaming</h3>
+          <p class="feature-desc">
+            WebSocket-based streaming responses with tool activity indicators. 
+            Watch your agents think, plan, and execute as it happens.
+          </p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-number">04</div>
+          <h3 class="feature-title">Zero Build Complexity</h3>
+          <p class="feature-desc">
+            Vanilla HTML, CSS, and JavaScript. Edit files and refresh the browser. 
+            No webpack. No bundlers. No unnecessary abstraction.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section class="quote-section">
+      <div class="quote-container">
+        <div class="quote-mark">"</div>
+        <p class="quote-text">
+          The best infrastructure disappears. It doesn't demand attention - 
+          it simply enables intelligence to flow freely.
+        </p>
+        <p class="quote-author">The ClawCondos Philosophy</p>
+      </div>
+    </section>
+
+    <section class="architecture" id="architecture">
+      <div class="arch-header">
+        <h2 class="arch-title">System Architecture</h2>
+        <p class="arch-subtitle">
+          A simple, elegant flow from your applications to AI intelligence
+        </p>
+      </div>
+
+      <div class="arch-diagram">
+        <div class="arch-node">
+          <div class="arch-node-label">Input</div>
+          <div class="arch-node-title">Your Apps</div>
+        </div>
+        <span class="arch-arrow">→</span>
+        <div class="arch-node central">
+          <div class="arch-node-label">Core</div>
+          <div class="arch-node-title">ClawCondos</div>
+        </div>
+        <span class="arch-arrow">→</span>
+        <div class="arch-node">
+          <div class="arch-node-label">Backend</div>
+          <div class="arch-node-title">AI Gateway</div>
+        </div>
+      </div>
+
+      <div class="arch-details">
+        <div class="detail-item">
+          <div class="detail-value">21</div>
+          <div class="detail-label">RPC Methods</div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-value">0</div>
+          <div class="detail-label">Build Steps</div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-value">MIT</div>
+          <div class="detail-label">License</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="cta-section">
+      <div class="cta-container">
+        <div class="cta-label">Begin</div>
+        <h2 class="cta-title">Ready to orchestrate?</h2>
+        <p class="cta-subtitle">
+          Clone the repository, configure your gateway, and experience 
+          multi-agent orchestration as it should be.
+        </p>
+        <a href="https://github.com/acastellana/clawcondos" class="btn btn-primary">
+          View on GitHub
+        </a>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="footer-content">
+      <div class="footer-logo">ClawCondos</div>
+      <div class="footer-links">
+        <a href="https://github.com/acastellana/clawcondos">GitHub</a>
+        <a href="https://github.com/acastellana/clawcondos/blob/main/docs/SETUP.md">Documentation</a>
+        <a href="https://github.com/acastellana/clawcondos/blob/main/LICENSE">License</a>
+      </div>
+      <div class="footer-copy">© 2024-2026 Albert Castellana</div>
+    </div>
+  </footer>
+
+  <script>
+    // Scroll effect for nav
+    const nav = document.querySelector('nav');
+    window.addEventListener('scroll', () => {
+      if (window.scrollY > 50) {
+        nav.classList.add('scrolled');
+      } else {
+        nav.classList.remove('scrolled');
+      }
+    });
+  </script>
+</body>
+</html>
