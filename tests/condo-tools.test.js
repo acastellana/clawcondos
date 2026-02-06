@@ -1,13 +1,13 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdirSync, rmSync } from 'fs';
 import { join } from 'path';
-import { createGoalsStore } from '../openclaw-plugin/lib/goals-store.js';
+import { createGoalsStore } from '../clawcondos/condo-management/lib/goals-store.js';
 import {
   createCondoBindExecutor,
   createCondoCreateGoalExecutor,
   createCondoAddTaskExecutor,
   createCondoSpawnTaskExecutor,
-} from '../openclaw-plugin/lib/condo-tools.js';
+} from '../clawcondos/condo-management/lib/condo-tools.js';
 
 const TEST_DIR = join(import.meta.dirname, '__fixtures__', 'condo-tools-test');
 

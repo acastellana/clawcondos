@@ -17,7 +17,7 @@
 - Hook registration: `api.on("before_agent_start", handler)`
 - Tool registration: `api.registerTool(tool, opts)`
 
-**Plugin location (source):** `/home/albert/clawd/projects/clawcondos/openclaw-plugin/`
+**Plugin location (source):** `/home/albert/clawd/projects/clawcondos/clawcondos/condo-management/`
 **Plugin install (symlink):** `~/.openclaw/extensions/clawcondos-goals` -> source
 
 ---
@@ -27,13 +27,13 @@
 Create the minimal plugin structure that OpenClaw can load successfully.
 
 **Files:**
-- Create: `openclaw-plugin/openclaw.plugin.json`
-- Create: `openclaw-plugin/index.js`
+- Create: `clawcondos/condo-management/openclaw.plugin.json`
+- Create: `clawcondos/condo-management/index.js`
 - Modify: `~/.openclaw/openclaw.json` (add plugin config)
 
 **Step 1: Create plugin manifest**
 
-Create `openclaw-plugin/openclaw.plugin.json`:
+Create `clawcondos/condo-management/openclaw.plugin.json`:
 ```json
 {
   "id": "clawcondos-goals",
@@ -55,7 +55,7 @@ Create `openclaw-plugin/openclaw.plugin.json`:
 
 **Step 2: Create empty plugin entry point**
 
-Create `openclaw-plugin/index.js`:
+Create `clawcondos/condo-management/index.js`:
 ```javascript
 export default function register(api) {
   api.logger.info('clawcondos-goals plugin loaded');
@@ -65,7 +65,7 @@ export default function register(api) {
 **Step 3: Symlink plugin into OpenClaw extensions**
 
 ```bash
-ln -sf /home/albert/clawd/projects/clawcondos/openclaw-plugin \
+ln -sf /home/albert/clawd/projects/clawcondos/clawcondos/condo-management \
        /home/albert/.openclaw/extensions/clawcondos-goals
 ```
 
@@ -97,7 +97,7 @@ openclaw --version
 **Step 6: Commit**
 
 ```bash
-git add openclaw-plugin/
+git add clawcondos/condo-management/
 git commit -m "feat: scaffold clawcondos-goals OpenClaw plugin"
 ```
 
@@ -108,7 +108,7 @@ git commit -m "feat: scaffold clawcondos-goals OpenClaw plugin"
 Port the file-backed goals storage from `serve.js` into a standalone module the plugin can use. Test it independently.
 
 **Files:**
-- Create: `openclaw-plugin/lib/goals-store.js`
+- Create: `clawcondos/condo-management/lib/goals-store.js`
 - Create: `tests/goals-store.test.js`
 
 **Step 1: Write failing tests for the goals store**
@@ -118,7 +118,7 @@ Create `tests/goals-store.test.js`:
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdirSync, rmSync, existsSync, readFileSync } from 'fs';
 import { join } from 'path';
-import { createGoalsStore } from '../openclaw-plugin/lib/goals-store.js';
+import { createGoalsStore } from '../clawcondos/condo-management/lib/goals-store.js';
 
 const TEST_DIR = join(import.meta.dirname, '__fixtures__', 'goals-store-test');
 
@@ -221,7 +221,7 @@ Expected: FAIL (module not found)
 
 **Step 3: Implement the goals store**
 
-Create `openclaw-plugin/lib/goals-store.js`:
+Create `clawcondos/condo-management/lib/goals-store.js`:
 ```javascript
 import { existsSync, readFileSync, writeFileSync, mkdirSync, renameSync } from 'fs';
 import { join } from 'path';
@@ -289,7 +289,7 @@ Expected: PASS
 **Step 5: Commit**
 
 ```bash
-git add openclaw-plugin/lib/goals-store.js tests/goals-store.test.js
+git add clawcondos/condo-management/lib/goals-store.js tests/goals-store.test.js
 git commit -m "feat: goals data store module with tests"
 ```
 
@@ -300,8 +300,8 @@ git commit -m "feat: goals data store module with tests"
 Register `goals.list`, `goals.create`, `goals.get`, `goals.update`, `goals.delete` as gateway RPC methods.
 
 **Files:**
-- Modify: `openclaw-plugin/index.js`
-- Create: `openclaw-plugin/lib/goals-handlers.js`
+- Modify: `clawcondos/condo-management/index.js`
+- Create: `clawcondos/condo-management/lib/goals-handlers.js`
 - Create: `tests/goals-handlers.test.js`
 
 **Step 1: Write failing tests for goal handlers**
@@ -311,8 +311,8 @@ Create `tests/goals-handlers.test.js`:
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdirSync, rmSync } from 'fs';
 import { join } from 'path';
-import { createGoalsStore } from '../openclaw-plugin/lib/goals-store.js';
-import { createGoalHandlers } from '../openclaw-plugin/lib/goals-handlers.js';
+import { createGoalsStore } from '../clawcondos/condo-management/lib/goals-store.js';
+import { createGoalHandlers } from '../clawcondos/condo-management/lib/goals-handlers.js';
 
 const TEST_DIR = join(import.meta.dirname, '__fixtures__', 'goals-handlers-test');
 
@@ -540,7 +540,7 @@ Expected: FAIL (module not found)
 
 **Step 3: Implement goal handlers**
 
-Create `openclaw-plugin/lib/goals-handlers.js`:
+Create `clawcondos/condo-management/lib/goals-handlers.js`:
 ```javascript
 export function createGoalHandlers(store) {
   function loadData() { return store.load(); }
@@ -728,7 +728,7 @@ Expected: PASS
 
 **Step 5: Wire handlers into plugin**
 
-Update `openclaw-plugin/index.js`:
+Update `clawcondos/condo-management/index.js`:
 ```javascript
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -761,7 +761,7 @@ rpcCall('goals.list', {}).then(r => console.log(r));
 **Step 7: Commit**
 
 ```bash
-git add openclaw-plugin/ tests/goals-handlers.test.js
+git add clawcondos/condo-management/ tests/goals-handlers.test.js
 git commit -m "feat: goals CRUD + session assignment gateway methods"
 ```
 
@@ -772,7 +772,7 @@ git commit -m "feat: goals CRUD + session assignment gateway methods"
 Add the session-condo index methods (parallel to session-goal, but for Telegram topic mapping).
 
 **Files:**
-- Modify: `openclaw-plugin/lib/goals-handlers.js`
+- Modify: `clawcondos/condo-management/lib/goals-handlers.js`
 - Modify: `tests/goals-handlers.test.js`
 
 **Step 1: Add tests for condo methods**
@@ -885,7 +885,7 @@ npx vitest run tests/goals-handlers.test.js
 **Step 5: Commit**
 
 ```bash
-git add openclaw-plugin/lib/goals-handlers.js tests/goals-handlers.test.js
+git add clawcondos/condo-management/lib/goals-handlers.js tests/goals-handlers.test.js
 git commit -m "feat: session-condo mapping gateway methods"
 ```
 
@@ -896,16 +896,16 @@ git commit -m "feat: session-condo mapping gateway methods"
 Register a `before_agent_start` hook that injects goal/task context into the agent's prompt when the session belongs to a goal.
 
 **Files:**
-- Create: `openclaw-plugin/lib/context-builder.js`
+- Create: `clawcondos/condo-management/lib/context-builder.js`
 - Create: `tests/context-builder.test.js`
-- Modify: `openclaw-plugin/index.js`
+- Modify: `clawcondos/condo-management/index.js`
 
 **Step 1: Write tests for context builder**
 
 Create `tests/context-builder.test.js`:
 ```javascript
 import { describe, it, expect } from 'vitest';
-import { buildGoalContext } from '../openclaw-plugin/lib/context-builder.js';
+import { buildGoalContext } from '../clawcondos/condo-management/lib/context-builder.js';
 
 describe('buildGoalContext', () => {
   const baseGoal = {
@@ -961,7 +961,7 @@ npx vitest run tests/context-builder.test.js
 
 **Step 3: Implement context builder**
 
-Create `openclaw-plugin/lib/context-builder.js`:
+Create `clawcondos/condo-management/lib/context-builder.js`:
 ```javascript
 export function buildGoalContext(goal) {
   if (!goal) return null;
@@ -998,7 +998,7 @@ npx vitest run tests/context-builder.test.js
 
 **Step 5: Wire the hook into plugin**
 
-Add to `openclaw-plugin/index.js` inside the `register` function:
+Add to `clawcondos/condo-management/index.js` inside the `register` function:
 ```javascript
 import { buildGoalContext } from './lib/context-builder.js';
 
@@ -1033,7 +1033,7 @@ Then send a message to the main agent. The agent should now see goal context pre
 **Step 7: Commit**
 
 ```bash
-git add openclaw-plugin/lib/context-builder.js tests/context-builder.test.js openclaw-plugin/index.js
+git add clawcondos/condo-management/lib/context-builder.js tests/context-builder.test.js clawcondos/condo-management/index.js
 git commit -m "feat: before_agent_start hook injects goal context into agent prompts"
 ```
 
@@ -1044,11 +1044,11 @@ git commit -m "feat: before_agent_start hook injects goal context into agent pro
 Register an `agent_end` hook that observes when sessions complete, for future auto-detection of task completion.
 
 **Files:**
-- Modify: `openclaw-plugin/index.js`
+- Modify: `clawcondos/condo-management/index.js`
 
 **Step 1: Add agent_end hook to plugin**
 
-Add to `openclaw-plugin/index.js`:
+Add to `clawcondos/condo-management/index.js`:
 ```javascript
 api.on('agent_end', async (event, ctx) => {
   if (!ctx.sessionKey || !event.success) return;
@@ -1071,7 +1071,7 @@ This is a lightweight hook for now. It updates the goal's timestamp on any sessi
 **Step 2: Commit**
 
 ```bash
-git add openclaw-plugin/index.js
+git add clawcondos/condo-management/index.js
 git commit -m "feat: agent_end hook tracks session activity on goals"
 ```
 
@@ -1082,9 +1082,9 @@ git commit -m "feat: agent_end hook tracks session activity on goals"
 Register a tool that agents can use to report task status updates.
 
 **Files:**
-- Create: `openclaw-plugin/lib/goal-update-tool.js`
+- Create: `clawcondos/condo-management/lib/goal-update-tool.js`
 - Create: `tests/goal-update-tool.test.js`
-- Modify: `openclaw-plugin/index.js`
+- Modify: `clawcondos/condo-management/index.js`
 
 **Step 1: Write tests for the tool handler logic**
 
@@ -1093,8 +1093,8 @@ Create `tests/goal-update-tool.test.js`:
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdirSync, rmSync } from 'fs';
 import { join } from 'path';
-import { createGoalsStore } from '../openclaw-plugin/lib/goals-store.js';
-import { createGoalUpdateExecutor } from '../openclaw-plugin/lib/goal-update-tool.js';
+import { createGoalsStore } from '../clawcondos/condo-management/lib/goals-store.js';
+import { createGoalUpdateExecutor } from '../clawcondos/condo-management/lib/goal-update-tool.js';
 
 const TEST_DIR = join(import.meta.dirname, '__fixtures__', 'goal-update-test');
 
@@ -1159,7 +1159,7 @@ npx vitest run tests/goal-update-tool.test.js
 
 **Step 3: Implement the tool executor**
 
-Create `openclaw-plugin/lib/goal-update-tool.js`:
+Create `clawcondos/condo-management/lib/goal-update-tool.js`:
 ```javascript
 export function createGoalUpdateExecutor(store) {
   return async function execute(toolCallId, params) {
@@ -1204,7 +1204,7 @@ npx vitest run tests/goal-update-tool.test.js
 
 **Step 5: Register tool in plugin**
 
-Add to `openclaw-plugin/index.js`:
+Add to `clawcondos/condo-management/index.js`:
 ```javascript
 import { createGoalUpdateExecutor } from './lib/goal-update-tool.js';
 
@@ -1247,7 +1247,7 @@ api.logger.info('clawcondos-goals: registered goal_update agent tool');
 **Step 6: Commit**
 
 ```bash
-git add openclaw-plugin/lib/goal-update-tool.js tests/goal-update-tool.test.js openclaw-plugin/index.js
+git add clawcondos/condo-management/lib/goal-update-tool.js tests/goal-update-tool.test.js clawcondos/condo-management/index.js
 git commit -m "feat: goal_update agent tool for structured task status reporting"
 ```
 
@@ -1258,24 +1258,24 @@ git commit -m "feat: goal_update agent tool for structured task status reporting
 Create a script that migrates existing `.registry/goals.json` data from ClawCondos into the plugin's data directory.
 
 **Files:**
-- Create: `openclaw-plugin/migrate.js`
+- Create: `clawcondos/condo-management/migrate.js`
 
 **Step 1: Write the migration script**
 
-Create `openclaw-plugin/migrate.js`:
+Create `clawcondos/condo-management/migrate.js`:
 ```javascript
 #!/usr/bin/env node
 /**
  * Migrate goals data from ClawCondos .registry/goals.json to plugin data dir.
- * Usage: node openclaw-plugin/migrate.js [source] [dest]
+ * Usage: node clawcondos/condo-management/migrate.js [source] [dest]
  *   source: path to .registry/goals.json (default: .registry/goals.json)
- *   dest: path to plugin data dir (default: openclaw-plugin/.data)
+ *   dest: path to plugin data dir (default: clawcondos/condo-management/.data)
  */
 import { existsSync, readFileSync, mkdirSync, copyFileSync } from 'fs';
 import { join, resolve } from 'path';
 
 const src = resolve(process.argv[2] || '.registry/goals.json');
-const destDir = resolve(process.argv[3] || 'openclaw-plugin/.data');
+const destDir = resolve(process.argv[3] || 'clawcondos/condo-management/.data');
 const dest = join(destDir, 'goals.json');
 
 if (!existsSync(src)) {
@@ -1307,14 +1307,14 @@ console.log(`  Dest:   ${dest}`);
 **Step 2: Test migration with existing data**
 
 ```bash
-node openclaw-plugin/migrate.js
+node clawcondos/condo-management/migrate.js
 ```
 Expected: Success message with goal/session counts, or "nothing to migrate" if no existing data.
 
 **Step 3: Commit**
 
 ```bash
-git add openclaw-plugin/migrate.js
+git add clawcondos/condo-management/migrate.js
 git commit -m "feat: data migration script for goals.json"
 ```
 
@@ -1564,14 +1564,14 @@ Add to the Architecture section:
 ```markdown
 ### OpenClaw Plugin (clawcondos-goals)
 
-Goals, tasks, and session-goal mappings are managed by an OpenClaw plugin at `openclaw-plugin/`. The plugin registers gateway RPC methods (`goals.list`, `goals.create`, etc.) that the frontend calls over WebSocket.
+Goals, tasks, and session-goal mappings are managed by an OpenClaw plugin at `clawcondos/condo-management/`. The plugin registers gateway RPC methods (`goals.list`, `goals.create`, etc.) that the frontend calls over WebSocket.
 
 **Plugin files:**
-- `openclaw-plugin/index.js` - Plugin entry point, registers gateway methods + hooks + tools
-- `openclaw-plugin/lib/goals-store.js` - File-backed JSON storage for goals
-- `openclaw-plugin/lib/goals-handlers.js` - Gateway method handlers for goals CRUD
-- `openclaw-plugin/lib/context-builder.js` - Builds goal context for agent prompt injection
-- `openclaw-plugin/lib/goal-update-tool.js` - Agent tool for reporting task status
+- `clawcondos/condo-management/index.js` - Plugin entry point, registers gateway methods + hooks + tools
+- `clawcondos/condo-management/lib/goals-store.js` - File-backed JSON storage for goals
+- `clawcondos/condo-management/lib/goals-handlers.js` - Gateway method handlers for goals CRUD
+- `clawcondos/condo-management/lib/context-builder.js` - Builds goal context for agent prompt injection
+- `clawcondos/condo-management/lib/goal-update-tool.js` - Agent tool for reporting task status
 
 **Plugin hooks:**
 - `before_agent_start` - Injects goal/task context when a session belongs to a goal
@@ -1581,7 +1581,7 @@ Goals, tasks, and session-goal mappings are managed by an OpenClaw plugin at `op
 - `goal_update` - Agents can report task status (done/in-progress/blocked) and summaries
 
 **Plugin data:**
-- `openclaw-plugin/.data/goals.json` - Goals storage (migrated from `.registry/goals.json`)
+- `clawcondos/condo-management/.data/goals.json` - Goals storage (migrated from `.registry/goals.json`)
 ```
 
 Update the Data flow section:
@@ -1605,13 +1605,13 @@ Add plugin setup instructions:
 
 The ClawCondos goals system runs as an OpenClaw plugin. To install:
 
-1. Symlink the plugin: `ln -sf /path/to/clawcondos/openclaw-plugin ~/.openclaw/extensions/clawcondos-goals`
+1. Symlink the plugin: `ln -sf /path/to/clawcondos/clawcondos/condo-management ~/.openclaw/extensions/clawcondos-goals`
 2. Enable in `~/.openclaw/openclaw.json`:
    ```json
    { "plugins": { "entries": { "clawcondos-goals": { "enabled": true } } } }
    ```
 3. Restart OpenClaw gateway
-4. (Optional) Migrate existing data: `node openclaw-plugin/migrate.js .registry/goals.json openclaw-plugin/.data`
+4. (Optional) Migrate existing data: `node clawcondos/condo-management/migrate.js .registry/goals.json clawcondos/condo-management/.data`
 ```
 
 **Step 3: Commit**
@@ -1655,10 +1655,10 @@ Phase 2 builds on the plugin foundation from Phase 1 to add condos as first-clas
 Add first-class condo (project/topic) management. Condos are manual organizational containers that group goals.
 
 **Files:**
-- Modify: `openclaw-plugin/lib/goals-store.js` (add condos array to store schema)
-- Create: `openclaw-plugin/lib/condos-handlers.js`
+- Modify: `clawcondos/condo-management/lib/goals-store.js` (add condos array to store schema)
+- Create: `clawcondos/condo-management/lib/condos-handlers.js`
 - Create: `tests/condos-handlers.test.js`
-- Modify: `openclaw-plugin/index.js`
+- Modify: `clawcondos/condo-management/index.js`
 
 **Step 1: Update store schema for condos**
 
@@ -1680,8 +1680,8 @@ Create `tests/condos-handlers.test.js`:
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdirSync, rmSync } from 'fs';
 import { join } from 'path';
-import { createGoalsStore } from '../openclaw-plugin/lib/goals-store.js';
-import { createCondoHandlers } from '../openclaw-plugin/lib/condos-handlers.js';
+import { createGoalsStore } from '../clawcondos/condo-management/lib/goals-store.js';
+import { createCondoHandlers } from '../clawcondos/condo-management/lib/condos-handlers.js';
 
 const TEST_DIR = join(import.meta.dirname, '__fixtures__', 'condos-handlers-test');
 
@@ -1801,7 +1801,7 @@ npx vitest run tests/condos-handlers.test.js
 
 **Step 4: Implement condo handlers**
 
-Create `openclaw-plugin/lib/condos-handlers.js`:
+Create `clawcondos/condo-management/lib/condos-handlers.js`:
 ```javascript
 export function createCondoHandlers(store) {
   function loadData() { return store.load(); }
@@ -1911,7 +1911,7 @@ npx vitest run tests/condos-handlers.test.js
 
 **Step 6: Wire into plugin index.js**
 
-Add to `openclaw-plugin/index.js`:
+Add to `clawcondos/condo-management/index.js`:
 ```javascript
 import { createCondoHandlers } from './lib/condos-handlers.js';
 
@@ -1925,7 +1925,7 @@ for (const [method, handler] of Object.entries(condoHandlers)) {
 **Step 7: Commit**
 
 ```bash
-git add openclaw-plugin/lib/condos-handlers.js tests/condos-handlers.test.js openclaw-plugin/lib/goals-store.js openclaw-plugin/index.js
+git add clawcondos/condo-management/lib/condos-handlers.js tests/condos-handlers.test.js clawcondos/condo-management/lib/goals-store.js clawcondos/condo-management/index.js
 git commit -m "feat: condos CRUD gateway methods"
 ```
 
@@ -1936,7 +1936,7 @@ git commit -m "feat: condos CRUD gateway methods"
 Upgrade tasks from simple `{id, text, done}` to a richer schema with status, sessionKey, dependencies, and metadata.
 
 **Files:**
-- Modify: `openclaw-plugin/lib/goals-handlers.js` (add `goals.addTask`, `goals.updateTask`)
+- Modify: `clawcondos/condo-management/lib/goals-handlers.js` (add `goals.addTask`, `goals.updateTask`)
 - Modify: `tests/goals-handlers.test.js`
 
 **Step 1: Write failing tests for task management**
@@ -2131,7 +2131,7 @@ npx vitest run tests/goals-handlers.test.js
 **Step 5: Commit**
 
 ```bash
-git add openclaw-plugin/lib/goals-handlers.js tests/goals-handlers.test.js
+git add clawcondos/condo-management/lib/goals-handlers.js tests/goals-handlers.test.js
 git commit -m "feat: extended task schema with status, sessionKey, dependencies"
 ```
 
@@ -2142,9 +2142,9 @@ git commit -m "feat: extended task schema with status, sessionKey, dependencies"
 Add a `goals.spawnTaskSession` method that prepares context for spawning a new agent session tied to a task.
 
 **Files:**
-- Create: `openclaw-plugin/lib/task-spawn.js`
+- Create: `clawcondos/condo-management/lib/task-spawn.js`
 - Create: `tests/task-spawn.test.js`
-- Modify: `openclaw-plugin/index.js`
+- Modify: `clawcondos/condo-management/index.js`
 
 **Step 1: Write failing tests**
 
@@ -2153,8 +2153,8 @@ Create `tests/task-spawn.test.js`:
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdirSync, rmSync } from 'fs';
 import { join } from 'path';
-import { createGoalsStore } from '../openclaw-plugin/lib/goals-store.js';
-import { createTaskSpawnHandler } from '../openclaw-plugin/lib/task-spawn.js';
+import { createGoalsStore } from '../clawcondos/condo-management/lib/goals-store.js';
+import { createTaskSpawnHandler } from '../clawcondos/condo-management/lib/task-spawn.js';
 
 const TEST_DIR = join(import.meta.dirname, '__fixtures__', 'task-spawn-test');
 
@@ -2252,7 +2252,7 @@ npx vitest run tests/task-spawn.test.js
 
 **Step 3: Implement task spawn handler**
 
-Create `openclaw-plugin/lib/task-spawn.js`:
+Create `clawcondos/condo-management/lib/task-spawn.js`:
 ```javascript
 import { buildGoalContext } from './context-builder.js';
 
@@ -2326,7 +2326,7 @@ npx vitest run tests/task-spawn.test.js
 
 **Step 5: Register in plugin**
 
-Add to `openclaw-plugin/index.js`:
+Add to `clawcondos/condo-management/index.js`:
 ```javascript
 import { createTaskSpawnHandler } from './lib/task-spawn.js';
 
@@ -2337,7 +2337,7 @@ api.registerGatewayMethod('goals.spawnTaskSession', createTaskSpawnHandler(store
 **Step 6: Commit**
 
 ```bash
-git add openclaw-plugin/lib/task-spawn.js tests/task-spawn.test.js openclaw-plugin/index.js
+git add clawcondos/condo-management/lib/task-spawn.js tests/task-spawn.test.js clawcondos/condo-management/index.js
 git commit -m "feat: goals.spawnTaskSession prepares context for task-driven subagent spawning"
 ```
 
@@ -2498,7 +2498,7 @@ git commit -m "feat: spawn task session UI with agent/model picker"
 Enhance the context builder to include information about sibling sessions working on the same goal, so agents are aware of each other.
 
 **Files:**
-- Modify: `openclaw-plugin/lib/context-builder.js`
+- Modify: `clawcondos/condo-management/lib/context-builder.js`
 - Modify: `tests/context-builder.test.js`
 
 **Step 1: Add failing tests for enriched context**
@@ -2588,7 +2588,7 @@ export function buildGoalContext(goal, opts = {}) {
 
 **Step 4: Update the before_agent_start hook** to pass `currentSessionKey`:
 
-In `openclaw-plugin/index.js`, update the hook:
+In `clawcondos/condo-management/index.js`, update the hook:
 ```javascript
 const context = buildGoalContext(goal, { currentSessionKey: ctx.sessionKey });
 ```
@@ -2602,7 +2602,7 @@ npx vitest run tests/context-builder.test.js
 **Step 6: Commit**
 
 ```bash
-git add openclaw-plugin/lib/context-builder.js tests/context-builder.test.js openclaw-plugin/index.js
+git add clawcondos/condo-management/lib/context-builder.js tests/context-builder.test.js clawcondos/condo-management/index.js
 git commit -m "feat: enriched context builder with sibling session awareness"
 ```
 
@@ -2613,7 +2613,7 @@ git commit -m "feat: enriched context builder with sibling session awareness"
 Add a nudge to the injected context that prompts agents to use the `goal_update` tool when they finish tasks.
 
 **Files:**
-- Modify: `openclaw-plugin/lib/context-builder.js`
+- Modify: `clawcondos/condo-management/lib/context-builder.js`
 - Modify: `tests/context-builder.test.js`
 
 **Step 1: Add failing test**
@@ -2669,7 +2669,7 @@ npx vitest run tests/context-builder.test.js
 **Step 5: Commit**
 
 ```bash
-git add openclaw-plugin/lib/context-builder.js tests/context-builder.test.js
+git add clawcondos/condo-management/lib/context-builder.js tests/context-builder.test.js
 git commit -m "feat: auto-completion prompt nudges agents to report task status"
 ```
 

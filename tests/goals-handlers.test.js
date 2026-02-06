@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdirSync, rmSync } from 'fs';
 import { join } from 'path';
-import { createGoalsStore } from '../openclaw-plugin/lib/goals-store.js';
-import { createGoalHandlers } from '../openclaw-plugin/lib/goals-handlers.js';
-import { createCondoHandlers } from '../openclaw-plugin/lib/condos-handlers.js';
+import { createGoalsStore } from '../clawcondos/condo-management/lib/goals-store.js';
+import { createGoalHandlers } from '../clawcondos/condo-management/lib/goals-handlers.js';
+import { createCondoHandlers } from '../clawcondos/condo-management/lib/condos-handlers.js';
 
 const TEST_DIR = join(import.meta.dirname, '__fixtures__', 'goals-handlers-test');
 

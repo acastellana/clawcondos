@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdirSync, rmSync, existsSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
-import { createGoalsStore } from '../openclaw-plugin/lib/goals-store.js';
+import { createGoalsStore } from '../clawcondos/condo-management/lib/goals-store.js';
 
 const TEST_DIR = join(import.meta.dirname, '__fixtures__', 'goals-store-test');
 

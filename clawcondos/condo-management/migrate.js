@@ -1,15 +1,15 @@
 #!/usr/bin/env node
 /**
  * Migrate goals data from ClawCondos .registry/goals.json to plugin data dir.
- * Usage: node openclaw-plugin/migrate.js [source] [dest]
+ * Usage: node clawcondos/condo-management/migrate.js [source] [dest]
  *   source: path to .registry/goals.json (default: .registry/goals.json)
- *   dest: path to plugin data dir (default: openclaw-plugin/.data)
+ *   dest: path to plugin data dir (default: clawcondos/condo-management/.data)
  */
 import { existsSync, readFileSync, mkdirSync, copyFileSync } from 'fs';
 import { join, resolve } from 'path';
 
 const src = resolve(process.argv[2] || '.registry/goals.json');
-const destDir = resolve(process.argv[3] || 'openclaw-plugin/.data');
+const destDir = resolve(process.argv[3] || 'clawcondos/condo-management/.data');
 const dest = join(destDir, 'goals.json');
 
 if (!existsSync(src)) {

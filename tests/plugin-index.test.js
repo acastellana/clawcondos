@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mkdirSync, rmSync } from 'fs';
 import { join } from 'path';
-import register from '../openclaw-plugin/index.js';
+import register from '../clawcondos/condo-management/index.js';
 
 const TEST_DIR = join(import.meta.dirname, '__fixtures__', 'plugin-index-test');
 

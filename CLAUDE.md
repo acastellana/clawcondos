@@ -45,7 +45,7 @@ The frontend is vanilla JS with no framework and no build pipeline. Edit files a
 - **`index.html`** - Main dashboard UI. Single-file monolith (~5500 lines) containing all dashboard HTML, CSS, and JS inline. This is the primary file you'll edit for UI changes.
 - **`app.html`** - Separate page for the app viewer with assistant panel.
 - **`serve.js`** - Node.js HTTP/WebSocket server. Serves static files, proxies WebSocket and HTTP requests to the OpenClaw gateway (with auth injection), handles media upload, agent introspection, and the apps registry.
-- **`openclaw-plugin/`** - OpenClaw plugin for goals/tasks/condos management (see below).
+- **`clawcondos/condo-management/`** - OpenClaw plugin for goals/tasks/condos management (see below).
 - **`lib/config.js`** - Configuration loader used by both browser and server. Priority: `window.CLAWCONDOS_CONFIG` > `/config.json` > auto-detect from hostname.
 - **`lib/message-shaping.js`** - Message formatting and reply tag extraction (frontend only, loaded via `<script>` tag).
 - **`js/media-upload.js`** - Browser file upload handler (images/audio).
@@ -86,32 +86,37 @@ The frontend uses a single global `state` object. WebSocket events drive UI upda
 
 ### OpenClaw Plugin (clawcondos-goals)
 
-Goals, tasks, and session-goal mappings are managed by an OpenClaw plugin at `openclaw-plugin/`. The plugin registers gateway RPC methods that the frontend calls over WebSocket.
+Goals, tasks, and session-goal mappings are managed by an OpenClaw plugin at `clawcondos/condo-management/`. The plugin registers gateway RPC methods that the frontend calls over WebSocket.
 
 **Plugin files:**
-- `openclaw-plugin/index.js` - Plugin entry point, registers 20 gateway methods + 2 hooks + 1 tool
-- `openclaw-plugin/lib/goals-store.js` - File-backed JSON storage for goals and condos
-- `openclaw-plugin/lib/goals-handlers.js` - Gateway method handlers for goals CRUD, tasks, and sessions
-- `openclaw-plugin/lib/condos-handlers.js` - Gateway method handlers for condos CRUD
-- `openclaw-plugin/lib/context-builder.js` - Builds goal context for agent prompt injection
-- `openclaw-plugin/lib/goal-update-tool.js` - Agent tool for reporting task status
-- `openclaw-plugin/lib/task-spawn.js` - Spawns subagent sessions for task execution
-- `openclaw-plugin/migrate.js` - Migration script from `.registry/goals.json`
+- `clawcondos/condo-management/index.js` - Plugin entry point, registers 21 gateway methods + 2 hooks + 5 tools
+- `clawcondos/condo-management/lib/goals-store.js` - File-backed JSON storage for goals and condos
+- `clawcondos/condo-management/lib/goals-handlers.js` - Gateway method handlers for goals CRUD, tasks, and sessions
+- `clawcondos/condo-management/lib/condos-handlers.js` - Gateway method handlers for condos CRUD
+- `clawcondos/condo-management/lib/context-builder.js` - Builds goal/condo context for agent prompt injection
+- `clawcondos/condo-management/lib/goal-update-tool.js` - Agent tool for reporting task status
+- `clawcondos/condo-management/lib/condo-tools.js` - Agent tools for condo binding, goal creation, task management, and subagent spawning
+- `clawcondos/condo-management/lib/task-spawn.js` - Spawns subagent sessions for task execution
+- `clawcondos/condo-management/migrate.js` - Migration script from `.registry/goals.json`
 
-**Gateway methods (20):**
+**Gateway methods (21):**
 - Goals: `goals.list`, `goals.create`, `goals.get`, `goals.update`, `goals.delete`
 - Sessions: `goals.addSession`, `goals.removeSession`, `goals.sessionLookup`
-- Session-condo mapping: `goals.setSessionCondo`, `goals.getSessionCondo`, `goals.listSessionCondos`
+- Session-condo mapping: `goals.setSessionCondo`, `goals.getSessionCondo`, `goals.listSessionCondos`, `goals.removeSessionCondo`
 - Tasks: `goals.addTask`, `goals.updateTask`, `goals.deleteTask`
 - Condos: `condos.create`, `condos.list`, `condos.get`, `condos.update`, `condos.delete`
 - Spawning: `goals.spawnTaskSession`
 
 **Plugin hooks:**
-- `before_agent_start` - Injects goal/task context when a session belongs to a goal
-- `agent_end` - Tracks session activity timestamps on goals
+- `before_agent_start` - Injects goal/condo context when a session belongs to a goal or condo
+- `agent_end` - Tracks session activity timestamps on goals and condos
 
 **Plugin tools:**
-- `goal_update` - Agents can report task status (done/in-progress/blocked) and summaries
+- `goal_update` - Agents report task status, create tasks, set next task, mark goals done
+- `condo_bind` - Agents bind their session to a condo (or create a new one)
+- `condo_create_goal` - Agents create goals in the bound condo with optional initial tasks
+- `condo_add_task` - Agents add tasks to goals in the bound condo
+- `condo_spawn_task` - Agents spawn subagent sessions for tasks in the bound condo
 
 ### File-backed storage
 
@@ -119,13 +124,13 @@ App registrations persist in `.registry/` (gitignored):
 - `.registry/apps.json` - Registered embedded applications
 
 Goals data lives in the plugin:
-- `openclaw-plugin/.data/goals.json` - Goals storage (gitignored)
+- `clawcondos/condo-management/.data/goals.json` - Goals storage (gitignored)
 
 ## Testing
 
 Tests use **Vitest 2.0** in Node environment. Test files live in `tests/` and match `tests/**/*.test.js`.
 
-`tests/setup.js` provides browser API mocks (MockWebSocket, localStorage, document, fetch) since tests run in Node. `lib/` modules and `openclaw-plugin/lib/` modules have test coverage.
+`tests/setup.js` provides browser API mocks (MockWebSocket, localStorage, document, fetch) since tests run in Node. `lib/` modules and `clawcondos/condo-management/lib/` modules have test coverage.
 
 ## Code Conventions
 

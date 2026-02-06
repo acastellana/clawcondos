@@ -34,7 +34,7 @@ An OpenClaw plugin that manages goals, tasks, condos, and session-goal mappings 
 
 ### Data Model
 
-All data lives in a single JSON file (`openclaw-plugin/.data/goals.json`). The store schema:
+All data lives in a single JSON file (`clawcondos/condo-management/.data/goals.json`). The store schema:
 
 ```json
 {
@@ -71,7 +71,7 @@ All data lives in a single JSON file (`openclaw-plugin/.data/goals.json`). The s
 ### File Structure
 
 ```
-openclaw-plugin/
+clawcondos/condo-management/
   index.js                  # Plugin entry point (registers everything)
   openclaw.plugin.json      # Plugin manifest
   package.json              # Node.js package metadata
@@ -204,7 +204,7 @@ All handlers follow consistent validation:
 The plugin lives in the ClawCondos repo and is symlinked into OpenClaw's extensions directory:
 
 ```bash
-ln -sf /path/to/clawcondos/openclaw-plugin ~/.openclaw/extensions/clawcondos-goals
+ln -sf /path/to/clawcondos/clawcondos/condo-management ~/.openclaw/extensions/clawcondos-goals
 ```
 
 Configure in `~/.openclaw/openclaw.json`:

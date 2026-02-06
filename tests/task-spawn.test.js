@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdirSync, rmSync } from 'fs';
 import { join } from 'path';
-import { createGoalsStore } from '../openclaw-plugin/lib/goals-store.js';
-import { createTaskSpawnHandler } from '../openclaw-plugin/lib/task-spawn.js';
+import { createGoalsStore } from '../clawcondos/condo-management/lib/goals-store.js';
+import { createTaskSpawnHandler } from '../clawcondos/condo-management/lib/task-spawn.js';
 
 const TEST_DIR = join(import.meta.dirname, '__fixtures__', 'task-spawn-test');
 

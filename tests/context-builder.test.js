@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildGoalContext, buildCondoContext } from '../openclaw-plugin/lib/context-builder.js';
+import { buildGoalContext, buildCondoContext } from '../clawcondos/condo-management/lib/context-builder.js';
 
 describe('buildGoalContext', () => {
   const baseGoal = {
