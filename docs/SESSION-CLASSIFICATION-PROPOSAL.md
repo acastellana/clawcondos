@@ -1,566 +1,758 @@
 # Intelligent Session Classification & Goal Auto-Creation
 
-> **Status:** Proposal  
+> **Status:** Ready for Implementation  
 > **Date:** 2026-02-07  
-> **Authors:** Bob (agent swarm synthesis)
+> **Authors:** Bob (agent swarm synthesis)  
+> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
+
+---
 
 ## Executive Summary
 
-When a new Telegram session is initiated, automatically evaluate whether it fits an existing condo, and optionally create goals with subtasks. This eliminates manual session organization and ensures work is tracked from the first message.
+When a new Telegram session starts, automatically classify it to the right condo (project) and optionally create goals with tasks. This eliminates manual session organization.
+
+**Goal:** Zero manual triage - sessions auto-file themselves by project.
+
+**Architecture:** Two-tier classification (fast patterns → LLM fallback) injected at `before_agent_start` hook.
+
+**Tech Stack:** JavaScript, OpenClaw goals plugin, Gateway LLM proxy.
 
 ---
 
-## Problem Statement
+## Design Decisions (Locked)
 
-Currently, all session-to-condo/goal binding is **manual**:
-- User creates session, explicitly assigns to goal via UI
-- Agent uses `condo_bind` tool to self-bind
-- Subagent spawning pre-assigns session
-
-**Pain points:**
-- Sessions pile up as "uncategorized" in dashboard
-- Context is lost when work isn't tracked in goals
-- Manual triage is tedious and often forgotten
+| Question | Decision | Rationale |
+|----------|----------|-----------|
+| LLM call location | Gateway proxy | Reuse existing routing, no extra credentials |
+| Initial keywords | Auto-seed from goal titles + manual tune | Bootstrap with data we have |
+| Telegram topics | Bind to matching condos | Simplest mental model |
+| Rate limiting | First message classifies, rest inherit | No debounce complexity |
+| Confidence threshold | Start at 0.92, relax to 0.85 after 2 weeks | Conservative launch |
+| Backfill old sessions | No - new sessions only | Simpler, avoid noisy reclassification |
+| Latency budget | 3s max for Tier 2, else fallback | Don't block agent startup |
 
 ---
 
-## Proposed Solution
+## What This Does (User Perspective)
 
-### Architecture Overview
+### Scenario 1: Telegram Topic
+```
+You: [in "Subastas" topic] "Check for new auctions in Murcia"
+
+→ Instantly routed to condo:subastas
+→ Shows in ClawCondos sidebar under Subastas project
+```
+
+### Scenario 2: Keyword Match
+```
+You: "Update the investor pipeline with new VC contacts"
+
+→ Words "investor" + "pipeline" trigger match
+→ Auto-route to condo:investor-crm
+→ Work is tracked
+```
+
+### Scenario 3: Task Detected
+```
+You: "Build a landing page for MoltCourt - design, implement, deploy"
+
+→ Classified to condo:moltcourt
+→ Detects task language
+→ Asks: "Create goal with 3 tasks? [Yes] [No]"
+→ Goal created if confirmed
+```
+
+### Scenario 4: Ambiguous
+```
+You: "How's progress on that thing?"
+
+→ LLM checks recent context
+→ Routes with 0.7 confidence
+→ Shows confirm button, auto-accepts in 5s
+```
+
+---
+
+## Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                    INCOMING TELEGRAM MESSAGE                     │
+│                    INCOMING MESSAGE                              │
 └─────────────────────────────────────────────────────────────────┘
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │              SESSION CREATION (resolveSession)                   │
-│              isNewSession = true detected                        │
+│              isNewSession = true                                 │
 └─────────────────────────────────────────────────────────────────┘
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                 TIER 1: FAST PATTERN MATCHER                     │
-│  • Explicit condo mentions (@condo:investor-crm)                │
-│  • Keyword triggers (defined per condo)                         │
-│  • Thread/topic continuity                                      │
-│  • Confidence: HIGH (≥0.9) → Route immediately                  │
+│  • Telegram topic → condo name match                            │
+│  • Explicit @condo:name syntax                                  │
+│  • Keyword/trigger scoring per condo                            │
+│  • Confidence ≥0.92 → Route immediately                         │
 └─────────────────────────────────────────────────────────────────┘
                               │
-                    confidence < 0.9
+                    confidence < 0.92
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                 TIER 2: LLM CLASSIFIER                           │
-│  • Semantic analysis of message intent                          │
+│  • Semantic analysis via Gateway proxy                          │
 │  • Match against condo descriptions + recent goals              │
-│  • Returns: {condo, confidence, suggestedGoal?, reasoning}      │
+│  • 3s timeout, fallback to uncategorized                        │
 └─────────────────────────────────────────────────────────────────┘
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                 DECISION ENGINE                                  │
-│  • confidence ≥ 0.85 → Auto-route (with indicator)              │
-│  • confidence 0.5-0.85 → Suggest with confirm buttons           │
-│  • confidence < 0.5 → Treat as general session                  │
+│  • confidence ≥ 0.85 → Auto-route (small indicator)             │
+│  • confidence 0.5-0.85 → Confirm buttons (5s auto-accept)       │
+│  • confidence < 0.5 → Uncategorized                             │
 └─────────────────────────────────────────────────────────────────┘
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                 GOAL DETECTION                                   │
+│                 GOAL DETECTION (Phase 2)                         │
 │  • Detect task-like language patterns                           │
-│  • LLM extracts title + subtasks if needed                      │
-│  • Auto-create or suggest based on confidence                   │
+│  • LLM extracts title + subtasks                                │
+│  • Suggest goal creation with confirm                           │
 └─────────────────────────────────────────────────────────────────┘
-```
-
----
-
-## Injection Point
-
-### Location: `before_agent_start` Hook
-
-The ClawCondos goals plugin already has this hook. We extend it:
-
-```javascript
-api.registerHook('before_agent_start', async (event) => {
-  const sessionKey = event.context?.sessionKey;
-  const message = event.context?.message;
-  const data = store.load();
-  
-  // Skip if already bound
-  if (data.sessionCondoIndex[sessionKey] || data.sessionIndex[sessionKey]) {
-    return existingContextInjection();
-  }
-  
-  // NEW: Classify and bind
-  const classification = await classifySession(message, data);
-  
-  if (classification.condo && classification.confidence >= CONFIG.autoRouteThreshold) {
-    // Auto-bind
-    data.sessionCondoIndex[sessionKey] = classification.condo;
-    store.save(data);
-    
-    // Optionally create goal
-    if (classification.suggestedGoal?.autoCreate) {
-      await createGoalFromClassification(classification, sessionKey, data);
-    }
-    
-    return { 
-      prependContext: buildCondoContext(classification.condo, data),
-      announce: `📁 Routed to ${classification.condoName}`
-    };
-  }
-  
-  if (classification.confidence >= CONFIG.askUserThreshold) {
-    // Return inline buttons for user choice
-    return {
-      buttons: buildCondoSelectionButtons(classification.alternatives)
-    };
-  }
-  
-  // Low confidence - treat as general
-  return null;
-});
-```
-
----
-
-## Tier 1: Fast Pattern Matcher
-
-Zero-latency classification for obvious cases.
-
-### Data Model Addition
-
-```javascript
-// Add to condo schema
-{
-  id: "condo:investor-crm",
-  name: "Investor CRM",
-  description: "Track investor relationships for GenLayer Series A",
-  
-  // NEW: Classification hints
-  keywords: ["investor", "crm", "pipeline", "fundraising", "series a", "vc"],
-  triggers: [
-    /investor\s+\w+/i,
-    /deal\s+(flow|#?\d+)/i,
-    /pipeline/i,
-    /series\s+[ab]/i
-  ],
-  excludePatterns: [
-    /test/i  // Don't match "test investor" 
-  ]
-}
-```
-
-### Algorithm
-
-```javascript
-function tier1Classify(message, context, condos) {
-  // 1. Explicit mention (highest priority)
-  const explicit = message.match(/@condo:(\S+)/i);
-  if (explicit) {
-    const condo = condos.find(c => c.id.includes(explicit[1]) || c.name.toLowerCase().includes(explicit[1].toLowerCase()));
-    if (condo) return { condo: condo.id, confidence: 1.0, reasoning: "Explicit @condo mention" };
-  }
-  
-  // 2. Telegram topic continuity
-  if (context.telegramTopicId && context.topicCondoBinding) {
-    return { 
-      condo: context.topicCondoBinding, 
-      confidence: 0.95, 
-      reasoning: "Telegram topic continuation" 
-    };
-  }
-  
-  // 3. Keyword/trigger scoring
-  const scores = new Map();
-  
-  for (const condo of condos) {
-    let score = 0;
-    const messageLower = message.toLowerCase();
-    
-    // Keyword hits (+0.15 each, max 0.6)
-    const keywordHits = (condo.keywords || []).filter(k => messageLower.includes(k.toLowerCase()));
-    score += Math.min(keywordHits.length * 0.15, 0.6);
-    
-    // Trigger pattern hits (+0.3 each)
-    const triggerHits = (condo.triggers || []).filter(t => t.test(message));
-    score += triggerHits.length * 0.3;
-    
-    // Exclude pattern penalty
-    const excludeHits = (condo.excludePatterns || []).filter(e => e.test(message));
-    score -= excludeHits.length * 0.5;
-    
-    // Recency boost (active in last 24h)
-    if (condo.updatedAtMs && Date.now() - condo.updatedAtMs < 86400000) {
-      score += 0.1;
-    }
-    
-    if (score > 0) scores.set(condo.id, Math.min(score, 1.0));
-  }
-  
-  // Return best match if confident
-  const sorted = [...scores.entries()].sort((a, b) => b[1] - a[1]);
-  if (sorted.length > 0 && sorted[0][1] >= 0.9) {
-    return {
-      condo: sorted[0][0],
-      confidence: sorted[0][1],
-      reasoning: `Keyword match`,
-      alternatives: sorted.slice(1, 4).map(([id, conf]) => ({ condo: id, confidence: conf }))
-    };
-  }
-  
-  // Not confident, return partial for Tier 2
-  return {
-    condo: sorted[0]?.[0] || null,
-    confidence: sorted[0]?.[1] || 0,
-    alternatives: sorted.slice(0, 4).map(([id, conf]) => ({ condo: id, confidence: conf })),
-    needsTier2: true
-  };
-}
-```
-
----
-
-## Tier 2: LLM Classifier
-
-For ambiguous messages that Tier 1 can't confidently classify.
-
-```javascript
-async function tier2Classify(message, context, condos, goals) {
-  const condoSummaries = condos.map(c => ({
-    id: c.id,
-    name: c.name,
-    description: c.description,
-    recentGoals: goals
-      .filter(g => g.condoId === c.id && g.status === 'active')
-      .slice(0, 3)
-      .map(g => g.title)
-  }));
-
-  const prompt = `You are a message classifier for a project management system.
-
-## Available Projects (Condos)
-${condoSummaries.map(c => `
-### ${c.name} (${c.id})
-${c.description}
-${c.recentGoals.length ? `Active goals: ${c.recentGoals.join(', ')}` : 'No active goals'}
-`).join('\n')}
-
-## Incoming Message
-"${message}"
-
-${context.recentMessages?.length ? `## Recent Context\n${context.recentMessages.slice(-3).map(m => `- ${m}`).join('\n')}` : ''}
-
-## Task
-Classify this message. Respond with JSON only:
-
-{
-  "condo": "<condo-id or null if general/unclear>",
-  "confidence": <0.0-1.0>,
-  "reasoning": "<brief explanation>",
-  "suggestedGoal": {
-    "shouldCreate": <boolean - true if this looks like a new task/project>,
-    "title": "<goal title if shouldCreate>",
-    "tasks": ["<subtask 1>", "<subtask 2>", ...],
-    "existingGoalId": "<goal-id if this relates to an existing goal>"
-  }
-}
-
-Guidelines:
-- confidence > 0.8 only for clear matches
-- Quick questions/chat → condo: null
-- Multi-project messages → pick primary project
-- Task-like language ("fix", "implement", "need to") → suggestedGoal.shouldCreate: true`;
-
-  const response = await llm.complete({
-    model: "claude-sonnet-4-20250514",
-    messages: [{ role: "user", content: prompt }],
-    max_tokens: 500,
-    temperature: 0
-  });
-
-  return JSON.parse(extractJson(response));
-}
-```
-
----
-
-## Goal Auto-Creation
-
-### Detection Heuristics
-
-```javascript
-const GOAL_INDICATORS = [
-  { pattern: /\b(need to|should|must|have to|gotta|let's)\b/i, weight: 0.3 },
-  { pattern: /\b(fix|implement|add|create|build|design|review|update|refactor)\b/i, weight: 0.3 },
-  { pattern: /\b(bug|issue|problem|feature|task|todo)\b/i, weight: 0.2 },
-  { pattern: /\b(by|before|deadline|urgent|asap)\b/i, weight: 0.1 },
-];
-
-function detectGoalIntent(message) {
-  let score = 0;
-  for (const indicator of GOAL_INDICATORS) {
-    if (indicator.pattern.test(message)) {
-      score += indicator.weight;
-    }
-  }
-  // Longer messages more likely to be goals
-  if (message.length > 100) score += 0.1;
-  if (message.length > 200) score += 0.1;
-  
-  return score;
-}
-```
-
-### Creation Flow
-
-```javascript
-async function createGoalFromClassification(classification, sessionKey, data) {
-  const goal = {
-    id: `goal_${crypto.randomBytes(12).toString('hex')}`,
-    title: classification.suggestedGoal.title,
-    description: classification.originalMessage,
-    status: 'active',
-    condoId: classification.condo,
-    tasks: classification.suggestedGoal.tasks.map((text, i) => ({
-      id: `task_${crypto.randomBytes(12).toString('hex')}`,
-      text,
-      status: 'pending',
-      done: false,
-      createdAtMs: Date.now()
-    })),
-    sessions: [sessionKey],
-    createdAtMs: Date.now(),
-    updatedAtMs: Date.now()
-  };
-  
-  data.goals.push(goal);
-  data.sessionIndex[sessionKey] = { goalId: goal.id };
-  store.save(data);
-  
-  return goal;
-}
-```
-
----
-
-## UX Flows
-
-### Auto-Route (confidence ≥ 0.85)
-
-```
-User: "Update the investor pipeline with the new VC contacts"
-
-Bot: 📁 investor-crm
-     ────────────────────────────────────────
-     [Message processed normally, context injected]
-```
-
-Small inline indicator, no interruption.
-
-### Soft Confirm (confidence 0.5-0.85)
-
-```
-User: "Need to track some new deals"
-
-Bot: Which project?
-     [💼 investor-crm] [🏠 subastas] [💬 general]
-     
-     (auto-selects investor-crm in 5s based on best match)
-```
-
-User can tap to confirm/change, or wait for auto-selection.
-
-### Goal Suggestion (when task detected)
-
-```
-User: "We need to revamp the investor outreach flow - 
-       first audit current state, then design new stages, 
-       finally implement the changes"
-
-Bot: 📋 Create goal in investor-crm?
-     
-     **Revamp investor outreach flow**
-     Tasks:
-     • Audit current state
-     • Design new stages  
-     • Implement changes
-     
-     [Create] [Edit] [Skip]
-```
-
----
-
-## Edge Cases
-
-### 1. One-Off Questions
-
-```javascript
-const ONE_OFF_PATTERNS = [
-  /^(what|when|where|who|how)\s+(is|are|was|were|time|day)/i,
-  /^(remind|tell) me/i,
-  /^(hi|hello|hey|thanks|ok|sure|yes|no)\b/i,
-];
-
-function isOneOff(message) {
-  if (message.length > 150) return false;
-  return ONE_OFF_PATTERNS.some(p => p.test(message.trim()));
-}
-// One-offs skip classification entirely
-```
-
-### 2. Cross-Condo Work
-
-```
-User: "Use the map component from subastas in the CRM"
-
-Classification:
-{
-  condo: "investor-crm",  // Primary
-  confidence: 0.75,
-  crossReferences: ["subastas"],
-  reasoning: "Primary work in CRM, references subastas"
-}
-
-Bot: 📁 investor-crm (also refs: subastas)
-```
-
-### 3. Context Switch Mid-Thread
-
-```javascript
-const CONTEXT_SWITCH = [
-  /\b(btw|by the way|also|separately|unrelated|different topic)\b/i,
-  /\b(switch(ing)? to|let's talk about|moving on)\b/i,
-];
-
-// If detected, ignore thread binding and classify fresh
-```
-
-### 4. Ambiguous Follow-Up
-
-```
-User: "How's the progress?"
-
-// No clear condo signal, check recent context
-if (context.lastCondoMentioned && context.timeSinceLastMessage < 600000) {
-  return { condo: context.lastCondoMentioned, confidence: 0.7 };
-}
-// Otherwise ask
-```
-
----
-
-## Configuration
-
-```javascript
-const CLASSIFICATION_CONFIG = {
-  // Tier 1 thresholds
-  tier1ConfidenceThreshold: 0.9,  // Skip Tier 2 if above
-  
-  // Tier 2 settings
-  tier2Model: "claude-sonnet-4-20250514",
-  tier2MaxTokens: 500,
-  tier2TimeoutMs: 5000,
-  
-  // Decision thresholds
-  autoRouteThreshold: 0.85,      // Silent routing
-  softConfirmThreshold: 0.5,      // Show buttons
-  askUserThreshold: 0.3,          // Explicit ask
-  
-  // Goal creation
-  autoCreateGoalThreshold: 0.9,   // Auto-create without confirm
-  suggestGoalThreshold: 0.6,      // Suggest with confirm
-  
-  // UX
-  softConfirmAutoAcceptMs: 5000,  // Auto-accept after 5s
-  
-  // Context
-  recentMessageWindowCount: 5,
-  recentMessageWindowMs: 600000,  // 10 minutes
-};
 ```
 
 ---
 
 ## Implementation Phases
 
-### Phase 1: Infrastructure (Week 1)
-- [ ] Add `keywords`, `triggers`, `excludePatterns` to condo schema
-- [ ] Create `classifier.js` module with Tier 1 logic
-- [ ] Extend `before_agent_start` hook to call classifier
-- [ ] Add `@condo:` syntax parsing
+### Phase 1: Tier 1 Classification (3 days) ← START HERE
 
-### Phase 2: Tier 1 Complete (Week 1-2)
-- [ ] Implement keyword/trigger scoring
-- [ ] Add thread continuity detection
-- [ ] Wire up auto-binding for high-confidence matches
-- [ ] Add small indicator in replies ("📁 condo-name")
+Ship fast pattern matching with zero LLM latency. Gets 60-70% of sessions auto-classified.
 
-### Phase 3: Tier 2 LLM (Week 2)
-- [ ] Implement LLM classifier prompt
-- [ ] Add confidence-based UX (buttons vs auto)
-- [ ] Handle soft-confirm with timeout
+### Phase 2: Tier 2 LLM (1 week)
 
-### Phase 4: Goal Creation (Week 3)
-- [ ] Implement goal intent detection
-- [ ] Add LLM subtask extraction
-- [ ] Build goal suggestion UI with inline buttons
-- [ ] Wire to existing `condo_create_goal` logic
+Add LLM fallback for ambiguous messages.
 
-### Phase 5: Learning & Polish (Week 4)
-- [ ] Add feedback collection (user corrections)
-- [ ] Implement keyword auto-learning from corrections
-- [ ] Tune thresholds based on accuracy data
-- [ ] Edge case handling refinements
+### Phase 3: Goal Auto-Creation (1 week)
+
+Detect task language and suggest goal creation.
+
+### Phase 4: Learning (ongoing)
+
+Collect corrections, auto-tune keywords.
 
 ---
 
-## Files to Create/Modify
+# Phase 1 Implementation Plan
+
+## Task 1: Add Classification Fields to Condo Schema
+
+**Files:**
+- Modify: `condo-management/store.js`
+- Modify: `condo-management/types.d.ts` (if exists)
+
+**Step 1.1: Update condo schema**
+
+Add to condo object definition in `store.js`:
+
+```javascript
+// In createCondo() or condo schema
+{
+  id: string,
+  name: string,
+  description: string,
+  emoji: string,
+  
+  // NEW: Classification hints
+  keywords: [],           // ["investor", "crm", "pipeline", "fundraising"]
+  triggers: [],           // ["/investor\\s+\\w+/i", "/pipeline/i"] - regex strings
+  excludePatterns: [],    // ["/test/i"] - patterns to skip
+  telegramTopicIds: [],   // [106, 352] - bound Telegram topics
+}
+```
+
+**Step 1.2: Add helper to parse regex strings**
+
+```javascript
+function parseRegexString(str) {
+  const match = str.match(/^\/(.+)\/([gimsu]*)$/);
+  if (match) {
+    return new RegExp(match[1], match[2]);
+  }
+  return new RegExp(str, 'i');
+}
+```
+
+**Step 1.3: Commit**
+
+```bash
+git add condo-management/store.js
+git commit -m "feat(classification): add keywords/triggers to condo schema"
+```
+
+---
+
+## Task 2: Create Classifier Module
+
+**Files:**
+- Create: `condo-management/classifier.js`
+
+**Step 2.1: Create classifier.js with Tier 1 logic**
+
+```javascript
+// condo-management/classifier.js
+
+const CONFIG = {
+  tier1ConfidenceThreshold: 0.92,
+  autoRouteThreshold: 0.85,
+  softConfirmThreshold: 0.5,
+};
+
+/**
+ * Parse regex strings from condo triggers/excludes
+ */
+function parseRegex(str) {
+  const match = str.match(/^\/(.+)\/([gimsu]*)$/);
+  if (match) return new RegExp(match[1], match[2]);
+  return new RegExp(str, 'i');
+}
+
+/**
+ * Tier 1: Fast pattern classification
+ * Returns: { condo, confidence, reasoning, alternatives, needsTier2 }
+ */
+function tier1Classify(message, context, condos) {
+  const result = {
+    condo: null,
+    confidence: 0,
+    reasoning: null,
+    alternatives: [],
+    needsTier2: false,
+  };
+
+  // 1. Explicit @condo:name mention (highest priority)
+  const explicit = message.match(/@condo:(\S+)/i);
+  if (explicit) {
+    const target = explicit[1].toLowerCase();
+    const condo = condos.find(c => 
+      c.id.toLowerCase().includes(target) || 
+      c.name.toLowerCase().includes(target)
+    );
+    if (condo) {
+      return {
+        condo: condo.id,
+        confidence: 1.0,
+        reasoning: 'Explicit @condo mention',
+        alternatives: [],
+        needsTier2: false,
+      };
+    }
+  }
+
+  // 2. Telegram topic binding
+  if (context.telegramTopicId) {
+    const boundCondo = condos.find(c => 
+      (c.telegramTopicIds || []).includes(context.telegramTopicId)
+    );
+    if (boundCondo) {
+      return {
+        condo: boundCondo.id,
+        confidence: 0.95,
+        reasoning: 'Telegram topic binding',
+        alternatives: [],
+        needsTier2: false,
+      };
+    }
+    
+    // Try fuzzy match topic name to condo name
+    if (context.telegramTopicName) {
+      const topicLower = context.telegramTopicName.toLowerCase();
+      const matchedCondo = condos.find(c => 
+        c.name.toLowerCase().includes(topicLower) ||
+        topicLower.includes(c.name.toLowerCase())
+      );
+      if (matchedCondo) {
+        return {
+          condo: matchedCondo.id,
+          confidence: 0.90,
+          reasoning: `Topic name "${context.telegramTopicName}" matches condo`,
+          alternatives: [],
+          needsTier2: false,
+        };
+      }
+    }
+  }
+
+  // 3. Keyword/trigger scoring
+  const scores = new Map();
+  const messageLower = message.toLowerCase();
+
+  for (const condo of condos) {
+    let score = 0;
+    const reasons = [];
+
+    // Keyword hits (+0.15 each, max 0.6)
+    const keywords = condo.keywords || [];
+    const keywordHits = keywords.filter(k => messageLower.includes(k.toLowerCase()));
+    if (keywordHits.length > 0) {
+      score += Math.min(keywordHits.length * 0.15, 0.6);
+      reasons.push(`keywords: ${keywordHits.join(', ')}`);
+    }
+
+    // Trigger pattern hits (+0.3 each)
+    const triggers = (condo.triggers || []).map(parseRegex);
+    const triggerHits = triggers.filter(t => t.test(message));
+    if (triggerHits.length > 0) {
+      score += triggerHits.length * 0.3;
+      reasons.push(`${triggerHits.length} trigger(s)`);
+    }
+
+    // Exclude pattern penalty (-0.5 each)
+    const excludes = (condo.excludePatterns || []).map(parseRegex);
+    const excludeHits = excludes.filter(e => e.test(message));
+    score -= excludeHits.length * 0.5;
+
+    // Recency boost (+0.1 if active in last 24h)
+    if (condo.updatedAtMs && Date.now() - condo.updatedAtMs < 86400000) {
+      score += 0.1;
+      reasons.push('recent activity');
+    }
+
+    if (score > 0) {
+      scores.set(condo.id, { 
+        score: Math.min(score, 1.0), 
+        reasoning: reasons.join(', ') 
+      });
+    }
+  }
+
+  // Sort by score descending
+  const sorted = [...scores.entries()]
+    .sort((a, b) => b[1].score - a[1].score);
+
+  if (sorted.length > 0) {
+    const [topId, topData] = sorted[0];
+    result.condo = topId;
+    result.confidence = topData.score;
+    result.reasoning = topData.reasoning;
+    result.alternatives = sorted.slice(1, 4).map(([id, data]) => ({
+      condo: id,
+      confidence: data.score,
+    }));
+  }
+
+  // Determine if Tier 2 is needed
+  result.needsTier2 = result.confidence < CONFIG.tier1ConfidenceThreshold;
+
+  return result;
+}
+
+/**
+ * Check if message is a one-off that shouldn't be classified
+ */
+function isOneOffMessage(message) {
+  const ONE_OFF_PATTERNS = [
+    /^(what|when|where|who|how)\s+(is|are|was|were|time|day)/i,
+    /^(hi|hello|hey|thanks|ok|sure|yes|no|yep|nope)\s*[.!?]*$/i,
+    /^(remind|tell) me\b/i,
+  ];
+  if (message.length > 150) return false;
+  return ONE_OFF_PATTERNS.some(p => p.test(message.trim()));
+}
+
+/**
+ * Main classification entry point
+ */
+async function classifySession(message, context, condos, options = {}) {
+  // Skip one-off messages
+  if (isOneOffMessage(message)) {
+    return { condo: null, confidence: 0, reasoning: 'One-off message', skip: true };
+  }
+
+  // Tier 1: Fast pattern matching
+  const tier1Result = tier1Classify(message, context, condos);
+
+  if (!tier1Result.needsTier2 || options.tier1Only) {
+    return tier1Result;
+  }
+
+  // Tier 2: LLM classification (Phase 2)
+  // For now, return Tier 1 result
+  return tier1Result;
+}
+
+module.exports = {
+  classifySession,
+  tier1Classify,
+  isOneOffMessage,
+  CONFIG,
+};
+```
+
+**Step 2.2: Commit**
+
+```bash
+git add condo-management/classifier.js
+git commit -m "feat(classification): add Tier 1 classifier module"
+```
+
+---
+
+## Task 3: Wire Classifier into before_agent_start Hook
+
+**Files:**
+- Modify: `condo-management/handlers.js`
+
+**Step 3.1: Import classifier**
+
+At top of `handlers.js`:
+
+```javascript
+const { classifySession, CONFIG } = require('./classifier');
+```
+
+**Step 3.2: Extend before_agent_start hook**
+
+Find the `before_agent_start` hook registration and add classification logic:
+
+```javascript
+api.registerHook('before_agent_start', async (event) => {
+  const sessionKey = event.context?.sessionKey;
+  const message = event.context?.message;
+  const data = store.load();
+
+  // Skip if already bound to a condo or goal
+  if (data.sessionCondoIndex?.[sessionKey] || data.sessionIndex?.[sessionKey]) {
+    return existingCondoContextInjection(sessionKey, data);
+  }
+
+  // Skip if no message (shouldn't happen, but safety)
+  if (!message) return null;
+
+  // Build context for classifier
+  const context = {
+    telegramTopicId: event.context?.telegramTopicId,
+    telegramTopicName: event.context?.telegramTopicName,
+    sessionKey,
+  };
+
+  // Get active condos
+  const condos = data.condos || [];
+
+  // Classify
+  const classification = await classifySession(message, context, condos, { tier1Only: true });
+
+  // Skip if one-off or no match
+  if (classification.skip || !classification.condo) {
+    return null;
+  }
+
+  // Auto-route if confident enough
+  if (classification.confidence >= CONFIG.autoRouteThreshold) {
+    // Bind session to condo
+    if (!data.sessionCondoIndex) data.sessionCondoIndex = {};
+    data.sessionCondoIndex[sessionKey] = classification.condo;
+    store.save(data);
+
+    const condo = condos.find(c => c.id === classification.condo);
+    const condoName = condo?.name || classification.condo;
+
+    // Return context injection with small indicator
+    return {
+      prependContext: buildCondoContext(classification.condo, data),
+      systemNote: `📁 Routed to ${condoName}`,
+    };
+  }
+
+  // Medium confidence - would show buttons (Phase 2)
+  // For now, skip
+  return null;
+});
+```
+
+**Step 3.3: Add buildCondoContext helper if missing**
+
+```javascript
+function buildCondoContext(condoId, data) {
+  const condo = (data.condos || []).find(c => c.id === condoId);
+  if (!condo) return '';
+
+  const goals = (data.goals || [])
+    .filter(g => g.condoId === condoId && g.status === 'active')
+    .slice(0, 5);
+
+  let context = `## Current Project: ${condo.name}\n`;
+  context += `${condo.description || ''}\n\n`;
+
+  if (goals.length > 0) {
+    context += `### Active Goals\n`;
+    for (const goal of goals) {
+      context += `- ${goal.title}`;
+      if (goal.nextTask) context += ` (Next: ${goal.nextTask})`;
+      context += '\n';
+    }
+  }
+
+  return context;
+}
+```
+
+**Step 3.4: Commit**
+
+```bash
+git add condo-management/handlers.js
+git commit -m "feat(classification): wire classifier into before_agent_start hook"
+```
+
+---
+
+## Task 4: Auto-Seed Keywords from Existing Goals
+
+**Files:**
+- Create: `condo-management/scripts/seed-keywords.js`
+
+**Step 4.1: Create seed script**
+
+```javascript
+#!/usr/bin/env node
+// condo-management/scripts/seed-keywords.js
+
+const fs = require('fs');
+const path = require('path');
+
+const STORE_PATH = process.env.CONDO_STORE_PATH || 
+  path.join(process.env.HOME, 'clawd/data/condo-management.json');
+
+function extractKeywords(text) {
+  if (!text) return [];
+  
+  // Remove common words
+  const stopwords = new Set([
+    'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for',
+    'of', 'with', 'by', 'from', 'as', 'is', 'was', 'are', 'were', 'been',
+    'be', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would',
+    'could', 'should', 'may', 'might', 'must', 'shall', 'can', 'need',
+    'this', 'that', 'these', 'those', 'it', 'its', 'they', 'them',
+    'we', 'us', 'our', 'you', 'your', 'i', 'me', 'my', 'he', 'she',
+    'his', 'her', 'test', 'testing', 'new', 'add', 'create', 'update',
+    'fix', 'implement', 'build', 'make', 'get', 'set',
+  ]);
+
+  const words = text.toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .split(/\s+/)
+    .filter(w => w.length > 2 && !stopwords.has(w));
+
+  // Count frequency
+  const freq = {};
+  for (const w of words) {
+    freq[w] = (freq[w] || 0) + 1;
+  }
+
+  // Return top keywords
+  return Object.entries(freq)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10)
+    .map(([word]) => word);
+}
+
+function seedKeywords() {
+  const data = JSON.parse(fs.readFileSync(STORE_PATH, 'utf8'));
+  
+  for (const condo of (data.condos || [])) {
+    // Gather text from condo name, description, and goal titles
+    const texts = [condo.name, condo.description];
+    
+    const condoGoals = (data.goals || []).filter(g => g.condoId === condo.id);
+    for (const goal of condoGoals) {
+      texts.push(goal.title);
+      texts.push(goal.description);
+    }
+    
+    const combinedText = texts.filter(Boolean).join(' ');
+    const keywords = extractKeywords(combinedText);
+    
+    // Merge with existing keywords (don't overwrite manual ones)
+    const existing = new Set(condo.keywords || []);
+    for (const kw of keywords) {
+      existing.add(kw);
+    }
+    condo.keywords = [...existing].slice(0, 15);
+    
+    console.log(`${condo.name}: ${condo.keywords.join(', ')}`);
+  }
+  
+  fs.writeFileSync(STORE_PATH, JSON.stringify(data, null, 2));
+  console.log('\nKeywords seeded successfully.');
+}
+
+seedKeywords();
+```
+
+**Step 4.2: Make executable and commit**
+
+```bash
+chmod +x condo-management/scripts/seed-keywords.js
+git add condo-management/scripts/seed-keywords.js
+git commit -m "feat(classification): add keyword seeding script"
+```
+
+---
+
+## Task 5: Add Telegram Topic Binding
+
+**Files:**
+- Modify: `condo-management/store.js` (add binding function)
+
+**Step 5.1: Add topic binding helper**
+
+```javascript
+function bindTelegramTopic(condoId, topicId) {
+  const data = load();
+  const condo = (data.condos || []).find(c => c.id === condoId);
+  if (!condo) return false;
+  
+  if (!condo.telegramTopicIds) condo.telegramTopicIds = [];
+  if (!condo.telegramTopicIds.includes(topicId)) {
+    condo.telegramTopicIds.push(topicId);
+    save(data);
+  }
+  return true;
+}
+
+function getCondoForTopic(topicId) {
+  const data = load();
+  return (data.condos || []).find(c => 
+    (c.telegramTopicIds || []).includes(topicId)
+  );
+}
+
+// Export these
+module.exports = {
+  // ... existing exports
+  bindTelegramTopic,
+  getCondoForTopic,
+};
+```
+
+**Step 5.2: Commit**
+
+```bash
+git add condo-management/store.js
+git commit -m "feat(classification): add Telegram topic binding helpers"
+```
+
+---
+
+## Task 6: Add RPC Method for Manual Keyword Tuning
+
+**Files:**
+- Modify: `condo-management/handlers.js`
+
+**Step 6.1: Add RPC methods**
+
+```javascript
+api.registerMethod('goals.updateCondoKeywords', async ({ condoId, keywords, triggers, excludePatterns }) => {
+  const data = store.load();
+  const condo = (data.condos || []).find(c => c.id === condoId);
+  if (!condo) throw new Error(`Condo not found: ${condoId}`);
+  
+  if (keywords !== undefined) condo.keywords = keywords;
+  if (triggers !== undefined) condo.triggers = triggers;
+  if (excludePatterns !== undefined) condo.excludePatterns = excludePatterns;
+  
+  store.save(data);
+  return { ok: true, condo };
+});
+
+api.registerMethod('goals.bindTelegramTopic', async ({ condoId, topicId }) => {
+  const result = store.bindTelegramTopic(condoId, topicId);
+  if (!result) throw new Error(`Failed to bind topic ${topicId} to condo ${condoId}`);
+  return { ok: true };
+});
+```
+
+**Step 6.2: Commit**
+
+```bash
+git add condo-management/handlers.js
+git commit -m "feat(classification): add RPC methods for keyword/topic management"
+```
+
+---
+
+## Task 7: Test Classification Manually
+
+**Step 7.1: Run keyword seeding**
+
+```bash
+cd ~/clawd/projects/clawcondos
+node condo-management/scripts/seed-keywords.js
+```
+
+**Step 7.2: Restart ClawCondos service**
+
+```bash
+systemctl --user restart clawcondos
+```
+
+**Step 7.3: Test in Telegram**
+
+1. Send message in "Subastas" topic → should auto-route
+2. Send "@condo:investor-crm check pipeline" → should auto-route
+3. Send message with keywords like "investor meeting" → should auto-route to investor-crm
+
+**Step 7.4: Verify in ClawCondos UI**
+
+Check that new sessions appear under correct condos in sidebar.
+
+---
+
+## Success Criteria (Phase 1)
+
+- [ ] Sessions in bound Telegram topics auto-route to correct condo
+- [ ] `@condo:name` syntax works for explicit routing
+- [ ] Keyword matches work for common terms
+- [ ] ClawCondos sidebar shows sessions under correct condos
+- [ ] No regression in existing functionality
+
+---
+
+# Phase 2: LLM Classification (Future)
+
+After Phase 1 is stable, add:
+
+1. Gateway LLM proxy call for ambiguous messages
+2. Confidence-based UI (buttons vs auto-accept)
+3. 3s timeout with fallback
+
+# Phase 3: Goal Auto-Creation (Future)
+
+After Phase 2:
+
+1. Task language detection heuristics
+2. LLM subtask extraction
+3. Goal suggestion UI with confirm/edit/skip
+
+---
+
+## Files Summary
 
 | File | Action | Purpose |
 |------|--------|---------|
-| `condo-management/classifier.js` | Create | Classification engine |
-| `condo-management/handlers.js` | Modify | Hook extension |
-| `condo-management/store.js` | Modify | Add keyword fields |
-| `condo-management/types.d.ts` | Modify | TypeScript types |
-| `docs/CLASSIFICATION.md` | Create | User documentation |
+| `condo-management/store.js` | Modify | Add keyword fields + topic binding |
+| `condo-management/classifier.js` | Create | Tier 1 classification logic |
+| `condo-management/handlers.js` | Modify | Hook integration + RPC methods |
+| `condo-management/scripts/seed-keywords.js` | Create | Bootstrap keywords from goals |
 
 ---
 
-## Success Metrics
+## Execution
 
-- **Classification accuracy:** >85% correct on first try
-- **User corrections:** <15% of auto-routed sessions
-- **Goal creation adoption:** >50% of suggested goals accepted
-- **Session organization:** <20% sessions remain "uncategorized"
+**Plan complete and saved.**
 
----
+**Ready to implement Phase 1?**
 
-## Open Questions
-
-1. **Telegram topic = condo?** Should we auto-bind Telegram topics to condos by name matching?
-
-2. **Learning persistence:** Store learned keywords in condo definition or separate file?
-
-3. **Multi-agent:** Should classification run in main agent or dedicated classifier agent?
-
-4. **Rate limiting:** How to handle rapid messages during classification (queue? batch?)
-
----
-
-## Appendix: Existing Tools Reference
-
-### Available Agent Tools
-- `condo_bind(condoId | name)` - Bind session to condo
-- `goal_update(goalId, status, summary, addTasks, ...)` - Update goal
-- `condo_create_goal(title, description, tasks)` - Create goal
-- `condo_add_task(goalId, text)` - Add task to goal
-- `condo_spawn_task(goalId, taskId)` - Spawn subagent for task
-
-### Available RPC Methods
-- `goals.setSessionCondo(sessionKey, condoId)` - Bind session
-- `goals.sessionLookup(sessionKey)` - Check binding
-- `goals.create(...)` - Create goal programmatically
-- `goals.addTask(...)` - Add task programmatically
+Options:
+1. **Subagent-Driven** - I dispatch fresh subagent per task, review between tasks
+2. **I implement directly** - Walk through tasks in this session
