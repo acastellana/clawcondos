@@ -78,10 +78,11 @@ export function createGoalUpdateExecutor(store) {
       task.done = status === 'done';
       task.status = status;
       // Update stage to match status for proper UI grouping
+      // UI stages: backlog, blocked, doing, review, done
       if (status === 'done') {
         task.stage = 'done';
       } else if (status === 'in-progress') {
-        task.stage = 'in-progress';
+        task.stage = 'doing';  // UI uses 'doing' not 'in-progress'
       } else if (status === 'blocked' || status === 'waiting') {
         task.stage = 'blocked';
       } else {
@@ -111,6 +112,7 @@ export function createGoalUpdateExecutor(store) {
           text,
           description: (typeof t?.description === 'string') ? t.description.trim() : '',
           status: 'pending',
+          stage: 'backlog',  // Default stage for new tasks
           done: false,
           priority: null,
           sessionKey: null,
