@@ -77,7 +77,16 @@ export function createGoalUpdateExecutor(store) {
       }
       task.done = status === 'done';
       task.status = status;
-      if (status === 'done') task.stage = 'done';
+      // Update stage to match status for proper UI grouping
+      if (status === 'done') {
+        task.stage = 'done';
+      } else if (status === 'in-progress') {
+        task.stage = 'in-progress';
+      } else if (status === 'blocked' || status === 'waiting') {
+        task.stage = 'blocked';
+      } else {
+        task.stage = 'backlog';
+      }
       if (summary) task.summary = summary;
       task.updatedAtMs = Date.now();
       results.push(`task ${taskId} → ${status}`);
