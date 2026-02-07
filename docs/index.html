@@ -11,7 +11,8 @@
     :root {
       --bg: #0a0c10;
       --bg-card: #12151a;
-      --border: #1e2228;
+      --bg-elevated: #1a1e24;
+      --border: #2a2f38;
       --text: #f0f3f6;
       --text-dim: #9ca3af;
       --text-muted: #6b7280;
@@ -21,24 +22,21 @@
     }
 
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    html { scroll-behavior: smooth; }
 
     body {
       font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
       background: var(--bg);
       color: var(--text);
-      line-height: 1.6;
+      min-height: 100vh;
       -webkit-font-smoothing: antialiased;
     }
-
-    .container { max-width: 1000px; margin: 0 auto; padding: 0 24px; }
 
     /* Nav */
     nav {
       position: fixed;
       top: 0; left: 0; right: 0;
       z-index: 100;
-      padding: 14px 24px;
+      padding: 14px 32px;
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -55,7 +53,7 @@
       font-size: 15px;
     }
 
-    .logo img { width: 30px; height: 30px; }
+    .logo img { width: 28px; height: 28px; }
 
     .nav-links {
       display: flex;
@@ -73,12 +71,12 @@
     .nav-links a:hover { color: var(--text); }
 
     .btn {
-      padding: 10px 20px;
+      padding: 9px 18px;
       border-radius: 8px;
-      font-size: 14px;
+      font-size: 13px;
       font-weight: 700;
       text-decoration: none;
-      transition: all 0.2s;
+      transition: all 0.15s;
     }
 
     .btn-primary {
@@ -88,186 +86,228 @@
 
     .btn-primary:hover {
       filter: brightness(1.1);
-      transform: translateY(-1px);
     }
 
-    .btn-ghost {
-      background: var(--bg-card);
-      color: var(--text);
-      border: 1px solid var(--border);
-    }
-
-    .btn-ghost:hover {
-      border-color: var(--text-muted);
-    }
-
-    /* Hero */
+    /* Hero Layout */
     .hero {
-      padding: 160px 24px 100px;
-      text-align: center;
-      position: relative;
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      align-items: center;
+      padding: 100px 48px 60px;
+      gap: 48px;
+      max-width: 1300px;
+      margin: 0 auto;
     }
 
-    .hero::before {
-      content: '';
-      position: absolute;
-      top: 0; right: 0;
-      width: 600px; height: 600px;
-      background: radial-gradient(circle, rgba(96, 165, 250, 0.15) 0%, transparent 60%);
-      pointer-events: none;
+    /* Left - Marketing */
+    .hero-left {
+      max-width: 520px;
     }
 
-    .hero-badge {
+    .badge {
       display: inline-flex;
       align-items: center;
       gap: 8px;
       background: var(--bg-card);
       border: 1px solid var(--border);
-      padding: 6px 14px;
+      padding: 6px 12px;
       border-radius: 999px;
-      font-size: 13px;
+      font-size: 12px;
+      font-weight: 600;
       margin-bottom: 24px;
     }
 
-    .hero-badge-dot {
+    .badge-dot {
       width: 6px; height: 6px;
       background: var(--green);
       border-radius: 50%;
     }
 
-    .hero h1 {
-      font-size: clamp(40px, 6vw, 56px);
+    .hero-left h1 {
+      font-size: 48px;
       font-weight: 800;
       line-height: 1.1;
       letter-spacing: -0.03em;
       margin-bottom: 20px;
     }
 
-    .hero h1 span {
+    .hero-left h1 span {
       background: linear-gradient(135deg, var(--blue), var(--cyan));
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
     }
 
-    .hero p {
-      font-size: 18px;
+    .hero-left p {
+      font-size: 17px;
       color: var(--text-dim);
-      max-width: 560px;
-      margin: 0 auto 32px;
+      line-height: 1.7;
+      margin-bottom: 28px;
     }
 
-    .hero-actions {
+    .hero-features {
       display: flex;
-      gap: 12px;
-      justify-content: center;
       flex-wrap: wrap;
+      gap: 12px;
     }
 
-    .hero-visual {
-      margin-top: 60px;
+    .hero-feature {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      color: var(--text-dim);
+    }
+
+    .hero-feature svg {
+      width: 16px;
+      height: 16px;
+      color: var(--green);
+    }
+
+    /* Right - Setup Card */
+    .hero-right {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
     }
 
     .mascot {
-      width: 220px;
-      height: 220px;
+      width: 160px;
+      height: 160px;
+      margin-bottom: 24px;
       animation: float 4s ease-in-out infinite;
-      filter: drop-shadow(0 20px 40px rgba(0,0,0,0.4));
+      filter: drop-shadow(0 16px 32px rgba(0,0,0,0.4));
     }
 
     @keyframes float {
       0%, 100% { transform: translateY(0); }
-      50% { transform: translateY(-10px); }
+      50% { transform: translateY(-8px); }
     }
 
-    /* Features */
-    .features {
-      padding: 80px 24px;
-      border-top: 1px solid var(--border);
+    .setup-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 28px;
+      width: 100%;
+      max-width: 420px;
     }
 
-    .features h2 {
+    .setup-card h2 {
+      font-size: 18px;
+      font-weight: 700;
       text-align: center;
-      font-size: 28px;
-      font-weight: 800;
-      margin-bottom: 48px;
+      margin-bottom: 20px;
     }
 
-    .features-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
+    .curl-box {
+      display: flex;
+      align-items: center;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 14px;
+      margin-bottom: 24px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+    }
+
+    .curl-box code {
+      flex: 1;
+      color: var(--text-dim);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .curl-box button {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      padding: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: color 0.15s;
+    }
+
+    .curl-box button:hover {
+      color: var(--text);
+    }
+
+    .curl-box button svg {
+      width: 18px;
+      height: 18px;
+    }
+
+    .steps {
+      display: flex;
+      flex-direction: column;
       gap: 16px;
     }
 
-    .feature {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 24px;
-      transition: border-color 0.2s;
+    .step {
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
     }
 
-    .feature:hover { border-color: var(--text-muted); }
-
-    .feature-icon {
-      font-size: 28px;
-      margin-bottom: 12px;
-    }
-
-    .feature h3 {
-      font-size: 15px;
-      font-weight: 700;
-      margin-bottom: 6px;
-    }
-
-    .feature p {
+    .step-num {
+      width: 28px;
+      height: 28px;
+      background: var(--blue);
+      color: var(--bg);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       font-size: 13px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    .step-text {
+      font-size: 14px;
       color: var(--text-dim);
       line-height: 1.5;
+      padding-top: 3px;
     }
 
-    /* CTA */
-    .cta {
-      padding: 100px 24px;
-      text-align: center;
-      position: relative;
+    .step-text strong {
+      color: var(--text);
+      font-weight: 600;
     }
 
-    .cta::before {
-      content: '';
-      position: absolute;
-      top: 50%; left: 50%;
-      transform: translate(-50%, -50%);
-      width: 400px; height: 400px;
-      background: radial-gradient(circle, rgba(96, 165, 250, 0.12) 0%, transparent 60%);
-      pointer-events: none;
-    }
-
-    .cta h2 {
-      font-size: 32px;
-      font-weight: 800;
-      margin-bottom: 12px;
-    }
-
-    .cta p {
-      color: var(--text-dim);
-      margin-bottom: 28px;
-    }
-
-    .cta-actions {
+    .setup-links {
+      margin-top: 24px;
+      padding-top: 20px;
+      border-top: 1px solid var(--border);
       display: flex;
-      gap: 12px;
       justify-content: center;
-      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    .setup-links a {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 13px;
+      transition: color 0.15s;
+    }
+
+    .setup-links a:hover {
+      color: var(--blue);
     }
 
     /* Footer */
     footer {
-      padding: 28px 24px;
+      padding: 20px 32px;
       border-top: 1px solid var(--border);
       display: flex;
       justify-content: space-between;
       align-items: center;
-      font-size: 13px;
+      font-size: 12px;
       color: var(--text-muted);
     }
 
@@ -284,11 +324,44 @@
     }
 
     /* Responsive */
-    @media (max-width: 768px) {
+    @media (max-width: 900px) {
+      .hero {
+        grid-template-columns: 1fr;
+        text-align: center;
+        padding: 120px 24px 60px;
+      }
+
+      .hero-left {
+        max-width: 100%;
+        order: 2;
+      }
+
+      .hero-right {
+        order: 1;
+      }
+
+      .hero-features {
+        justify-content: center;
+      }
+
+      .mascot {
+        width: 140px;
+        height: 140px;
+      }
+    }
+
+    @media (max-width: 600px) {
       .nav-links { display: none; }
-      .features-grid { grid-template-columns: 1fr; }
-      .hero-actions, .cta-actions { flex-direction: column; align-items: center; }
-      footer { flex-direction: column; gap: 16px; text-align: center; }
+
+      .hero-left h1 {
+        font-size: 36px;
+      }
+
+      footer {
+        flex-direction: column;
+        gap: 12px;
+        text-align: center;
+      }
     }
   </style>
 </head>
@@ -299,84 +372,106 @@
       <span>ClawCondos</span>
     </div>
     <ul class="nav-links">
-      <li><a href="#features">Features</a></li>
       <li><a href="https://github.com/acastellana/clawcondos/blob/master/docs/SETUP.md" target="_blank">Docs</a></li>
+      <li><a href="https://github.com/acastellana/clawcondos/blob/master/docs/BACKEND-API.md" target="_blank">API</a></li>
       <li><a href="https://github.com/acastellana/clawcondos" target="_blank">GitHub</a></li>
     </ul>
-    <a href="https://github.com/acastellana/clawcondos/blob/master/docs/SETUP.md" class="btn btn-primary" target="_blank">Get Started</a>
+    <a href="https://github.com/acastellana/clawcondos" class="btn btn-primary" target="_blank">Star on GitHub</a>
   </nav>
 
-  <section class="hero">
-    <div class="hero-badge">
-      <span class="hero-badge-dot"></span>
-      Open source · Self-hosted
-    </div>
-    <h1>Mission Control for<br><span>AI Agents</span></h1>
-    <p>Organize autonomous work into structured spaces. Goals track progress. Sessions get things done.</p>
-    <div class="hero-actions">
-      <a href="https://github.com/acastellana/clawcondos/blob/master/docs/SETUP.md" class="btn btn-primary" target="_blank">Read the Docs</a>
-      <a href="https://github.com/acastellana/clawcondos" class="btn btn-ghost" target="_blank">View on GitHub</a>
-    </div>
-    <div class="hero-visual">
-      <img src="https://raw.githubusercontent.com/acastellana/clawcondos/master/public/media/clawcondos-logo.png" alt="ClawCondos" class="mascot">
-    </div>
-  </section>
-
-  <section class="features" id="features">
-    <div class="container">
-      <h2>Built for AI-native workflows</h2>
-      <div class="features-grid">
-        <div class="feature">
-          <div class="feature-icon">🏢</div>
-          <h3>Condos & Goals</h3>
-          <p>Organize work into projects (condos) with trackable goals. Every agent knows its purpose.</p>
+  <main class="hero">
+    <div class="hero-left">
+      <div class="badge">
+        <span class="badge-dot"></span>
+        Open source · Self-hosted
+      </div>
+      <h1>Mission Control for <span>AI Agents</span></h1>
+      <p>Organize autonomous work into structured spaces. Condos hold goals. Goals track progress. Sessions get things done.</p>
+      <div class="hero-features">
+        <div class="hero-feature">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+          Goals & Tasks
         </div>
-        <div class="feature">
-          <div class="feature-icon">💬</div>
-          <h3>Real-time Sessions</h3>
-          <p>Live chat with streaming responses. See what every agent is doing at a glance.</p>
+        <div class="hero-feature">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+          Real-time Sessions
         </div>
-        <div class="feature">
-          <div class="feature-icon">📱</div>
-          <h3>Apps Platform</h3>
-          <p>Embed any web app with an AI assistant sidebar. Node, Python, React — anything.</p>
+        <div class="hero-feature">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+          Apps Platform
         </div>
-        <div class="feature">
-          <div class="feature-icon">🔀</div>
-          <h3>Subagent Spawning</h3>
-          <p>Sessions spawn child sessions for parallel work. Parent agents stay informed.</p>
+        <div class="hero-feature">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+          Voice & Media
         </div>
-        <div class="feature">
-          <div class="feature-icon">🎤</div>
-          <h3>Voice & Media</h3>
-          <p>Voice recording with Whisper transcription. Upload images and files directly.</p>
+        <div class="hero-feature">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+          Subagent Spawning
         </div>
-        <div class="feature">
-          <div class="feature-icon">📁</div>
-          <h3>File-backed State</h3>
-          <p>All data as markdown. Git-friendly, grep-able, no database required.</p>
+        <div class="hero-feature">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+          File-backed State
         </div>
       </div>
     </div>
-  </section>
 
-  <section class="cta">
-    <h2>Give your agents a home</h2>
-    <p>Self-hosted. No lock-in. Deploy in minutes.</p>
-    <div class="cta-actions">
-      <a href="https://github.com/acastellana/clawcondos/blob/master/docs/SETUP.md" class="btn btn-primary" target="_blank">Setup Guide →</a>
-      <a href="https://github.com/acastellana/clawcondos" class="btn btn-ghost" target="_blank">Star on GitHub</a>
+    <div class="hero-right">
+      <img src="https://raw.githubusercontent.com/acastellana/clawcondos/master/public/media/clawcondos-logo.png" alt="ClawCondos" class="mascot">
+      
+      <div class="setup-card">
+        <h2>Get Started</h2>
+        
+        <div class="curl-box">
+          <code>curl -s https://acastellana.github.io/clawcondos/skill.md</code>
+          <button onclick="copySkill()" title="Copy">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="9" y="9" width="13" height="13" rx="2"/>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+            </svg>
+          </button>
+        </div>
+
+        <div class="steps">
+          <div class="step">
+            <div class="step-num">1</div>
+            <div class="step-text"><strong>Run the command</strong> to get the skill instructions for your agent</div>
+          </div>
+          <div class="step">
+            <div class="step-num">2</div>
+            <div class="step-text"><strong>Clone and install</strong> ClawCondos, configure your gateway connection</div>
+          </div>
+          <div class="step">
+            <div class="step-num">3</div>
+            <div class="step-text"><strong>Start organizing</strong> — create condos, set goals, let agents work</div>
+          </div>
+        </div>
+
+        <div class="setup-links">
+          <a href="https://github.com/acastellana/clawcondos/blob/master/docs/SETUP.md" target="_blank">Full Setup Guide →</a>
+          <a href="https://github.com/acastellana/clawcondos" target="_blank">GitHub →</a>
+        </div>
+      </div>
     </div>
-  </section>
+  </main>
 
-  <footer class="container">
+  <footer>
     <span>© 2026 OpenClaw</span>
     <div class="footer-links">
       <a href="https://github.com/acastellana/clawcondos/blob/master/docs/SETUP.md" target="_blank">Docs</a>
       <a href="https://github.com/acastellana/clawcondos/blob/master/docs/BACKEND-API.md" target="_blank">API</a>
-      <a href="https://github.com/acastellana/clawcondos" target="_blank">GitHub</a>
       <a href="https://openclaw.ai" target="_blank">OpenClaw</a>
     </div>
   </footer>
+
+  <script>
+    function copySkill() {
+      navigator.clipboard.writeText('curl -s https://acastellana.github.io/clawcondos/skill.md');
+      const btn = document.querySelector('.curl-box button');
+      btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>';
+      setTimeout(() => {
+        btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+      }, 2000);
+    }
+  </script>
 </body>
 </html>
