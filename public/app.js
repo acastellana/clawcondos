@@ -100,8 +100,8 @@
           lsRemove('gateway');
           localStorage.removeItem('sharp_gateway');
         }
-        // Use config if available
-        if (config.gatewayWsUrl) {
+        // Use config if available (but reject :18789 - direct gateway connection bypasses serve.js)
+        if (config.gatewayWsUrl && !config.gatewayWsUrl.includes(':18789')) {
           return config.gatewayWsUrl;
         }
         // Auto-detect from location
