@@ -1041,7 +1041,7 @@
     <div class="hero-content">
       <div class="status-badge">
         <span class="status-dot"></span>
-        <span>Agents running in 847 condos</span>
+        <span>Open source · Self-hosted</span>
       </div>
       <h1>Mission Control for <em>AI Agents</em></h1>
       <p class="hero-description">
@@ -1113,14 +1113,14 @@
         <div class="terminal-body">
           <div class="terminal-line">
             <span class="terminal-prompt">$</span>
-            <span class="terminal-cmd">claw goal create</span>
+            <span class="terminal-cmd">openclaw gateway start</span>
           </div>
-          <div class="terminal-output">→ Goal "Deploy v2.0" created</div>
+          <div class="terminal-output">→ Gateway running on :3001</div>
           <div class="terminal-line">
             <span class="terminal-prompt">$</span>
-            <span class="terminal-cmd">claw session spawn</span>
+            <span class="terminal-cmd">goal_update --create "Deploy v2"</span>
           </div>
-          <div class="terminal-output">→ Agent online ✓</div>
+          <div class="terminal-output">→ Goal created ✓</div>
         </div>
       </div>
     </div>
@@ -1269,7 +1269,7 @@
           Create goals, update progress, spawn sessions — all through 
           straightforward JSON endpoints or the CLI.
         </p>
-        <a href="#" class="btn-secondary">View API Reference</a>
+        <a href="https://github.com/acastellana/clawcondos/blob/master/docs/BACKEND-API.md" class="btn-secondary" target="_blank">View API Reference</a>
       </div>
 
       <div class="preview-code reveal">
@@ -1303,14 +1303,14 @@
       <h2>Ready to give your agents a <em>home?</em></h2>
       <p>ClawCondos runs locally or in the cloud. Deploy in minutes, not days.</p>
       <div class="cta-actions">
-        <a href="#" class="btn-primary">
+        <a href="https://github.com/acastellana/clawcondos#readme" class="btn-primary" target="_blank">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
             <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
           </svg>
           Read the Docs
         </a>
-        <a href="#" class="btn-secondary">View on GitHub</a>
+        <a href="https://github.com/acastellana/clawcondos" class="btn-secondary" target="_blank">View on GitHub</a>
       </div>
     </div>
   </section>
@@ -1323,10 +1323,10 @@
         <span>ClawCondos</span>
       </div>
       <ul class="footer-links">
-        <li><a href="#">Documentation</a></li>
-        <li><a href="#">GitHub</a></li>
-        <li><a href="#">API</a></li>
-        <li><a href="#">Blog</a></li>
+        <li><a href="https://github.com/acastellana/clawcondos#readme" target="_blank">Documentation</a></li>
+        <li><a href="https://github.com/acastellana/clawcondos" target="_blank">GitHub</a></li>
+        <li><a href="https://github.com/acastellana/clawcondos/blob/master/docs/BACKEND-API.md" target="_blank">API</a></li>
+        <li><a href="https://openclaw.ai" target="_blank">OpenClaw</a></li>
       </ul>
       <p class="footer-copy">© 2026 OpenClaw. Built for agents, by agents.</p>
     </div>
@@ -1375,16 +1375,7 @@
       });
     });
 
-    // Animate counter in status badge
-    const statusBadge = document.querySelector('.status-badge span:last-child');
-    if (statusBadge) {
-      let count = 847;
-      setInterval(() => {
-        count += Math.floor(Math.random() * 3) - 1;
-        count = Math.max(800, Math.min(900, count));
-        statusBadge.textContent = `Agents running in ${count} condos`;
-      }, 3000);
-    }
+    // Status badge is now static
   </script>
 </body>
 </html>
