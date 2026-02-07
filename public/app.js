@@ -94,10 +94,10 @@
         if (saved && !saved.includes(':18789')) {
           return saved;
         }
-        // Clear invalid old URLs
-        if (saved && saved.includes(':18789') && window.location.hostname !== 'localhost') {
+        // Clear invalid URLs containing :18789 (direct gateway port)
+        // We always want to go through serve.js for goals.changed events
+        if (saved) {
           lsRemove('gateway');
-          // Also clear legacy if present
           localStorage.removeItem('sharp_gateway');
         }
         // Use config if available
@@ -2319,7 +2319,7 @@ function initAutoArchiveUI() {
         return true;
       });
 
-      const activeGoals = (state.goals || []).filter(g => !isGoalCompleted(g) && !isGoalDropped(g) && Array.isArray(g.sessions) && g.sessions.length > 0);
+      const activeGoals = (state.goals || []).filter(g => !isGoalCompleted(g) && !isGoalDropped(g));
       const goalById = new Map(activeGoals.map(g => [g.id, g]));
       const sessionToGoal = new Map();
       for (const g of activeGoals) {
