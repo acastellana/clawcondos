@@ -243,60 +243,25 @@
     </div>
     
     <div class="sidebar-content">
-      <!-- Sessions -->
+      <!-- Condos (Goals) -->
       <div class="section">
         <div class="section-header">
-          <span class="section-title">Goals</span>
-          <div class="auto-archive-setting" title="Auto-archive inactive sessions">
-            <span>⏰</span>
-            <select id="autoArchiveSelect" onchange="setAutoArchiveDays(this.value)">
-              <option value="0.01">15m</option>
-              <option value="0.042">1h</option>
-              <option value="0.25">6h</option>
-              <option value="1">1d</option>
-              <option value="3">3d</option>
-              <option value="never">Off</option>
+          <span class="section-title">Condos</span>
+          <div class="goal-time-filter">
+            <select id="goalTimeFilterSelect" onchange="setGoalTimeFilter(this.value)">
+              <option value="1">24h</option>
+              <option value="7" selected>7d</option>
+              <option value="30">30d</option>
+              <option value="all">All</option>
             </select>
           </div>
-          <label class="show-archived-toggle" id="showArchivedToggle" style="display: none;">
-            <input type="checkbox" onchange="toggleShowArchived()">
-            📦
-          </label>
           <button class="section-action" id="markAllReadBtn" onclick="markAllSessionsRead()" title="Mark all read" style="display: none;">✓</button>
           <button class="section-action" onclick="showCreateGoalModal()" title="New goal">＋</button>
-          <button class="section-action" id="selectModeBtn" onclick="enterMultiSelect()" title="Select sessions">☑</button>
           <button class="section-action" onclick="refresh()" title="Refresh">↻</button>
         </div>
-        <!-- Search Box -->
-        <div id="goalsList" style="padding: 8px 12px 4px 12px;"></div>
-        <div class="session-search">
-          <div class="session-search-wrapper">
-            <span class="session-search-icon">🔍</span>
-            <input 
-              type="text" 
-              class="session-search-input" 
-              id="sessionSearchInput"
-              placeholder="Search sessions..."
-              oninput="handleSearchInput(this.value)"
-              onkeydown="handleSearchKeydown(event)"
-            >
-            <button class="session-search-clear" onclick="clearSearch()" title="Clear search">×</button>
-          </div>
-          <div class="session-search-hint">⌘K to focus</div>
-        </div>
-        <div class="bulk-action-bar" id="bulkActionBar">
-          <span class="bulk-count" id="bulkCount">0 selected</span>
-          <div class="bulk-actions">
-            <button class="bulk-btn" onclick="bulkArchive()">📦 Archive</button>
-            <button class="bulk-btn" onclick="bulkPin()">📌 Pin</button>
-            <button class="bulk-btn primary" onclick="exitMultiSelect()">Cancel</button>
-          </div>
-        </div>
-        <div class="select-all-row" id="selectAllRow" onclick="toggleSelectAll()">
-          <div class="session-checkbox" id="selectAllCheckbox"></div>
-          <span>Select All</span>
-        </div>
-        <div id="sessionsList"></div>
+        <div id="goalsList" style="padding: 4px 0;"></div>
+        <div id="uncategorizedLink" class="uncategorized-link" style="display: none;" onclick="showOverview(); scrollToSection('sessionsGrid')"></div>
+        <div id="sessionsList" style="display: none;"></div>
       </div>
       
       <!-- Apps -->
@@ -375,14 +340,11 @@
             <div class="cards-grid goals-grid" id="goalsGrid"></div>
           </div>
 
-          <!-- Sessions Grid -->
+          <!-- Recent Activity Grid -->
           <div class="grid-section">
             <div class="grid-header">
-              <h2 class="grid-title">💬 Sessions</h2>
+              <h2 class="grid-title">💬 Recent Activity</h2>
               <span class="grid-count" id="sessionCount">0</span>
-              <button class="organize-btn" onclick="openOrganizeWizard()" title="Organize uncategorized sessions one by one">
-                📂 Organize
-              </button>
             </div>
             <div class="cards-grid" id="sessionsGrid"></div>
           </div>
@@ -412,7 +374,7 @@
         <div class="goal-shell">
           <div class="goal-hero">
             <div class="goal-hero-top">
-              <button class="goal-back" onclick="showOverview()">← Lobby</button>
+              <button class="goal-back" onclick="closeGoalView()">← Lobby</button>
               <div class="goal-hero-meta">
                 <div class="goal-hero-title" id="goalHeroTitle">Goal</div>
                 <div class="goal-hero-sub" id="goalHeroSub">—</div>
@@ -589,7 +551,6 @@
       apps: [],
       agents: [],
       goals: [],
-      currentGoalId: 'all',
       currentGoalOpenId: null,
       attachSessionKey: null,
       attachGoalId: null,
@@ -661,10 +622,8 @@
       activeRunsStore: JSON.parse(localStorage.getItem('sharp_active_runs') || '{}'),  // Persisted: { sessionKey: { runId, startedAt } }
       sessionInputReady: new Map(),
       
-      // Pin & Archive
+      // Pin
       pinnedSessions: JSON.parse(localStorage.getItem('sharp_pinned_sessions') || '[]'),
-      archivedSessions: JSON.parse(localStorage.getItem('sharp_archived_sessions') || '[]'),
-      showArchived: false,
       
       // Custom session names
       sessionNames: JSON.parse(localStorage.getItem('sharp_session_names') || '{}'),
@@ -679,8 +638,9 @@
       generatingTitles: new Set(),  // Currently generating
       attemptedTitles: new Set(),   // Already tried (avoid retries)
       
-      // Auto-archive: 'never' or number of days
-      autoArchiveDays: localStorage.getItem('sharp_auto_archive_days') || '7',
+      // Goal time filter (sidebar): days to show
+      goalTimeFilter: localStorage.getItem('sharp_goal_time_filter') || '7',
+      goalPanelOpen: false,
       
       // Track when sessions were last viewed (for unread indicator)
       lastViewedAt: JSON.parse(localStorage.getItem('sharp_last_viewed') || '{}'),
@@ -709,10 +669,6 @@
     // ═══════════════════════════════════════════════════════════════
     function isSessionPinned(key) {
       return state.pinnedSessions.includes(key);
-    }
-    
-    function isSessionArchived(key) {
-      return state.archivedSessions.includes(key);
     }
     
     // Parse session key to extract group info for nesting
@@ -940,28 +896,6 @@
       renderSessionsGrid();
     }
     
-    function toggleArchiveSession(key) {
-      const idx = state.archivedSessions.indexOf(key);
-      if (idx >= 0) {
-        state.archivedSessions.splice(idx, 1);
-      } else {
-        state.archivedSessions.push(key);
-        // Unpin if archived
-        const pinIdx = state.pinnedSessions.indexOf(key);
-        if (pinIdx >= 0) {
-          state.pinnedSessions.splice(pinIdx, 1);
-          localStorage.setItem('sharp_pinned_sessions', JSON.stringify(state.pinnedSessions));
-        }
-      }
-      localStorage.setItem('sharp_archived_sessions', JSON.stringify(state.archivedSessions));
-      renderSessions();
-      renderSessionsGrid();
-    }
-    
-    function toggleShowArchived() {
-      state.showArchived = !state.showArchived;
-      renderSessions();
-    }
     
     // ═══════════════════════════════════════════════════════════════
     // SESSION RENAME
@@ -1171,109 +1105,16 @@
       }
     }
     
-    // ═══════════════════════════════════════════════════════════════
-    // SESSION SEARCH
-    // ═══════════════════════════════════════════════════════════════
-    function handleSearchInput(value) {
-      state.searchQuery = value.toLowerCase().trim();
-      renderSessions();
-    }
-    
-    function clearSearch() {
-      state.searchQuery = '';
-      document.getElementById('sessionSearchInput').value = '';
-      renderSessions();
-    }
-    
-    function handleSearchKeydown(event) {
-      if (event.key === 'Escape') {
-        clearSearch();
-        document.getElementById('sessionSearchInput').blur();
-      } else if (event.key === 'Enter') {
-        // Select first visible session
-        const firstSession = document.querySelector('#sessionsList .item');
-        if (firstSession) firstSession.click();
-      }
-    }
-    
     function matchesSearch(session) {
-      // Text search
       if (state.searchQuery) {
         const q = state.searchQuery;
         const name = getSessionName(session).toLowerCase();
         const key = session.key.toLowerCase();
-        const label = (session.label || '').toLowerCase();
-        const displayName = (session.displayName || '').toLowerCase();
-        if (!name.includes(q) && !key.includes(q) && !label.includes(q) && !displayName.includes(q)) {
-          return false;
-        }
+        if (!name.includes(q) && !key.includes(q)) return false;
       }
-      
       return true;
     }
     
-    // Keyboard shortcut: Cmd/Ctrl+K to focus search
-    document.addEventListener('keydown', (e) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault();
-        document.getElementById('sessionSearchInput')?.focus();
-      }
-    });
-    
-    // ═══════════════════════════════════════════════════════════════
-    // AUTO-ARCHIVE
-    // ═══════════════════════════════════════════════════════════════
-    function setAutoArchiveDays(value) {
-      state.autoArchiveDays = value;
-      localStorage.setItem('sharp_auto_archive_days', value);
-      console.log('[ClawCondos] Auto-archive set to:', value);
-    }
-    
-    function initAutoArchiveUI() {
-      const select = document.getElementById('autoArchiveSelect');
-      if (select) {
-        select.value = state.autoArchiveDays;
-      }
-    }
-    
-    function checkAutoArchive() {
-      // Skip if auto-archive is disabled
-      if (state.autoArchiveDays === 'never') {
-        console.log('[ClawCondos] Auto-archive disabled');
-        return;
-      }
-      
-      const days = parseFloat(state.autoArchiveDays);
-      if (isNaN(days) || days <= 0) return;
-      
-      const threshold = Date.now() - (days * 24 * 60 * 60 * 1000);
-      let autoArchivedCount = 0;
-      
-      for (const session of state.sessions) {
-        // Skip if already archived
-        if (isSessionArchived(session.key)) continue;
-        
-        // Skip pinned sessions (they're important)
-        if (isSessionPinned(session.key)) continue;
-        
-        // Check if session is inactive beyond threshold
-        const updatedAt = session.updatedAt || 0;
-        if (updatedAt > 0 && updatedAt < threshold) {
-          // Auto-archive this session
-          state.archivedSessions.push(session.key);
-          autoArchivedCount++;
-          console.log('[ClawCondos] Auto-archived:', session.key, 'last updated:', new Date(updatedAt).toISOString());
-        }
-      }
-      
-      // Save if any were archived
-      if (autoArchivedCount > 0) {
-        localStorage.setItem('sharp_archived_sessions', JSON.stringify(state.archivedSessions));
-        showToast(`Auto-archived ${autoArchivedCount} inactive session${autoArchivedCount > 1 ? 's' : ''}`, 'info');
-        renderSessions();
-        renderSessionsGrid();
-      }
-    }
     
     // ═══════════════════════════════════════════════════════════════
     // TOAST NOTIFICATIONS
@@ -2279,43 +2120,109 @@
       // TODO: Add visual highlighting of error sessions
     }
 
+    // ═══════════════════════════════════════════════════════════════
+    // GOAL ATTENTION & TIME FILTER HELPERS
+    // ═══════════════════════════════════════════════════════════════
+    function getGoalLatestSession(goal) {
+      if (!Array.isArray(goal.sessions) || !goal.sessions.length) return null;
+      let best = null;
+      let bestTime = 0;
+      for (const key of goal.sessions) {
+        const s = state.sessions.find(x => x.key === key);
+        if (s && (s.updatedAt || 0) > bestTime) {
+          best = s;
+          bestTime = s.updatedAt || 0;
+        }
+      }
+      return best;
+    }
+
+    function getGoalLatestActivity(goal) {
+      const latest = getGoalLatestSession(goal);
+      return latest ? (latest.updatedAt || 0) : (goal.updatedAtMs || goal.createdAtMs || 0);
+    }
+
+    function getGoalAttention(goal) {
+      if (goal.status === 'done') return 'done';
+      const latest = getGoalLatestSession(goal);
+      if (!latest) return 'none';
+      if (!isSessionUnread(latest.key)) return 'read';
+      const agentStatus = getAgentStatus(latest.key);
+      if (agentStatus === 'idle' || agentStatus === 'error') return 'needs-input';
+      return 'unread';
+    }
+
+    function setGoalTimeFilter(value) {
+      state.goalTimeFilter = value;
+      localStorage.setItem('sharp_goal_time_filter', value);
+      renderGoals();
+    }
+
+    function initGoalTimeFilterUI() {
+      const select = document.getElementById('goalTimeFilterSelect');
+      if (select) select.value = state.goalTimeFilter;
+    }
+
     function renderGoals() {
       const container = document.getElementById('goalsList');
       if (!container) return;
 
-      const allActive = state.currentGoalId === 'all' ? 'active' : '';
+      // Time filter
+      let goals = Array.isArray(state.goals) ? [...state.goals] : [];
+      if (state.goalTimeFilter !== 'all') {
+        const days = parseFloat(state.goalTimeFilter);
+        if (!isNaN(days) && days > 0) {
+          const threshold = Date.now() - (days * 24 * 60 * 60 * 1000);
+          goals = goals.filter(g => getGoalLatestActivity(g) >= threshold || g.status !== 'done');
+        }
+      }
+
+      // Sort by latest activity descending
+      goals.sort((a, b) => getGoalLatestActivity(b) - getGoalLatestActivity(a));
+
+      if (!goals.length) {
+        container.innerHTML = '<div style="padding: 12px 16px; color: var(--text-dim); font-size: 0.82rem;">No condos in this time range</div>';
+        updateUncategorizedLink();
+        return;
+      }
 
       const rows = [];
-      rows.push(`
-        <div class="goal-chip ${allActive}" onclick="setCurrentGoal('all')">
-          <span class="goal-chip-dot"></span>
-          <span class="goal-chip-title">All</span>
-          <span class="goal-chip-count">${state.sessions.length}</span>
-        </div>
-      `);
+      for (const g of goals) {
+        const isActive = state.currentGoalOpenId === g.id;
+        const attention = getGoalAttention(g);
+        const { done, total } = goalTaskStats(g);
+        const activity = getGoalLatestActivity(g);
+        const activityStr = activity > 0 ? timeAgo(activity) : '';
+        const taskStr = total > 0 ? `${done}/${total} tasks` : 'no tasks';
+        const meta = [taskStr, activityStr].filter(Boolean).join(' · ');
 
-      for (const g of state.goals) {
-        const isActive = state.currentGoalId === g.id ? 'active' : '';
-        const count = Array.isArray(g.sessions) ? g.sessions.length : 0;
-        const status = g.status || 'active';
         rows.push(`
-          <div class="goal-chip ${isActive}" onclick="setCurrentGoal('${escapeHtml(g.id)}')" title="${escapeHtml(g.title || '')}">
-            <span class="goal-chip-dot ${status === 'done' ? 'done' : ''}"></span>
-            <span class="goal-chip-title">${escapeHtml(g.title || 'Untitled goal')}</span>
-            <span class="goal-chip-count">${count}</span>
+          <div class="goal-item ${isActive ? 'active' : ''}" onclick="openGoal('${escapeHtml(g.id)}')" title="${escapeHtml(g.title || '')}">
+            <div class="goal-item-dot ${attention}"></div>
+            <div class="goal-item-content">
+              <div class="goal-item-title">${escapeHtml(g.title || 'Untitled goal')}</div>
+              <div class="goal-item-meta">${escapeHtml(meta)}</div>
+            </div>
           </div>
         `);
       }
 
       container.innerHTML = rows.join('');
+      updateUncategorizedLink();
     }
 
-    function setCurrentGoal(goalId) {
-      state.currentGoalId = goalId;
-      renderGoals();
-      renderSessions();
-      renderSessionsGrid();
-      updateOverview();
+    function updateUncategorizedLink() {
+      const el = document.getElementById('uncategorizedLink');
+      if (!el) return;
+      const allSessionsInGoals = new Set();
+      state.goals.forEach(g => (g.sessions || []).forEach(s => allSessionsInGoals.add(s)));
+      const uncatCount = state.sessions.filter(s => !allSessionsInGoals.has(s.key) && !s.key.includes(':subagent:')).length;
+      if (uncatCount > 0) {
+        el.style.display = 'block';
+        el.textContent = `Uncategorized (${uncatCount})`;
+      } else {
+        el.style.display = 'none';
+      }
     }
 
 
@@ -2342,12 +2249,19 @@
       const goal = state.goals.find(g => g.id === goalId);
       if (!goal) return;
 
+      // Mark latest session as read
+      const latest = getGoalLatestSession(goal);
+      if (latest) markSessionRead(latest.key);
+
       state.currentView = 'goal';
       state.currentGoalOpenId = goalId;
+      state.goalPanelOpen = false;
 
       document.getElementById('overviewView').classList.remove('active');
       document.getElementById('chatView').classList.remove('active');
+      document.getElementById('goalView').classList.remove('panel-mode');
       document.getElementById('goalView').classList.add('active');
+      document.querySelector('.main-content').classList.remove('split-view');
 
       document.getElementById('mainTitle').textContent = 'Goal';
       document.getElementById('mainSubtitle').textContent = '';
@@ -2355,8 +2269,46 @@
       document.getElementById('headerStatusIndicator').style.display = 'none';
 
       renderGoalView();
+      renderGoals();
       updateMobileHeader();
       closeSidebar();
+    }
+
+    function openGoalPanel(goalId) {
+      const goal = state.goals.find(g => g.id === goalId);
+      if (!goal) return;
+
+      // Mark latest session as read
+      const latest = getGoalLatestSession(goal);
+      if (latest) markSessionRead(latest.key);
+
+      state.goalPanelOpen = true;
+      state.currentGoalOpenId = goalId;
+
+      // Show both overview and goal views side by side
+      const mainContent = document.querySelector('.main-content');
+      mainContent.classList.add('split-view');
+      document.getElementById('overviewView').classList.add('active');
+      document.getElementById('chatView').classList.remove('active');
+      document.getElementById('goalView').classList.add('active');
+      document.getElementById('goalView').classList.add('panel-mode');
+
+      renderGoalView();
+      renderGoals();
+    }
+
+    function closeGoalView() {
+      if (state.goalPanelOpen) {
+        // Close split panel, return to dashboard
+        state.goalPanelOpen = false;
+        state.currentGoalOpenId = null;
+        document.querySelector('.main-content').classList.remove('split-view');
+        document.getElementById('goalView').classList.remove('active');
+        document.getElementById('goalView').classList.remove('panel-mode');
+        renderGoals();
+      } else {
+        showOverview();
+      }
     }
 
     function renderGoalView() {
@@ -3520,7 +3472,7 @@ Response format:
         const data = await rpcCall('goals.create', { title, deadline: deadline || undefined });
         hideCreateGoalModal();
         await loadGoals();
-        if (data?.goal?.id) setCurrentGoal(data.goal.id);
+        if (data?.goal?.id) openGoal(data.goal.id);
       } catch (e) {
         errEl.textContent = 'Failed to create goal';
         errEl.style.display = 'block';
@@ -3582,8 +3534,6 @@ Response format:
               state.sessionAgentStatus[s.key] = 'idle';
             }
           }
-          // Check for auto-archiving before rendering
-          checkAutoArchive();
           renderSessions();
           renderSessionsGrid();
           updateUncategorizedCount();
@@ -3786,7 +3736,6 @@ Response format:
       const agentStatus = getAgentStatus(s.key);
       const tooltip = getStatusTooltip(agentStatus);
       const isPinned = isSessionPinned(s.key);
-      const isArchived = isSessionArchived(s.key);
       const clickHandler = state.multiSelectMode 
         ? `toggleSessionSelection('${escapeHtml(s.key)}')`
         : `openSession('${escapeHtml(s.key)}')`;
@@ -3800,7 +3749,7 @@ Response format:
       let displayName = sessionName;
       
       return `
-        <div class="item ${isActive ? 'active' : ''} ${isArchived ? 'archived-session' : ''} ${hasUnread ? 'unread' : ''} ${isNested ? 'nested-item' : ''}" data-session-key="${escapeHtml(s.key)}" onclick="${clickHandler}">
+        <div class="item ${isActive ? 'active' : ''} ${hasUnread ? 'unread' : ''} ${isNested ? 'nested-item' : ''}" data-session-key="${escapeHtml(s.key)}" onclick="${clickHandler}">
           <div class="session-checkbox ${isSelected ? 'checked' : ''}" data-key="${escapeHtml(s.key)}" onclick="toggleSessionSelection('${escapeHtml(s.key)}', event)"></div>
           <div class="item-icon">${isNested ? '💬' : getSessionIcon(s)}${s.compactionCount > 0 ? '<span class="compaction-badge" title="Compacted ' + s.compactionCount + 'x">📜</span>' : ''}</div>
           <div class="item-content">
@@ -3840,11 +3789,6 @@ Response format:
                     title="Suggest goal for this session">
               🏷️
             </button>` : ''}
-            <button class="session-action-btn ${isArchived ? 'archived' : ''}" 
-                    onclick="event.stopPropagation(); toggleArchiveSession('${escapeHtml(s.key)}')" 
-                    title="${isArchived ? 'Unarchive' : 'Archive'}">
-              ${isArchived ? '📤' : '📥'}
-            </button>
           </div>
           <div class="agent-status ${agentStatus}" data-tooltip="${tooltip}"></div>
         </div>
@@ -3916,17 +3860,8 @@ Response format:
 
     function renderSessions() {
       const container = document.getElementById('sessionsList');
-      const archivedToggle = document.getElementById('showArchivedToggle');
-      
-      // Count archived sessions
-      const archivedCount = state.sessions.filter(s => isSessionArchived(s.key)).length;
-      
-      // Show/hide archived toggle
-      if (archivedToggle) {
-        archivedToggle.style.display = archivedCount > 0 ? 'flex' : 'none';
-        archivedToggle.querySelector('input').checked = state.showArchived;
-      }
-      
+      if (!container) return;
+
       // Show/hide mark all read button
       const markAllReadBtn = document.getElementById('markAllReadBtn');
       if (markAllReadBtn) {
@@ -3934,25 +3869,14 @@ Response format:
         markAllReadBtn.style.display = unreadCount > 0 ? 'inline-flex' : 'none';
         markAllReadBtn.title = `Mark all read (${unreadCount})`;
       }
-      
-      // Filter sessions
-      const goal = state.currentGoalId !== 'all' ? state.goals.find(g => g.id === state.currentGoalId) : null;
-      const goalSessionSet = goal?.sessions ? new Set(goal.sessions) : null;
-      
+
       // Build set of ALL sessions that are in ANY goal (for hiding from main Sessions list)
       const allSessionsInGoals = new Set();
       state.goals.forEach(g => (g.sessions || []).forEach(s => allSessionsInGoals.add(s)));
-      
-      // Also build a map of session -> goalId for subagent inheritance
-      const sessionToGoal = new Map();
-      state.goals.forEach(g => (g.sessions || []).forEach(s => sessionToGoal.set(s, g.id)));
 
       let displaySessions = state.sessions.filter(s => {
-        if (isSessionArchived(s.key) && !state.showArchived) return false;
-        // When viewing a specific goal, only show sessions in that goal
-        if (goalSessionSet && !goalSessionSet.has(s.key)) return false;
-        // When viewing "all" (Sessions section), hide sessions that are in any goal
-        if (state.currentGoalId === 'all' && allSessionsInGoals.has(s.key)) return false;
+        // Hide sessions that are in any goal — goals are the primary nav now
+        if (allSessionsInGoals.has(s.key)) return false;
         if (!matchesSearch(s)) return false;
         return true;
       });
@@ -3976,7 +3900,7 @@ Response format:
       });
       
       if (displaySessions.length === 0) {
-        container.innerHTML = `<div style="padding: 16px; color: var(--text-dim); font-size: 0.85rem;">${state.showArchived ? 'No sessions' : 'No active sessions'}</div>`;
+        container.innerHTML = `<div style="padding: 16px; color: var(--text-dim); font-size: 0.85rem;">No uncategorized sessions</div>`;
         return;
       }
       
@@ -4233,17 +4157,22 @@ Response format:
     function showOverview() {
       state.currentView = 'overview';
       state.currentSession = null;
+      state.goalPanelOpen = false;
+      state.currentGoalOpenId = null;
       localStorage.removeItem('sharp_current_session');
-      
+
       document.getElementById('overviewView').classList.add('active');
       document.getElementById('chatView').classList.remove('active');
       document.getElementById('goalView').classList.remove('active');
+      document.getElementById('goalView').classList.remove('panel-mode');
+      document.querySelector('.main-content').classList.remove('split-view');
       document.getElementById('mainTitle').textContent = 'Dashboard';
       document.getElementById('mainSubtitle').textContent = '';
       document.getElementById('headerAction').style.display = 'none';
       document.getElementById('headerStatusIndicator').style.display = 'none';
-      
+
       renderSessions();
+      renderGoals();
       updateMobileHeader();
       closeSidebar();
     }
@@ -5288,18 +5217,16 @@ Response format:
     function enterMultiSelect() {
       state.multiSelectMode = true;
       state.selectedSessions.clear();
-      document.getElementById('sessionsList').classList.add('multi-select-mode');
-      document.getElementById('selectModeBtn').style.display = 'none';
-      updateBulkActionBar();
+      const sl = document.getElementById('sessionsList');
+      if (sl) sl.classList.add('multi-select-mode');
       renderSessions();
     }
-    
+
     function exitMultiSelect() {
       state.multiSelectMode = false;
       state.selectedSessions.clear();
-      document.getElementById('sessionsList').classList.remove('multi-select-mode');
-      document.getElementById('selectModeBtn').style.display = '';
-      document.getElementById('bulkActionBar').classList.remove('visible');
+      const sl = document.getElementById('sessionsList');
+      if (sl) sl.classList.remove('multi-select-mode');
       renderSessions();
     }
     
@@ -5334,15 +5261,7 @@ Response format:
     }
     
     function updateBulkActionBar() {
-      const bar = document.getElementById('bulkActionBar');
-      const count = state.selectedSessions.size;
-      
-      if (count > 0) {
-        bar.classList.add('visible');
-        document.getElementById('bulkCount').textContent = `${count} selected`;
-      } else {
-        bar.classList.remove('visible');
-      }
+      // Bulk action bar has been removed from sidebar
     }
     
     function updateCheckboxStates() {
@@ -5366,30 +5285,6 @@ Response format:
           selectAllCheckbox.classList.remove('checked');
         }
       }
-    }
-    
-    async function bulkArchive() {
-      if (state.selectedSessions.size === 0) return;
-      
-      const count = state.selectedSessions.size;
-      if (!confirm(`Archive ${count} session${count > 1 ? 's' : ''}?`)) return;
-      
-      const keys = [...state.selectedSessions];
-      let archived = 0;
-      
-      for (const key of keys) {
-        try {
-          await rpcCall('sessions.archive', { sessionKey: key });
-          archived++;
-        } catch (err) {
-          console.error(`Failed to archive ${key}:`, err);
-        }
-      }
-      
-      exitMultiSelect();
-      await refresh();
-      
-      console.log(`[ClawCondos] Archived ${archived}/${count} sessions`);
     }
     
     async function bulkPin() {
@@ -5476,31 +5371,22 @@ Response format:
     }
 
     function renderSessionsGrid() {
-      const goal = state.currentGoalId !== 'all' ? state.goals.find(g => g.id === state.currentGoalId) : null;
-      const goalSessionSet = goal?.sessions ? new Set(goal.sessions) : null;
-      
-      // Build set of ALL sessions in ANY goal
-      const allSessionsInGoals = new Set();
-      state.goals.forEach(g => (g.sessions || []).forEach(s => allSessionsInGoals.add(s)));
-      
-      const mainSessions = state.sessions.filter(s => {
-        if (s.key.includes(':subagent:')) return false;
-        // When viewing specific goal, only show its sessions
-        if (goalSessionSet && !goalSessionSet.has(s.key)) return false;
-        // When viewing "all" (Overview), hide sessions in any goal - they show under Goals
-        if (state.currentGoalId === 'all' && allSessionsInGoals.has(s.key)) return false;
-        return true;
-      });
+      // Show ALL recent sessions (not just uncategorized), sorted by updatedAt, top 20
+      const mainSessions = state.sessions
+        .filter(s => !s.key.includes(':subagent:'))
+        .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
+        .slice(0, 20);
+
       const container = document.getElementById('sessionsGrid');
       document.getElementById('sessionCount').textContent = mainSessions.length;
-      
+
       if (mainSessions.length === 0) {
         container.innerHTML = `
           <div class="session-card" style="border-style: dashed; opacity: 0.6;">
             <div class="card-top">
               <div class="card-icon">💬</div>
               <div class="card-info">
-                <div class="card-name">No active sessions</div>
+                <div class="card-name">No recent activity</div>
                 <div class="card-desc">Start a conversation to see it here</div>
               </div>
             </div>
@@ -5508,16 +5394,25 @@ Response format:
         `;
         return;
       }
-      
+
       container.innerHTML = mainSessions.map(s => {
         const preview = getMessagePreview(s);
         const agentStatus = getAgentStatus(s.key);
         const tooltip = getStatusTooltip(agentStatus);
+        const hasUnread = isSessionUnread(s.key);
+        const needsInput = hasUnread && (agentStatus === 'idle' || agentStatus === 'error');
         const g = getGoalForSession(s.key);
-        const goalPill = g ? `<span class="card-badge goal" onclick="event.stopPropagation(); openGoal('${escapeHtml(g.id)}')">🏙️ ${escapeHtml(g.title || 'Goal')}</span>` : '';
+        const condoBadge = g
+          ? `<span class="card-badge goal" onclick="event.stopPropagation(); openGoalPanel('${escapeHtml(g.id)}')">🏙️ ${escapeHtml(g.title || 'Goal')}</span>`
+          : '';
+        const attentionClass = needsInput ? 'needs-input' : (hasUnread ? 'unread' : '');
+        const clickAction = g
+          ? `openGoalPanel('${escapeHtml(g.id)}')`
+          : `openSession('${escapeHtml(s.key)}')`;
         return `
-          <div class="session-card" onclick="openSession('${escapeHtml(s.key)}')">
+          <div class="session-card ${attentionClass ? 'card-attention-' + attentionClass : ''}" onclick="${clickAction}">
             <div class="card-top">
+              ${attentionClass ? `<div class="card-attention ${attentionClass}"></div>` : ''}
               <div class="card-icon">${getSessionIcon(s)}</div>
               <div class="card-info">
                 <div class="card-name">${escapeHtml(getSessionName(s))}</div>
@@ -5528,7 +5423,7 @@ Response format:
             ${preview ? `<div class="card-preview">${escapeHtml(preview)}</div>` : ''}
             <div class="card-footer">
               <span>${timeAgo(s.updatedAt)}</span>
-              <span class="card-footer-right">${goalPill}<span class="card-badge">${(s.totalTokens || 0).toLocaleString()} tokens</span></span>
+              <span class="card-footer-right">${condoBadge}<span class="card-badge">${(s.totalTokens || 0).toLocaleString()} tokens</span></span>
             </div>
           </div>
         `;
@@ -5656,10 +5551,12 @@ Response format:
     // ═══════════════════════════════════════════════════════════════
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
-        if (state.multiSelectMode) {
-          exitMultiSelect();
+        if (state.goalPanelOpen) {
+          closeGoalView();
         } else if (state.currentView === 'chat') {
           showOverview();
+        } else if (state.currentView === 'goal') {
+          closeGoalView();
         }
       }
     });
@@ -5670,10 +5567,8 @@ Response format:
     function init() {
       // Restore active runs from localStorage (before connecting)
       restoreActiveRuns();
-      
-      // Initialize auto-archive dropdown UI
-      initAutoArchiveUI();
-      
+      initGoalTimeFilterUI();
+
       connectWebSocket();
       
       // Auto-refresh sessions every 30s

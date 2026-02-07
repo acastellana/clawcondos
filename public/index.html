@@ -214,27 +214,19 @@
       <div class="condos-section">
         <div class="section-label">Condos</div>
         <div class="sidebar-tools">
-          <div class="auto-archive-setting" title="Auto-archive inactive sessions">
-            <span>⏰</span>
-            <select id="autoArchiveSelect" onchange="setAutoArchiveDays(this.value)">
-              <option value="0.01">15m</option>
-              <option value="0.042">1h</option>
-              <option value="0.25">6h</option>
-              <option value="1">1d</option>
-              <option value="3">3d</option>
-              <option value="never">Off</option>
+          <div class="goal-time-filter">
+            <select id="goalTimeFilterSelect" onchange="setGoalTimeFilter(this.value)">
+              <option value="1">24h</option>
+              <option value="7" selected>7d</option>
+              <option value="30">30d</option>
+              <option value="all">All</option>
             </select>
           </div>
-          <label class="show-archived-toggle" id="showArchivedToggle" style="display: none;">
-            <input type="checkbox" onchange="toggleShowArchived()">
-            📦
-          </label>
           <button class="section-action" id="markAllReadBtn" onclick="markAllSessionsRead()" title="Mark all read" style="display: none;">✓</button>
           <button class="section-action" onclick="showCreateGoalModal()" title="New goal">＋</button>
-          
-          
         </div>
         <div id="sessionsList"></div>
+        <div id="uncategorizedLink" class="uncategorized-link" style="display: none;" onclick="navigateTo('dashboard')"></div>
       </div>
 
       <div class="sidebar-nav">
@@ -334,9 +326,8 @@
 
               <div class="grid-section">
                 <div class="grid-header">
-                  <h2 class="grid-title">💬 Sessions</h2>
+                  <h2 class="grid-title">💬 Recent Activity</h2>
                   <span class="grid-count" id="sessionCount">0</span>
-                  <button class="organize-btn" onclick="openOrganizeWizard()" title="Organize uncategorized sessions one by one">📂 Organize</button>
                 </div>
                 <div class="cards-grid" id="sessionsGrid"></div>
               </div>

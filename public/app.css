@@ -1955,9 +1955,7 @@ body {
   border-color: rgba(96, 165, 250, 0.20);
 }
 
-.item.archived-session {
-  opacity: 0.55;
-}
+/* archived-session removed — archive feature deleted */
 
 .item .item-icon {
   width: 22px;
@@ -2312,4 +2310,107 @@ a.condo-goal-card, a.session-card, a.goal-card, a.condo-card {
   flex: 1;
   font-family: 'JetBrains Mono', monospace;
   font-size: 12px;
+}
+
+/* ═══════════════════════════════════════════════════════
+   GOAL TIME FILTER
+   ═══════════════════════════════════════════════════════ */
+.goal-time-filter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px 8px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.goal-time-filter label {
+  white-space: nowrap;
+}
+
+.goal-time-filter select {
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 2px 6px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+/* ═══════════════════════════════════════════════════════
+   UNCATEGORIZED LINK
+   ═══════════════════════════════════════════════════════ */
+.uncategorized-link {
+  display: none;
+  padding: 8px 16px;
+  font-size: 11px;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.uncategorized-link:hover {
+  color: var(--text-secondary);
+}
+
+/* ═══════════════════════════════════════════════════════
+   CARD ATTENTION DOTS (dashboard session cards)
+   ═══════════════════════════════════════════════════════ */
+.card-attention {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.card-attention-needs-input {
+  background: var(--accent-yellow);
+  box-shadow: 0 0 6px rgba(251, 191, 36, 0.5);
+  animation: attention-pulse 2s ease-in-out infinite;
+}
+
+.card-attention-unread {
+  background: var(--accent-blue);
+  box-shadow: 0 0 4px rgba(96, 165, 250, 0.3);
+}
+
+.session-card.card-attention-needs-input {
+  border-color: rgba(251, 191, 36, 0.3);
+}
+
+.session-card.card-attention-unread {
+  border-color: rgba(96, 165, 250, 0.2);
+}
+
+@keyframes attention-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* ═══════════════════════════════════════════════════════
+   SPLIT VIEW (dashboard + goal panel side by side)
+   ═══════════════════════════════════════════════════════ */
+.main-content.split-view {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+.main-content.split-view > .view.active {
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+.view.panel-mode {
+  border-left: 1px solid var(--border);
+}
+
+@media (max-width: 1200px) {
+  .main-content.split-view {
+    grid-template-columns: 1fr;
+  }
+  .main-content.split-view > #overviewView {
+    display: none;
+  }
 }
