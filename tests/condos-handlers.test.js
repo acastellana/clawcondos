@@ -465,11 +465,11 @@ describe('CondoHandlers', () => {
     });
 
     it('applies multiple sequential updates correctly', () => {
-      const condo = createCondo(handlers, { name: 'V1' });
+      const condo = createCondo(handlers, { name: 'Alpha' });
 
       const r2 = makeResponder();
-      handlers['condos.update']({ params: { id: condo.id, name: 'V2' }, respond: r2.respond });
-      expect(r2.getResult().payload.condo.name).toBe('V2');
+      handlers['condos.update']({ params: { id: condo.id, name: 'Beta' }, respond: r2.respond });
+      expect(r2.getResult().payload.condo.name).toBe('Beta');
 
       const r3 = makeResponder();
       handlers['condos.update']({ params: { id: condo.id, name: 'V3', color: '#abc' }, respond: r3.respond });

@@ -78,8 +78,8 @@ describe('GoalsStore', () => {
     });
   });
 
-  describe('v2 migration', () => {
-    it('normalizes v1 goals to v2 format', () => {
+  describe('data migration', () => {
+    it('normalizes legacy goals', () => {
       writeFileSync(join(TEST_DIR, 'goals.json'), JSON.stringify({
         goals: [{ id: 'g1', title: 'Old', status: 'done', notes: 'some notes' }]
       }));

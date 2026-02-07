@@ -4,8 +4,8 @@ import { buildGoalContext, buildCondoContext, buildProjectSummary } from '../cla
 describe('buildGoalContext', () => {
   const baseGoal = {
     id: 'goal_1',
-    title: 'Ship v2',
-    description: 'Launch the v2 release',
+    title: 'Ship feature',
+    description: 'Launch the release',
     status: 'active',
     priority: 'P0',
     deadline: '2026-02-15',
@@ -30,13 +30,13 @@ describe('buildGoalContext', () => {
 
   it('includes goal title as # heading (no "Goal:" prefix)', () => {
     const ctx = buildGoalContext(baseGoal);
-    expect(ctx).toContain('# Ship v2');
+    expect(ctx).toContain('# Ship feature');
     expect(ctx).not.toContain('# Goal:');
   });
 
   it('includes description', () => {
     const ctx = buildGoalContext(baseGoal);
-    expect(ctx).toContain('Launch the v2 release');
+    expect(ctx).toContain('Launch the release');
   });
 
   it('includes task list with status markers and IDs', () => {
@@ -124,7 +124,7 @@ describe('buildGoalContext null safety', () => {
 
 describe('buildGoalContext with sibling sessions', () => {
   const goal = {
-    id: 'goal_1', title: 'Ship v2', description: '', status: 'active',
+    id: 'goal_1', title: 'Ship feature', description: '', status: 'active',
     priority: null, deadline: null,
     tasks: [
       { id: 't1', text: 'Build API', done: true, sessionKey: 'agent:main:s1', summary: 'Done - all endpoints built' },
@@ -181,7 +181,7 @@ describe('buildProjectSummary', () => {
       { id: 't4', text: 'c', done: false },
       { id: 't5', text: 'd', done: false },
     ]},
-    { id: 'goal_333', title: 'Ship v2', status: 'active', tasks: [{ id: 't6', text: 'e', done: false }] },
+    { id: 'goal_333', title: 'Ship feature', status: 'active', tasks: [{ id: 't6', text: 'e', done: false }] },
     { id: 'goal_444', title: 'SEO Optimization', status: 'pending', tasks: [] },
     { id: 'goal_555', title: 'Performance Audit', status: 'pending', tasks: [] },
   ];
@@ -207,7 +207,7 @@ describe('buildProjectSummary', () => {
 
   it('marks currentGoalId with ← this goal', () => {
     const result = buildProjectSummary(condo, goals, 'goal_333');
-    expect(result).toContain('Ship v2 (goal_333) ← this goal');
+    expect(result).toContain('Ship feature (goal_333) ← this goal');
   });
 
   it('shows [done] and [active] status markers', () => {
@@ -224,8 +224,8 @@ describe('buildProjectSummary', () => {
   it('does not show task progress for current goal', () => {
     const result = buildProjectSummary(condo, goals, 'goal_333');
     // goal_333 should show ← this goal, not task count
-    expect(result).toMatch(/Ship v2 \(goal_333\) ← this goal/);
-    expect(result).not.toMatch(/Ship v2 \(goal_333\) —/);
+    expect(result).toMatch(/Ship feature \(goal_333\) ← this goal/);
+    expect(result).not.toMatch(/Ship feature \(goal_333\) —/);
   });
 
   it('shows numbered list', () => {

@@ -211,7 +211,7 @@ Spawns a subagent session for a task in the bound condo.
 `goals-store.js` provides a simple file-backed JSON store:
 
 - **Atomic writes**: Writes to a `.tmp` file then renames (prevents corruption on crash)
-- **V2 migration**: Normalizes v1 data (adds `condoId`, `completed`, `sessions`, `tasks` defaults)
+- **Data migration**: Normalizes legacy data (adds `condoId`, `completed`, `sessions`, `tasks` defaults)
 - **Safety**: Refuses to save if the store was loaded with parse errors (`_loadError` flag)
 - **ID generation**: `newId(prefix)` returns `<prefix>_<24 hex chars>` using `crypto.randomBytes`
 
@@ -241,7 +241,7 @@ All handlers follow consistent validation:
 | `condo-tools.test.js` | condo_bind, condo_create_goal, condo_add_task, condo_spawn_task |
 | `task-spawn.test.js` | Spawn config, session linking, project summary, re-spawn guard |
 | `context-builder.test.js` | Goal context, project summary, condo context, null safety |
-| `goals-store.test.js` | Load/save, atomic writes, v2 migration, ID generation, condos array |
+| `goals-store.test.js` | Load/save, atomic writes, data migration, ID generation, condos array |
 | `plugin-index.test.js` | Plugin registration, hook integration, tool factory |
 | `config.test.js` | Config loader (not plugin-specific) |
 | `message-shaping.test.js` | Message formatting (not plugin-specific) |

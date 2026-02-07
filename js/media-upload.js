@@ -467,7 +467,7 @@ const MediaUpload = (() => {
   // ═══════════════════════════════════════════════════════════════
   function init() {
     // Default mount for main chat composer.
-    // In v2, the composer is mounted dynamically, so these elements may not exist at DOMContentLoaded.
+    // The composer is mounted dynamically, so these elements may not exist at DOMContentLoaded.
     // Retry a few times until the app mounts the composer.
     let attempts = 0;
     const maxAttempts = 30; // ~3s @ 100ms

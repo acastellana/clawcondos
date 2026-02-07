@@ -35,10 +35,10 @@ describe('GoalHandlers', () => {
   describe('goals.create', () => {
     it('creates a goal with required fields', () => {
       const { respond, getResult } = makeResponder();
-      handlers['goals.create']({ params: { title: 'Ship v2' }, respond });
+      handlers['goals.create']({ params: { title: 'Ship feature' }, respond });
       const r = getResult();
       expect(r.ok).toBe(true);
-      expect(r.payload.goal.title).toBe('Ship v2');
+      expect(r.payload.goal.title).toBe('Ship feature');
       expect(r.payload.goal.id).toMatch(/^goal_/);
       expect(r.payload.goal.status).toBe('active');
       expect(r.payload.goal.sessions).toEqual([]);
@@ -157,6 +157,24 @@ describe('GoalHandlers', () => {
       handlers['goals.update']({ params: { id, title: 123 }, respond: r2.respond });
       expect(r2.getResult().ok).toBe(false);
       expect(r2.getResult().error.message).toBe('title must be a non-empty string');
+    });
+
+    it('rejects bare-number titles from auto-patch corruption', () => {
+      const r1 = makeResponder();
+      handlers['goals.create']({ params: { title: 'Real Title' }, respond: r1.respond });
+      const id = r1.getResult().payload.goal.id;
+
+      for (const bad of ['1', '4', '42', ' 7 ']) {
+        const r2 = makeResponder();
+        handlers['goals.update']({ params: { id, title: bad }, respond: r2.respond });
+        expect(r2.getResult().ok).toBe(false);
+        expect(r2.getResult().error.message).toBe('title cannot be a bare number');
+      }
+
+      // Verify original title is preserved
+      const r3 = makeResponder();
+      handlers['goals.get']({ params: { id }, respond: r3.respond });
+      expect(r3.getResult().payload.goal.title).toBe('Real Title');
     });
 
     it('ignores internal fields in patch', () => {

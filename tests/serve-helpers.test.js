@@ -144,7 +144,7 @@ describe('isDotfilePath', () => {
 
   it('should allow files with dots in name (not at start)', () => {
     expect(isDotfilePath('app.min.js')).toBe(false);
-    expect(isDotfilePath('styles/main.v2.css')).toBe(false);
+    expect(isDotfilePath('styles/main.alt.css')).toBe(false);
   });
 });
 

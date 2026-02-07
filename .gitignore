@@ -40,10 +40,6 @@ coverage/
 # Runtime uploads / transcripts
 media/voice/
 
-# Old build/copy outputs
-public/v2/js/
-public/v2/styles/
-
 # Python
 __pycache__/
 *.pyc

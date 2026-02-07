@@ -18,7 +18,7 @@ describe('goal_update tool', () => {
     // Seed a goal with tasks
     const data = store.load();
     data.goals.push({
-      id: 'goal_1', title: 'Ship v2', status: 'active', completed: false,
+      id: 'goal_1', title: 'Ship feature', status: 'active', completed: false,
       sessions: ['agent:main:main'], tasks: [
         { id: 'task_1', text: 'Build API', done: false },
         { id: 'task_2', text: 'Write tests', done: false },
@@ -384,7 +384,7 @@ describe('goal_update tool with goalId (condo path)', () => {
       color: null, createdAtMs: Date.now(), updatedAtMs: Date.now(),
     });
     data.goals.push({
-      id: 'goal_1', title: 'Ship v2', status: 'active', completed: false,
+      id: 'goal_1', title: 'Ship feature', status: 'active', completed: false,
       sessions: [], tasks: [
         { id: 'task_1', text: 'Build API', done: false },
       ],
@@ -651,7 +651,7 @@ describe('goal_update file tracking', () => {
 
     const data = store.load();
     data.goals.push({
-      id: 'goal_1', title: 'Ship v2', status: 'active', completed: false,
+      id: 'goal_1', title: 'Ship feature', status: 'active', completed: false,
       sessions: ['agent:main:main'], tasks: [
         { id: 'task_1', text: 'Build API', done: false },
         { id: 'task_2', text: 'Write tests', done: false },

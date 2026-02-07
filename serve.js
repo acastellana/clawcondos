@@ -704,11 +704,6 @@ const server = createServer(async (req, res) => {
   
   // Static files
   //
-  // Single UI version (no /v2).
-  // - Canonical: /
-  // - Compatibility: /v2/* redirects to /*
-  // - Deprecated: /v1/* redirects to /
-
   // Serve ClawCondos's config module without colliding with Apps Gateway /lib/* handler
   if (pathname === '/clawcondos-lib/config.js') {
     const filePath = join(__dirname, 'lib', 'config.js');
@@ -719,26 +714,6 @@ const server = createServer(async (req, res) => {
   if (pathname === '/' || pathname === '') {
     const filePath = join(__dirname, 'public', 'index.html');
     serveFile(res, filePath);
-    return;
-  }
-
-  // Back-compat: redirect /v2/* → /*
-  if (pathname === '/v2' || pathname === '/v2/') {
-    res.writeHead(301, { Location: '/' + (url.search || '') });
-    res.end();
-    return;
-  }
-  if (pathname.startsWith('/v2/')) {
-    const rel = pathname.slice('/v2'.length); // keep leading '/'
-    res.writeHead(301, { Location: (rel || '/') + (url.search || '') });
-    res.end();
-    return;
-  }
-
-  // v1 is deprecated; v2 is the only UI.
-  if (pathname === '/v1' || pathname.startsWith('/v1/')) {
-    res.writeHead(301, { Location: '/' + (url.search || '') });
-    res.end();
     return;
   }
 
@@ -773,7 +748,7 @@ const server = createServer(async (req, res) => {
   if (!existsSync(filePath)) {
     // Fallback to repo-root for specific asset directories only.
     // Blocks access to serve.js, package.json, docs/, tests/, CLAUDE.md, etc.
-    const allowedRootPrefixes = ['js/', 'styles/', 'lib/', 'media/', 'landing-prototypes/'];
+    const allowedRootPrefixes = ['js/', 'styles/', 'lib/', 'media/'];
     if (!allowedRootPrefixes.some(p => rel.startsWith(p))) {
       res.writeHead(404);
       res.end('Not Found');

@@ -323,7 +323,6 @@
       <div class="connection-status" onclick="showLoginModal()">
         <span class="connection-dot" id="connectionDot" style="background: var(--yellow);" title="Connecting to gateway..."></span>
         <span id="connectionText">Connecting...</span>
-        <span style="margin-left: auto; font-size: 10px; color: var(--text-muted);">v2</span>
       </div>
     </div>
   </aside>
@@ -2114,7 +2113,7 @@
     // DATA LOADING
     // ═══════════════════════════════════════════════════════════════
     async function loadInitialData() {
-      console.log('[ClawCondos] loadInitialData starting - v2');
+      console.log('[ClawCondos] loadInitialData starting');
       try {
         // Fetch active runs from server first (authoritative source)
         console.log('[ClawCondos] About to call syncActiveRunsFromServer...');

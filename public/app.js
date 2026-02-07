@@ -1948,7 +1948,7 @@ function initAutoArchiveUI() {
       }
       lines.push('lastError: ' + (state.wsLastError || 'n/a'));
       lines.push('protocol: ' + String(WS_PROTOCOL_VERSION));
-      lines.push('client: webchat-ui / ClawCondos Dashboard v2.0.0');
+      lines.push('client: webchat-ui / ClawCondos Dashboard');
       lines.push('tokenPresent: ' + String(!!state.token));
       lines.push('userAgent: ' + (navigator.userAgent || ''));
       return lines.join('\n');
@@ -2022,7 +2022,7 @@ function initAutoArchiveUI() {
     // DATA LOADING
     // ═══════════════════════════════════════════════════════════════
     async function loadInitialData() {
-      console.log('[ClawCondos] loadInitialData starting - v2');
+      console.log('[ClawCondos] loadInitialData starting');
       try {
         // Load persisted session->condo mappings (doesn't require gateway connection)
         await loadSessionCondos();
@@ -3382,12 +3382,7 @@ function initAutoArchiveUI() {
           const ago = f.addedAtMs ? timeAgo(f.addedAtMs) : '';
           const escapedPath = escapeHtml(f.path.replace(/'/g, "\\'"));
           const escapedGoalId = escapeHtml((goal.id || '').replace(/'/g, "\\'"));
-          // Make HTML files in landing-prototypes clickable
-          const isPreviewable = ext === 'html' && f.path.startsWith('landing-prototypes/');
-          const fileUrl = isPreviewable ? '/' + f.path : null;
-          const nameHtml = isPreviewable 
-            ? '<a href="' + escapeHtml(fileUrl) + '" target="_blank" class="goal-tracked-file-link">' + escapeHtml(name) + '</a>'
-            : escapeHtml(name);
+          const nameHtml = escapeHtml(name);
           html += '<div class="goal-tracked-file">' +
             '<span class="goal-tracked-file-icon">' + icon + '</span>' +
             '<div class="goal-tracked-file-info">' +
@@ -3775,7 +3770,13 @@ function initAutoArchiveUI() {
           const looksLikePatch = keys.some(k => allowed.has(k));
           if (!looksLikePatch) continue;
 
-          return patch;
+          // Only return allowed keys — prevent stray fields like "title"
+          // from overwriting goal data via auto-patch.
+          const filtered = {};
+          for (const k of keys) {
+            if (allowed.has(k)) filtered[k] = patch[k];
+          }
+          return filtered;
         } catch {}
       }
       return null;
@@ -9305,5 +9306,5 @@ Response format:
     window.exportChatAsMarkdown = exportChatAsMarkdown;
     window.copyChatAsMarkdown = copyChatAsMarkdown;
     
-    try { console.log('[ClawCondos] build', window.__v2_build); } catch {}
+    try { console.log('[ClawCondos] build', window.__build); } catch {}
     init().catch((e) => console.error('[init] failed', e));

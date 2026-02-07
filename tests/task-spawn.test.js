@@ -23,7 +23,7 @@ describe('goals.spawnTaskSession', () => {
     // Seed data
     const data = store.load();
     data.goals.push({
-      id: 'goal_1', title: 'Ship v2', description: 'Launch v2',
+      id: 'goal_1', title: 'Ship feature', description: 'Launch feature',
       status: 'active', completed: false, condoId: null,
       priority: 'P0', deadline: '2026-03-01',
       tasks: [
@@ -52,7 +52,7 @@ describe('goals.spawnTaskSession', () => {
     expect(r.ok).toBe(true);
     expect(r.payload.sessionKey).toMatch(/^agent:main:subagent:/);
     expect(r.payload.taskContext).toContain('Build API');
-    expect(r.payload.taskContext).toContain('Ship v2');
+    expect(r.payload.taskContext).toContain('Ship feature');
     expect(r.payload.agentId).toBe('main');
     expect(r.payload.model).toBe('claude-sonnet-4-5-20250929');
   });
