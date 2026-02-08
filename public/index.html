@@ -219,6 +219,23 @@
   </div>
 
   <!-- ═══════════════════════════════════════════════════════════════
+       SEARCH PALETTE (Cmd+K)
+       ═══════════════════════════════════════════════════════════════ -->
+  <div class="modal-overlay hidden" id="searchPalette" onclick="closeSearchPalette()">
+    <div class="search-palette" onclick="event.stopPropagation()">
+      <div class="search-palette-input-wrap">
+        <span class="search-palette-icon">&#x1F50D;</span>
+        <input type="text" class="search-palette-input" id="searchPaletteInput"
+               placeholder="Search goals and sessions..."
+               oninput="onSearchPaletteInput()"
+               onkeydown="handleSearchPaletteKey(event)">
+        <kbd class="search-palette-hint">ESC</kbd>
+      </div>
+      <div class="search-palette-results" id="searchPaletteResults"></div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════
        MOBILE HEADER
        ═══════════════════════════════════════════════════════════════ -->
   <header class="mobile-header" id="mobileHeader">
@@ -241,7 +258,11 @@
       <img src="media/clawcondos-logo.png" alt="ClawCondos" class="logo-img">
       <span class="brand">ClawCondos</span>
     </div>
-    
+
+    <button class="sidebar-search-btn" onclick="event.stopPropagation(); openSearchPalette()" title="Search (Cmd+K)">
+      &#x1F50D; Search <kbd>K</kbd>
+    </button>
+
     <div class="sidebar-content">
       <!-- Condos (Goals) -->
       <div class="section">
@@ -6064,7 +6085,6 @@ Response format:
               '<div class="card-name">' + escapeHtml(getSessionName(s)) + '</div>' +
               '<div class="card-desc">' + escapeHtml(s.model ? s.model.split('/').pop() : 'unknown model') + '</div>' +
             '</div>' +
-            '<div class="agent-status ' + agentStatus + '" data-tooltip="' + tooltip + '" style="width: 10px; height: 10px;"></div>' +
           '</div>' +
           (preview ? '<div class="card-preview">' + escapeHtml(preview) + '</div>' : '') +
           '<div class="card-footer">' +
@@ -6200,10 +6220,248 @@ Response format:
     }
     
     // ═══════════════════════════════════════════════════════════════
+    // SEARCH PALETTE (Cmd+K)
+    // ═══════════════════════════════════════════════════════════════
+    let _searchDebounceTimer = null;
+    let _searchRequestId = 0;
+    let _searchSelectedIdx = -1;
+    let _searchResults = []; // flat array of { type, data }
+
+    function openSearchPalette() {
+      const overlay = document.getElementById('searchPalette');
+      overlay.classList.remove('hidden');
+      const input = document.getElementById('searchPaletteInput');
+      input.value = '';
+      input.focus();
+      _searchSelectedIdx = -1;
+      _searchResults = [];
+      showRecentItems();
+    }
+
+    function closeSearchPalette() {
+      document.getElementById('searchPalette').classList.add('hidden');
+      _searchSelectedIdx = -1;
+      _searchResults = [];
+    }
+
+    function toggleSearchPalette() {
+      const overlay = document.getElementById('searchPalette');
+      if (overlay.classList.contains('hidden')) {
+        openSearchPalette();
+      } else {
+        closeSearchPalette();
+      }
+    }
+
+    function showRecentItems() {
+      const recentGoals = (state.goals || [])
+        .slice()
+        .sort((a, b) => (b.updatedAtMs || 0) - (a.updatedAtMs || 0))
+        .slice(0, 5);
+      const recentSessions = (state.sessions || [])
+        .slice()
+        .sort((a, b) => {
+          const ta = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
+          const tb = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+          return tb - ta;
+        })
+        .slice(0, 5);
+      renderSearchPaletteResults(recentGoals, recentSessions, true);
+    }
+
+    function onSearchPaletteInput() {
+      const query = document.getElementById('searchPaletteInput').value.trim();
+      clearTimeout(_searchDebounceTimer);
+
+      if (!query) {
+        _searchRequestId++;
+        showRecentItems();
+        return;
+      }
+
+      _searchDebounceTimer = setTimeout(() => {
+        const reqId = ++_searchRequestId;
+        fetch('/api/search?q=' + encodeURIComponent(query) + '&limit=20')
+          .then(r => r.json())
+          .then(data => {
+            if (reqId !== _searchRequestId) return; // stale
+            if (data.ok) {
+              renderSearchPaletteResults(data.goals || [], data.sessions || [], false);
+            } else {
+              showSearchError('Search failed');
+            }
+          })
+          .catch(() => {
+            if (reqId !== _searchRequestId) return;
+            showSearchError('Search unavailable');
+          });
+      }, 200);
+    }
+
+    function showSearchError(msg) {
+      const el = document.getElementById('searchPaletteResults');
+      el.textContent = '';
+      const div = document.createElement('div');
+      div.className = 'search-palette-error';
+      div.textContent = msg;
+      el.appendChild(div);
+    }
+
+    function renderSearchPaletteResults(goals, sessions, isRecent) {
+      _searchResults = [];
+      const container = document.getElementById('searchPaletteResults');
+      container.textContent = '';
+      const goalLabel = isRecent ? 'Recent Goals' : 'Goals';
+      const sessionLabel = isRecent ? 'Recent Sessions' : 'Sessions';
+
+      if (goals.length > 0) {
+        const header = document.createElement('div');
+        header.className = 'search-palette-section';
+        header.textContent = goalLabel;
+        container.appendChild(header);
+
+        goals.forEach(g => {
+          const idx = _searchResults.length;
+          _searchResults.push({ type: 'goal', data: g });
+          const stats = goalTaskStats(g);
+          container.appendChild(buildSearchItem(idx,
+            g.status === 'done' ? '\u2705' : '\uD83C\uDFAF',
+            g.title || 'Untitled',
+            stats.total > 0 ? stats.done + '/' + stats.total + ' tasks' : ''
+          ));
+        });
+      }
+
+      if (sessions.length > 0) {
+        const header = document.createElement('div');
+        header.className = 'search-palette-section';
+        header.textContent = sessionLabel;
+        container.appendChild(header);
+
+        sessions.forEach(s => {
+          const idx = _searchResults.length;
+          _searchResults.push({ type: 'session', data: s });
+          const parentGoal = getGoalForSession(s.key);
+          container.appendChild(buildSearchItem(idx,
+            getSessionIcon(s),
+            getSessionName(s),
+            parentGoal ? parentGoal.title : s.key
+          ));
+        });
+      }
+
+      if (!goals.length && !sessions.length) {
+        const empty = document.createElement('div');
+        empty.className = 'search-palette-empty';
+        empty.textContent = 'No results found';
+        container.appendChild(empty);
+      }
+
+      _searchSelectedIdx = -1;
+    }
+
+    function buildSearchItem(idx, icon, name, meta) {
+      const item = document.createElement('div');
+      item.className = 'search-palette-item';
+      item.dataset.idx = idx;
+      item.onclick = () => selectSearchResult(idx);
+      item.onmouseenter = () => highlightSearchResult(idx);
+
+      const iconEl = document.createElement('span');
+      iconEl.className = 'search-palette-item-icon';
+      iconEl.textContent = icon;
+      item.appendChild(iconEl);
+
+      const info = document.createElement('div');
+      info.className = 'search-palette-item-info';
+
+      const nameEl = document.createElement('div');
+      nameEl.className = 'search-palette-item-name';
+      nameEl.textContent = name;
+      info.appendChild(nameEl);
+
+      if (meta) {
+        const metaEl = document.createElement('div');
+        metaEl.className = 'search-palette-item-meta';
+        metaEl.textContent = meta;
+        info.appendChild(metaEl);
+      }
+
+      item.appendChild(info);
+      return item;
+    }
+
+    function highlightSearchResult(idx) {
+      _searchSelectedIdx = idx;
+      document.querySelectorAll('.search-palette-item').forEach(el => {
+        el.classList.toggle('selected', parseInt(el.dataset.idx) === idx);
+      });
+    }
+
+    function selectSearchResult(idx) {
+      const entry = _searchResults[idx];
+      if (!entry) return;
+      closeSearchPalette();
+
+      if (entry.type === 'goal') {
+        openGoal(entry.data.id);
+      } else if (entry.type === 'session') {
+        // Inject session into state.sessions if not present (handles sessions beyond the client's 50)
+        const existing = state.sessions.find(s => s.key === entry.data.key);
+        if (!existing) {
+          state.sessions.push(entry.data);
+        }
+        openSession(entry.data.key);
+      }
+    }
+
+    function handleSearchPaletteKey(e) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        const next = _searchSelectedIdx + 1;
+        if (next < _searchResults.length) highlightSearchResult(next);
+        else if (_searchResults.length > 0) highlightSearchResult(0);
+        scrollSelectedIntoView();
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        const prev = _searchSelectedIdx - 1;
+        if (prev >= 0) highlightSearchResult(prev);
+        else if (_searchResults.length > 0) highlightSearchResult(_searchResults.length - 1);
+        scrollSelectedIntoView();
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (_searchSelectedIdx >= 0) {
+          selectSearchResult(_searchSelectedIdx);
+        }
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        closeSearchPalette();
+      }
+    }
+
+    function scrollSelectedIntoView() {
+      const sel = document.querySelector('.search-palette-item.selected');
+      if (sel) sel.scrollIntoView({ block: 'nearest' });
+    }
+
+    // ═══════════════════════════════════════════════════════════════
     // KEYBOARD SHORTCUTS
     // ═══════════════════════════════════════════════════════════════
     document.addEventListener('keydown', (e) => {
+      // Cmd+K / Ctrl+K -> search palette
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        toggleSearchPalette();
+        return;
+      }
+
       if (e.key === 'Escape') {
+        // Close search palette first if open
+        if (!document.getElementById('searchPalette').classList.contains('hidden')) {
+          closeSearchPalette();
+          return;
+        }
         if (state.detailPanelSessionKey) {
           closeDetailPanel();
         } else if (state.goalPanelOpen) {
