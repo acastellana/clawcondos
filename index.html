@@ -260,7 +260,7 @@
           <button class="section-action" onclick="refresh()" title="Refresh">↻</button>
         </div>
         <div id="goalsList" style="padding: 4px 0;"></div>
-        <div id="uncategorizedLink" class="uncategorized-link" style="display: none;" onclick="showOverview(); scrollToSection('sessionsGrid')"></div>
+        <div id="uncategorizedLink" class="uncategorized-link" style="display: none;" onclick="showOverview(); scrollToSection('condoStatusSection')"></div>
         <div id="sessionsList" style="display: none;"></div>
       </div>
       
@@ -311,7 +311,7 @@
         <div class="overview-content">
           <!-- Stats Grid -->
           <div class="stats-grid" id="statsGrid">
-            <div class="stat-card clickable accent-blue" onclick="scrollToSection('sessionsGrid')" title="View sessions">
+            <div class="stat-card clickable accent-blue" onclick="scrollToSection('condoStatusSection')" title="View condos">
               <div class="stat-label">Active Sessions</div>
               <div class="stat-value" id="statActiveSessions">-</div>
               <div class="stat-trend" id="statSessionsTrend"></div>
@@ -330,23 +330,23 @@
             </div>
           </div>
 
-          <!-- Goals Grid -->
-          <div class="grid-section" id="goalsSection">
+          <!-- Condo Status Board -->
+          <div class="grid-section" id="condoStatusSection">
             <div class="grid-header">
-              <h2 class="grid-title">🏙️ Condos (Goals)</h2>
-              <span class="grid-count" id="goalCount">0</span>
+              <h2 class="grid-title">🏙️ Condos</h2>
+              <span class="grid-count" id="condoCount">0</span>
               <span class="uncategorized-count" id="uncategorizedCount" onclick="autoCategorize()" title="Sessions not assigned to any goal"></span>
             </div>
-            <div class="cards-grid goals-grid" id="goalsGrid"></div>
+            <div id="condoStatusBoard"></div>
           </div>
 
-          <!-- Recent Activity Grid -->
-          <div class="grid-section">
+          <!-- Recent Activity (uncategorized sessions) -->
+          <div class="grid-section" id="recentActivitySection" style="display: none;">
             <div class="grid-header">
-              <h2 class="grid-title">💬 Recent Activity</h2>
-              <span class="grid-count" id="sessionCount">0</span>
+              <h2 class="grid-title">💬 Recent Sessions</h2>
+              <span class="grid-count" id="recentSessionCount">0</span>
             </div>
-            <div class="cards-grid" id="sessionsGrid"></div>
+            <div class="cards-grid" id="recentSessionsGrid"></div>
           </div>
           
           <!-- Apps Grid -->
@@ -661,7 +661,11 @@
       
       // Tool activity tracking (for compact indicator)
       activeTools: new Map(),  // Map<toolCallId, { name, args, output, startedAt, status }>
-      toolActivityExpanded: false
+      toolActivityExpanded: false,
+
+      // Condos
+      condos: [],
+      condoExpanded: JSON.parse(localStorage.getItem('sharp_condo_expanded') || '{}'),
     };
     
     // ═══════════════════════════════════════════════════════════════
@@ -1967,7 +1971,7 @@
         console.log('[ClawCondos] About to call syncActiveRunsFromServer...');
         await syncActiveRunsFromServer();
         console.log('[ClawCondos] syncActiveRunsFromServer completed');
-        await Promise.all([loadGoals(), loadSessions(), loadApps(), loadAgents()]);
+        await Promise.all([loadCondos(), loadGoals(), loadSessions(), loadApps(), loadAgents()]);
         updateOverview();
         updateStatsGrid();
         
@@ -2028,10 +2032,58 @@
         console.warn('[ClawCondos] Failed to load goals:', err);
       }
       renderGoals();
-      renderGoalsGrid();
+      renderCondoStatusBoard();
       updateUncategorizedCount();
     }
-    
+
+    async function loadCondos() {
+      try {
+        const data = await rpcCall('condos.list', {});
+        state.condos = data?.condos || [];
+      } catch (err) {
+        console.warn('[ClawCondos] Failed to load condos:', err);
+      }
+    }
+
+    function groupGoalsByCondoId() {
+      const grouped = {};
+      const uncategorized = [];
+      for (const g of state.goals) {
+        if (g.condoId) {
+          if (!grouped[g.condoId]) grouped[g.condoId] = [];
+          grouped[g.condoId].push(g);
+        } else {
+          uncategorized.push(g);
+        }
+      }
+      return { grouped, uncategorized };
+    }
+
+    function getCondoAttention(condo, goals) {
+      let worst = 'none';
+      const priority = { 'none': 0, 'done': 1, 'read': 2, 'unread': 3, 'needs-input': 4 };
+      for (const g of goals) {
+        const att = getGoalAttention(g);
+        if ((priority[att] || 0) > (priority[worst] || 0)) worst = att;
+      }
+      return worst;
+    }
+
+    function getCondoLatestActivity(condo, goals) {
+      let latest = condo?.updatedAtMs || condo?.createdAtMs || 0;
+      for (const g of goals) {
+        const t = getGoalLatestActivity(g);
+        if (t > latest) latest = t;
+      }
+      return latest;
+    }
+
+    function toggleCondoExpanded(condoId) {
+      state.condoExpanded[condoId] = !state.condoExpanded[condoId];
+      localStorage.setItem('sharp_condo_expanded', JSON.stringify(state.condoExpanded));
+      renderGoals();
+    }
+
     function updateUncategorizedCount() {
       const el = document.getElementById('uncategorizedCount');
       if (!el) return;
@@ -2097,8 +2149,8 @@
 
     // Filter goals grid by status (pending/done)
     function filterGoalsByStatus(status) {
-      const goalsSection = document.getElementById('goalsSection');
-      if (goalsSection) goalsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      const condoSection = document.getElementById('condoStatusSection');
+      if (condoSection) condoSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
       // TODO: Add actual filtering UI (highlight matching goals)
       showToast(`Showing ${status === 'done' ? 'completed' : 'pending'} goals`, 'info');
     }
@@ -2115,7 +2167,7 @@
       }
       
       // Scroll to sessions and show toast with count
-      scrollToSection('sessionsGrid');
+      scrollToSection('condoStatusSection');
       showToast(`${errorSessions.length} session(s) with errors`, 'error');
       // TODO: Add visual highlighting of error sessions
     }
@@ -2168,47 +2220,141 @@
       if (!container) return;
 
       // Time filter
-      let goals = Array.isArray(state.goals) ? [...state.goals] : [];
+      let allGoals = Array.isArray(state.goals) ? [...state.goals] : [];
       if (state.goalTimeFilter !== 'all') {
         const days = parseFloat(state.goalTimeFilter);
         if (!isNaN(days) && days > 0) {
           const threshold = Date.now() - (days * 24 * 60 * 60 * 1000);
-          goals = goals.filter(g => getGoalLatestActivity(g) >= threshold || g.status !== 'done');
+          allGoals = allGoals.filter(g => getGoalLatestActivity(g) >= threshold || g.status !== 'done');
         }
       }
 
-      // Sort by latest activity descending
-      goals.sort((a, b) => getGoalLatestActivity(b) - getGoalLatestActivity(a));
+      const { grouped, uncategorized } = groupGoalsByCondoId();
+      // Filter grouped goals by time filter
+      const filteredGrouped = {};
+      for (const [condoId, goals] of Object.entries(grouped)) {
+        const filtered = goals.filter(g => allGoals.some(ag => ag.id === g.id));
+        if (filtered.length > 0) filteredGrouped[condoId] = filtered;
+      }
+      const filteredUncat = uncategorized.filter(g => allGoals.some(ag => ag.id === g.id));
 
-      if (!goals.length) {
-        container.innerHTML = '<div style="padding: 12px 16px; color: var(--text-dim); font-size: 0.82rem;">No condos in this time range</div>';
+      // Build sorted condo list
+      const condos = (state.condos || [])
+        .filter(c => filteredGrouped[c.id])
+        .map(c => ({ condo: c, goals: filteredGrouped[c.id] }))
+        .sort((a, b) => getCondoLatestActivity(b.condo, b.goals) - getCondoLatestActivity(a.condo, a.goals));
+
+      // Flatten all goals for counting
+      const allFilteredGoals = [];
+      condos.forEach(({ goals }) => allFilteredGoals.push(...goals));
+      allFilteredGoals.push(...filteredUncat);
+
+      if (!allFilteredGoals.length) {
+        container.innerHTML = '<div style="padding: 12px 16px; color: var(--text-dim); font-size: 0.82rem;">No goals in this time range</div>';
         updateUncategorizedLink();
         return;
       }
 
-      const rows = [];
-      for (const g of goals) {
+      // Auto-flatten: if only 1 condo and no uncategorized, skip tree nesting
+      const singleCondo = condos.length === 1 && !filteredUncat.length;
+
+      // All user-generated content is escaped via escapeHtml() before insertion
+      const html = [];
+
+      if (singleCondo) {
+        // Flat list — just show goals directly with a subtle condo label
+        const { condo, goals } = condos[0];
+        goals.sort((a, b) => getGoalLatestActivity(b) - getGoalLatestActivity(a));
+        html.push(
+          '<div class="condo-label">' + escapeHtml(condo.name || 'Unnamed condo') + '</div>'
+        );
+        html.push(renderGoalItems(goals, false));
+      } else {
+        // Multi-condo tree
+        for (const { condo, goals } of condos) {
+          goals.sort((a, b) => getGoalLatestActivity(b) - getGoalLatestActivity(a));
+          const expanded = state.condoExpanded[condo.id] !== false; // default expanded
+          const attention = getCondoAttention(condo, goals);
+          const activeCount = goals.filter(g => {
+            const s = getGoalLatestSession(g);
+            return s && getAgentStatus(s.key) === 'thinking';
+          }).length;
+
+          html.push(
+            '<div class="condo-group ' + (expanded ? 'expanded' : '') + '">' +
+              '<div class="condo-group-header" onclick="toggleCondoExpanded(\'' + escapeHtml(condo.id) + '\')">' +
+                '<span class="group-expand-icon">&#9654;</span>' +
+                '<div class="goal-item-dot ' + attention + '"></div>' +
+                '<span class="condo-group-name">' + escapeHtml(condo.name || 'Unnamed condo') + '</span>' +
+                (activeCount > 0 ? '<span class="condo-active-badge">' + activeCount + ' active</span>' : '') +
+                '<span class="group-count">' + goals.length + '</span>' +
+              '</div>' +
+              (expanded ? '<div class="condo-group-items">' + renderGoalItems(goals, true) + '</div>' : '') +
+            '</div>'
+          );
+        }
+
+        // Uncategorized goals
+        if (filteredUncat.length) {
+          filteredUncat.sort((a, b) => getGoalLatestActivity(b) - getGoalLatestActivity(a));
+          const expanded = state.condoExpanded['__uncategorized__'] !== false;
+          html.push(
+            '<div class="condo-group ' + (expanded ? 'expanded' : '') + '">' +
+              '<div class="condo-group-header" onclick="toggleCondoExpanded(\'__uncategorized__\')">' +
+                '<span class="group-expand-icon">&#9654;</span>' +
+                '<div class="goal-item-dot none"></div>' +
+                '<span class="condo-group-name">Uncategorized</span>' +
+                '<span class="group-count">' + filteredUncat.length + '</span>' +
+              '</div>' +
+              (expanded ? '<div class="condo-group-items">' + renderGoalItems(filteredUncat, true) + '</div>' : '') +
+            '</div>'
+          );
+        }
+      }
+
+      container.innerHTML = html.join('');
+      updateUncategorizedLink();
+    }
+
+    // Renders goal items for sidebar. nested=true adds indent.
+    // All values escaped via escapeHtml().
+    function renderGoalItems(goals, nested) {
+      return goals.map(g => {
         const isActive = state.currentGoalOpenId === g.id;
         const attention = getGoalAttention(g);
+        const isDone = g.status === 'done';
         const { done, total } = goalTaskStats(g);
         const activity = getGoalLatestActivity(g);
         const activityStr = activity > 0 ? timeAgo(activity) : '';
-        const taskStr = total > 0 ? `${done}/${total} tasks` : 'no tasks';
-        const meta = [taskStr, activityStr].filter(Boolean).join(' · ');
+        const latestSession = getGoalLatestSession(g);
+        const agentStatus = latestSession ? getAgentStatus(latestSession.key) : '';
+        const isThinking = agentStatus === 'thinking';
 
-        rows.push(`
-          <div class="goal-item ${isActive ? 'active' : ''}" onclick="openGoal('${escapeHtml(g.id)}')" title="${escapeHtml(g.title || '')}">
-            <div class="goal-item-dot ${attention}"></div>
-            <div class="goal-item-content">
-              <div class="goal-item-title">${escapeHtml(g.title || 'Untitled goal')}</div>
-              <div class="goal-item-meta">${escapeHtml(meta)}</div>
-            </div>
-          </div>
-        `);
-      }
+        // Build compact meta line
+        let meta = '';
+        if (isDone) {
+          meta = 'done';
+        } else if (total > 0) {
+          meta = done + '/' + total;
+          if (activityStr) meta += ' \u00b7 ' + activityStr;
+        } else if (activityStr) {
+          meta = activityStr;
+        }
 
-      container.innerHTML = rows.join('');
-      updateUncategorizedLink();
+        const classes = ['goal-item'];
+        if (nested) classes.push('condo-nested');
+        if (isActive) classes.push('active');
+        if (isDone) classes.push('goal-done');
+        if (isThinking) classes.push('goal-thinking');
+
+        return '<div class="' + classes.join(' ') + '" onclick="openGoal(\'' + escapeHtml(g.id) + '\')" title="' + escapeHtml(g.title || '') + '">' +
+          '<div class="goal-item-dot ' + attention + '"></div>' +
+          '<div class="goal-item-content">' +
+            '<div class="goal-item-title">' + escapeHtml(g.title || 'Untitled goal') + '</div>' +
+            '<div class="goal-item-meta">' + escapeHtml(meta) + '</div>' +
+          '</div>' +
+        '</div>';
+      }).join('');
     }
 
     function updateUncategorizedLink() {
@@ -2449,7 +2595,7 @@
         const idx = state.goals.findIndex(g => g.id === goalId);
         if (idx !== -1 && data?.goal) state.goals[idx] = data.goal;
         renderGoals();
-        renderGoalsGrid();
+        renderCondoStatusBoard();
         renderGoalView();
       } catch (e) {
         showToast('Failed to save goal', 'error');
@@ -2620,7 +2766,7 @@
     function debouncedGoalRefresh() {
       clearTimeout(goalRefreshTimer);
       goalRefreshTimer = setTimeout(async () => {
-        await loadGoals();
+        await Promise.all([loadCondos(), loadGoals()]);
         renderGoalView();
       }, 500);
     }
@@ -3485,7 +3631,7 @@ Response format:
       // Clean up stale runs periodically (in case we missed 'done' events)
       cleanStaleRuns();
       
-      await Promise.all([loadSessions(), loadGoals()]);
+      await Promise.all([loadCondos(), loadSessions(), loadGoals()]);
       updateOverview();
       renderGoalView();
     }
@@ -5312,123 +5458,194 @@ Response format:
     // OVERVIEW
     // ═══════════════════════════════════════════════════════════════
     function updateOverview() {
-      renderGoalsGrid();
-      renderSessionsGrid();
+      renderCondoStatusBoard();
+      renderRecentSessions();
       renderAppsGrid();
       renderSubagentsGrid();
       updateStatsGrid();
     }
-    
 
-    function renderGoalsGrid() {
-      const container = document.getElementById('goalsGrid');
-      const countEl = document.getElementById('goalCount');
-      if (!container || !countEl) return;
 
-      const goals = Array.isArray(state.goals) ? state.goals : [];
-      countEl.textContent = goals.length;
+    function renderCondoStatusBoard() {
+      const container = document.getElementById('condoStatusBoard');
+      const countEl = document.getElementById('condoCount');
+      if (!container) return;
 
-      if (!goals.length) {
-        container.innerHTML = `
-          <div class="goal-card empty" onclick="showCreateGoalModal()">
-            <div class="goal-card-top">
-              <div class="goal-card-icon">＋</div>
-              <div class="goal-card-title">Create your first condo</div>
-            </div>
-            <div class="goal-card-sub">Goals keep sessions, tasks, notes, and deadlines in one place.</div>
-          </div>
-        `;
+      const { grouped, uncategorized } = groupGoalsByCondoId();
+
+      // Build condo entries with their goals
+      const condoEntries = (state.condos || [])
+        .filter(c => grouped[c.id] && grouped[c.id].length)
+        .map(c => ({ condo: c, goals: grouped[c.id] }))
+        .sort((a, b) => getCondoLatestActivity(b.condo, b.goals) - getCondoLatestActivity(a.condo, a.goals));
+
+      const totalCondos = condoEntries.length + (uncategorized.length ? 1 : 0);
+      if (countEl) countEl.textContent = totalCondos;
+
+      if (!totalCondos && !state.goals.length) {
+        // All values escaped via escapeHtml()
+        container.innerHTML =
+          '<div class="condo-status-card empty" onclick="showCreateGoalModal()" style="border-style: dashed; opacity: 0.6; cursor: pointer; padding: 24px; text-align: center;">' +
+            '<div style="font-size: 1.1rem; font-weight: 600; margin-bottom: 4px;">Create your first condo</div>' +
+            '<div style="color: var(--text-dim); font-size: 0.85rem;">Organize goals, tasks, and sessions into projects.</div>' +
+          '</div>';
         return;
       }
 
-      container.innerHTML = goals.map(g => {
-        const { done, total } = goalTaskStats(g);
-        const pct = total ? Math.round((done/total)*100) : 0;
-        const status = g.status || 'active';
-        const due = g.deadline ? `<span class="goal-pill">due ${escapeHtml(g.deadline)}</span>` : '';
-        const pr = g.priority ? `<span class="goal-pill pr">${escapeHtml(g.priority)}</span>` : '';
-        const sessions = Array.isArray(g.sessions) ? g.sessions.length : 0;
-        return `
-          <div class="goal-card ${status === 'done' ? 'done' : ''}" onclick="openGoal('${escapeHtml(g.id)}')">
-            <div class="goal-card-top">
-              <div class="goal-card-icon">🏙️</div>
-              <div>
-                <div class="goal-card-title">${escapeHtml(g.title || 'Untitled goal')}</div>
-                <div class="goal-card-sub">${status === 'done' ? 'Completed' : 'In progress'} · ${sessions} sessions</div>
-              </div>
-            </div>
-            <div class="goal-card-pills">
-              ${pr}
-              ${due}
-              <span class="goal-pill">${done}/${total} tasks</span>
-            </div>
-            <div class="goal-progress">
-              <div class="goal-progress-bar" style="width:${pct}%;"></div>
-            </div>
-          </div>
-        `;
-      }).join('');
+      // All user-generated content is escaped via escapeHtml() before insertion
+      const cards = [];
+
+      for (const { condo, goals } of condoEntries) {
+        goals.sort((a, b) => getGoalLatestActivity(b) - getGoalLatestActivity(a));
+        const attention = getCondoAttention(condo, goals);
+        // Count active sessions across all goals in this condo
+        var activeSessions = 0;
+        var totalSessions = 0;
+        goals.forEach(function(g) {
+          (g.sessions || []).forEach(function(sk) {
+            totalSessions++;
+            if (getAgentStatus(sk) === 'thinking') activeSessions++;
+          });
+        });
+        cards.push(renderCondoCard(condo.name || 'Unnamed condo', goals, attention, activeSessions, totalSessions));
+      }
+
+      // Uncategorized goals
+      if (uncategorized.length) {
+        uncategorized.sort((a, b) => getGoalLatestActivity(b) - getGoalLatestActivity(a));
+        var uncatActiveSessions = 0;
+        var uncatTotalSessions = 0;
+        uncategorized.forEach(function(g) {
+          (g.sessions || []).forEach(function(sk) {
+            uncatTotalSessions++;
+            if (getAgentStatus(sk) === 'thinking') uncatActiveSessions++;
+          });
+        });
+        cards.push(renderCondoCard('Uncategorized', uncategorized, 'none', uncatActiveSessions, uncatTotalSessions));
+      }
+
+      container.innerHTML = cards.join('');
     }
 
-    function renderSessionsGrid() {
-      // Show ALL recent sessions (not just uncategorized), sorted by updatedAt, top 20
-      const mainSessions = state.sessions
-        .filter(s => !s.key.includes(':subagent:'))
+    function renderCondoCard(condoName, goals, attention, activeSessions, totalSessions) {
+      const attentionBorder = attention === 'needs-input' ? ' condo-attention-needs-input'
+        : attention === 'unread' ? ' condo-attention-unread' : '';
+
+      // Separate active and done goals
+      const activeGoals = goals.filter(function(g) { return g.status !== 'done'; });
+      const doneGoals = goals.filter(function(g) { return g.status === 'done'; });
+
+      const goalRows = activeGoals.map(function(g) {
+        return renderGoalRow(g);
+      }).join('');
+
+      // Done goals collapsed summary
+      const doneSummary = doneGoals.length > 0
+        ? '<div class="condo-done-summary">' + doneGoals.length + ' completed goal' + (doneGoals.length !== 1 ? 's' : '') + '</div>'
+        : '';
+
+      // Header stats
+      const headerStats = [];
+      headerStats.push(activeGoals.length + ' active');
+      if (doneGoals.length) headerStats.push(doneGoals.length + ' done');
+      if (activeSessions > 0) headerStats.push(activeSessions + ' running');
+
+      return '<div class="condo-status-card' + attentionBorder + '">' +
+        '<div class="condo-status-header">' +
+          '<div class="condo-status-header-left">' +
+            '<span class="condo-status-name">' + escapeHtml(condoName) + '</span>' +
+            (activeSessions > 0 ? '<span class="condo-running-badge">' + activeSessions + ' running</span>' : '') +
+          '</div>' +
+          '<span class="condo-status-count">' + headerStats.join(' \u00b7 ') + '</span>' +
+        '</div>' +
+        '<div class="condo-status-goals">' + goalRows + doneSummary + '</div>' +
+      '</div>';
+    }
+
+    function renderGoalRow(g) {
+      const { done, total } = goalTaskStats(g);
+      const pct = total ? Math.round((done / total) * 100) : 0;
+      const latestSession = getGoalLatestSession(g);
+      const agentStatus = latestSession ? getAgentStatus(latestSession.key) : 'idle';
+      const preview = latestSession ? getMessagePreview(latestSession) : '';
+      const goalAttention = getGoalAttention(g);
+      const pr = g.priority ? '<span class="goal-pill pr">' + escapeHtml(g.priority) + '</span>' : '';
+      const rowAttention = goalAttention === 'needs-input' ? ' goal-row-needs-input'
+        : goalAttention === 'unread' ? ' goal-row-unread' : '';
+      const isThinking = agentStatus === 'thinking';
+      const sessionCount = Array.isArray(g.sessions) ? g.sessions.length : 0;
+
+      return '<div class="goal-status-row' + rowAttention + (isThinking ? ' goal-row-thinking' : '') + '" onclick="openGoalPanel(\'' + escapeHtml(g.id) + '\')">' +
+        '<div class="goal-row-left">' +
+          '<div class="agent-status ' + agentStatus + '" style="width: 8px; height: 8px; flex-shrink: 0;"></div>' +
+          '<div class="goal-row-info">' +
+            '<div class="goal-row-title">' + escapeHtml(g.title || 'Untitled goal') + ' ' + pr + '</div>' +
+            '<div class="goal-row-meta">' +
+              (total > 0 ? '<span>' + done + '/' + total + ' tasks</span>' : '') +
+              (sessionCount > 0 ? '<span>' + sessionCount + ' session' + (sessionCount !== 1 ? 's' : '') + '</span>' : '') +
+              '<span>' + timeAgo(getGoalLatestActivity(g)) + '</span>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+        (preview ? '<div class="goal-row-preview">' + escapeHtml(preview) + '</div>' : '') +
+        (total > 0 ? '<div class="goal-row-progress"><div class="goal-row-progress-bar' + (isThinking ? ' thinking' : '') + '" style="width:' + pct + '%;"></div></div>' : '') +
+      '</div>';
+    }
+
+    function renderRecentSessions() {
+      const section = document.getElementById('recentActivitySection');
+      const container = document.getElementById('recentSessionsGrid');
+      const countEl = document.getElementById('recentSessionCount');
+      if (!container || !section) return;
+
+      // Sessions NOT assigned to any goal (orphans), excluding subagents
+      const assignedKeys = new Set();
+      (state.goals || []).forEach(g => (g.sessions || []).forEach(k => assignedKeys.add(k)));
+
+      const orphanSessions = state.sessions
+        .filter(s => !s.key.includes(':subagent:') && !assignedKeys.has(s.key))
         .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
-        .slice(0, 20);
+        .slice(0, 12);
 
-      const container = document.getElementById('sessionsGrid');
-      document.getElementById('sessionCount').textContent = mainSessions.length;
+      if (countEl) countEl.textContent = orphanSessions.length;
 
-      if (mainSessions.length === 0) {
-        container.innerHTML = `
-          <div class="session-card" style="border-style: dashed; opacity: 0.6;">
-            <div class="card-top">
-              <div class="card-icon">💬</div>
-              <div class="card-info">
-                <div class="card-name">No recent activity</div>
-                <div class="card-desc">Start a conversation to see it here</div>
-              </div>
-            </div>
-          </div>
-        `;
+      if (!orphanSessions.length) {
+        section.style.display = 'none';
         return;
       }
 
-      container.innerHTML = mainSessions.map(s => {
-        const preview = getMessagePreview(s);
-        const agentStatus = getAgentStatus(s.key);
-        const tooltip = getStatusTooltip(agentStatus);
-        const hasUnread = isSessionUnread(s.key);
-        const needsInput = hasUnread && (agentStatus === 'idle' || agentStatus === 'error');
-        const g = getGoalForSession(s.key);
-        const condoBadge = g
-          ? `<span class="card-badge goal" onclick="event.stopPropagation(); openGoalPanel('${escapeHtml(g.id)}')">🏙️ ${escapeHtml(g.title || 'Goal')}</span>`
-          : '';
-        const attentionClass = needsInput ? 'needs-input' : (hasUnread ? 'unread' : '');
-        const clickAction = g
-          ? `openGoalPanel('${escapeHtml(g.id)}')`
-          : `openSession('${escapeHtml(s.key)}')`;
-        return `
-          <div class="session-card ${attentionClass ? 'card-attention-' + attentionClass : ''}" onclick="${clickAction}">
-            <div class="card-top">
-              ${attentionClass ? `<div class="card-attention ${attentionClass}"></div>` : ''}
-              <div class="card-icon">${getSessionIcon(s)}</div>
-              <div class="card-info">
-                <div class="card-name">${escapeHtml(getSessionName(s))}</div>
-                <div class="card-desc">${escapeHtml(s.model?.split('/').pop() || 'unknown model')}</div>
-              </div>
-              <div class="agent-status ${agentStatus}" data-tooltip="${tooltip}" style="width: 10px; height: 10px;"></div>
-            </div>
-            ${preview ? `<div class="card-preview">${escapeHtml(preview)}</div>` : ''}
-            <div class="card-footer">
-              <span>${timeAgo(s.updatedAt)}</span>
-              <span class="card-footer-right">${condoBadge}<span class="card-badge">${(s.totalTokens || 0).toLocaleString()} tokens</span></span>
-            </div>
-          </div>
-        `;
+      section.style.display = 'block';
+
+      // All user content escaped via escapeHtml()
+      container.innerHTML = orphanSessions.map(function(s) {
+        var preview = getMessagePreview(s);
+        var agentStatus = getAgentStatus(s.key);
+        var tooltip = getStatusTooltip(agentStatus);
+        var hasUnread = isSessionUnread(s.key);
+        var needsInput = hasUnread && (agentStatus === 'idle' || agentStatus === 'error');
+        var attentionClass = needsInput ? 'needs-input' : (hasUnread ? 'unread' : '');
+        return '<div class="session-card ' + (attentionClass ? 'card-attention-' + attentionClass : '') + '" onclick="openSession(\'' + escapeHtml(s.key) + '\')">' +
+          '<div class="card-top">' +
+            (attentionClass ? '<div class="card-attention ' + attentionClass + '"></div>' : '') +
+            '<div class="card-icon">' + getSessionIcon(s) + '</div>' +
+            '<div class="card-info">' +
+              '<div class="card-name">' + escapeHtml(getSessionName(s)) + '</div>' +
+              '<div class="card-desc">' + escapeHtml(s.model ? s.model.split('/').pop() : 'unknown model') + '</div>' +
+            '</div>' +
+            '<div class="agent-status ' + agentStatus + '" data-tooltip="' + tooltip + '" style="width: 10px; height: 10px;"></div>' +
+          '</div>' +
+          (preview ? '<div class="card-preview">' + escapeHtml(preview) + '</div>' : '') +
+          '<div class="card-footer">' +
+            '<span>' + timeAgo(s.updatedAt) + '</span>' +
+            '<span class="card-badge">' + (s.totalTokens || 0).toLocaleString() + ' tokens</span>' +
+          '</div>' +
+        '</div>';
       }).join('');
     }
+
+    // Keep old function names as aliases for straggling call sites
+    function renderGoalsGrid() { renderCondoStatusBoard(); }
+    function renderSessionsGrid() { renderCondoStatusBoard(); renderRecentSessions(); }
     
     function renderAppsGrid() {
       const container = document.getElementById('appsGrid');

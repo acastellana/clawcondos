@@ -4524,6 +4524,298 @@ a:focus-visible {
   background: var(--bg-hover);
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   SIDEBAR CONDO GROUPS (collapsible condo > goal tree)
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Single-condo flat label */
+.condo-label {
+  padding: 6px 16px 2px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.condo-group {
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.condo-group-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 10px var(--space-lg);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+  font-weight: 600;
+}
+
+.condo-group-header:hover {
+  background: var(--bg-hover);
+}
+
+.condo-group-header .group-expand-icon {
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  width: 12px;
+  transition: transform var(--transition-fast);
+}
+
+.condo-group.expanded .group-expand-icon {
+  transform: rotate(90deg);
+}
+
+.condo-group-name {
+  flex: 1;
+  font-size: 0.82rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text);
+}
+
+.condo-active-badge {
+  font-size: 0.62rem;
+  font-weight: 600;
+  color: var(--green);
+  background: var(--green-dim);
+  padding: 1px 6px;
+  border-radius: 8px;
+  white-space: nowrap;
+}
+
+.condo-group-items {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.goal-item.condo-nested {
+  padding-left: 40px;
+}
+
+/* Done goals are visually muted */
+.goal-item.goal-done .goal-item-title {
+  color: var(--text-dim);
+  text-decoration: line-through;
+  text-decoration-color: var(--text-muted);
+}
+.goal-item.goal-done .goal-item-meta {
+  color: var(--text-muted);
+}
+.goal-item.goal-done {
+  opacity: 0.6;
+}
+
+/* Thinking indicator — subtle left glow */
+.goal-item.goal-thinking {
+  border-left-color: var(--green);
+  background: rgba(74, 222, 128, 0.04);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   DASHBOARD CONDO STATUS BOARD
+   ═══════════════════════════════════════════════════════════════ */
+
+#condoStatusBoard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.condo-status-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.condo-status-card:hover {
+  border-color: var(--border-hover);
+  box-shadow: var(--shadow-sm);
+}
+
+.condo-status-card.condo-attention-needs-input {
+  border-left: 3px solid var(--yellow);
+}
+
+.condo-status-card.condo-attention-unread {
+  border-left: 3px solid var(--accent);
+}
+
+.condo-status-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-md) var(--space-lg);
+  border-bottom: 1px solid var(--border-subtle);
+  background: rgba(0, 0, 0, 0.12);
+}
+
+.condo-status-header-left {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.condo-status-name {
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.condo-running-badge {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--green);
+  background: var(--green-dim);
+  padding: 2px 8px;
+  border-radius: 10px;
+  white-space: nowrap;
+  animation: pulse-subtle 2s ease-in-out infinite;
+}
+
+@keyframes pulse-subtle {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+.condo-status-count {
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.condo-status-goals {
+  display: flex;
+  flex-direction: column;
+}
+
+.condo-done-summary {
+  padding: 8px var(--space-lg);
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  background: rgba(0, 0, 0, 0.06);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.goal-status-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: var(--space-md) var(--space-lg);
+  border-bottom: 1px solid var(--border-subtle);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+  border-left: 3px solid transparent;
+}
+
+.goal-status-row:last-child {
+  border-bottom: none;
+}
+
+.goal-status-row:hover {
+  background: var(--bg-hover);
+}
+
+.goal-status-row.goal-row-needs-input {
+  border-left-color: var(--yellow);
+  background: rgba(250, 204, 21, 0.03);
+}
+
+.goal-status-row.goal-row-unread {
+  border-left-color: var(--accent);
+  background: rgba(91, 156, 244, 0.03);
+}
+
+.goal-status-row.goal-row-thinking {
+  border-left-color: var(--green);
+  background: rgba(74, 222, 128, 0.03);
+}
+
+.goal-row-left {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.goal-row-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.goal-row-title {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.goal-row-title .goal-pill {
+  font-size: 0.65rem;
+  padding: 1px 6px;
+}
+
+.goal-row-meta {
+  display: flex;
+  gap: var(--space-sm);
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  margin-top: 2px;
+}
+
+.goal-row-meta span + span::before {
+  content: '\00b7';
+  margin-right: var(--space-sm);
+  color: var(--text-muted);
+}
+
+.goal-row-preview {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding-left: 16px;
+}
+
+.goal-row-progress {
+  height: 3px;
+  background: var(--bg-input);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-left: 16px;
+}
+
+.goal-row-progress-bar {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 2px;
+  transition: width var(--transition-smooth);
+}
+
+.goal-row-progress-bar.thinking {
+  background: var(--green);
+  animation: progress-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes progress-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
 
 /* ═══════════════════════════════════════════════════════════════
    GOALS (ClawCondos) - overview cards + detail view

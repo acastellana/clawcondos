@@ -1087,9 +1087,29 @@
       });
     }
     
+    // Debounced cron refresh: reload jobs + re-render when cron sessions are active
+    let _cronRefreshTimer = null;
+    function debouncedCronRefresh() {
+      if (_cronRefreshTimer) clearTimeout(_cronRefreshTimer);
+      _cronRefreshTimer = setTimeout(() => {
+        _cronRefreshTimer = null;
+        loadCronJobs({ force: true }).then(() => {
+          if (state.currentView === 'recurring') renderRecurringView();
+          if (state.selectedCronJobId) {
+            loadCronRunsForDetail(state.selectedCronJobId);
+          }
+        });
+      }, 3000);
+    }
+
     function handleAgentEvent(data) {
       const { sessionKey, runId, stream, data: eventData } = data;
-      
+
+      // Detect cron session activity and trigger refresh
+      if (sessionKey && String(sessionKey).startsWith('cron:') && stream === 'lifecycle' && eventData?.phase === 'end') {
+        debouncedCronRefresh();
+      }
+
       // Show typing indicator when agent starts working
       if (stream === 'lifecycle' && eventData?.phase === 'start') {
         if (state.currentSession?.key === sessionKey) {
@@ -4843,6 +4863,10 @@ Response format:
 
       await Promise.all([loadSessions(), loadGoals()]);
       updateOverview();
+      // Refresh cron jobs in background — don't block sessions/goals rendering
+      if (state.currentView === 'recurring') {
+        loadCronJobs({ force: true }).then(() => renderRecurringView());
+      }
     }
     
     function cleanStaleRuns() {
@@ -4922,8 +4946,8 @@ Response format:
       }
     }
     
-    async function loadCronJobs() {
-      if (state.cronJobsLoaded) return;
+    async function loadCronJobs(opts = {}) {
+      if (state.cronJobsLoaded && !opts.force) return;
       try {
         const res = await rpcCall('cron.list', { includeDisabled: true });
         const jobs = res?.jobs || res?.items || (Array.isArray(res) ? res : []);
@@ -4987,6 +5011,7 @@ Response format:
 
     function openCronJobDetail(jobId) {
       state.selectedCronJobId = String(jobId || '').trim() || null;
+      state.cronRunsVisibleCount = 20;
       if (state.selectedCronJobId) {
         // Close file viewer if open
         state.selectedAgentFile = null;
@@ -4995,12 +5020,14 @@ Response format:
       }
       renderCronDetailPanel();
       if (state.currentView === 'agents') renderAgentsPage();
+      if (state.currentView === 'recurring') renderRecurringView();
     }
 
     function closeCronDetail() {
       state.selectedCronJobId = null;
       renderCronDetailPanel();
       if (state.currentView === 'agents') renderAgentsPage();
+      if (state.currentView === 'recurring') renderRecurringView();
     }
 
     async function loadCronRunsForDetail(jobId) {
@@ -5027,10 +5054,13 @@ Response format:
       try {
         await rpcCall('cron.toggle', { jobId: id, enabled: newEnabled });
         job.enabled = newEnabled;
+        showToast(newEnabled ? 'Job enabled' : 'Job disabled', 'success', 2000);
         renderCronDetailPanel();
         if (state.currentView === 'agents') renderAgentsPage();
+        if (state.currentView === 'recurring') renderRecurringView();
       } catch (e) {
         console.warn('cron.toggle failed:', e?.message || e);
+        showToast('Failed to toggle job: ' + (e?.message || 'unknown error'), 'error', 5000);
       }
     }
 
@@ -5039,10 +5069,13 @@ Response format:
       if (!id) return;
       try {
         await rpcCall('cron.trigger', { jobId: id });
-        // Reload runs after a short delay
+        showToast('Job triggered', 'success', 2000);
+        // Quick reload for immediate feedback + event-driven refresh catches completion
         setTimeout(() => loadCronRunsForDetail(id), 2000);
+        debouncedCronRefresh();
       } catch (e) {
         console.warn('cron.trigger failed:', e?.message || e);
+        showToast('Failed to trigger job: ' + (e?.message || 'unknown error'), 'error', 5000);
       }
     }
 
@@ -5058,6 +5091,85 @@ Response format:
       return { label: 'pending', color: '#f59e0b', cls: 'status-pending' };
     }
 
+    // Lightweight 5-field cron next-run calculator (min hour dom month dow)
+    function cronNextFromExpr(expr, after) {
+      if (!expr || typeof expr !== 'string') return null;
+      const parts = expr.trim().split(/\s+/);
+      if (parts.length < 5) return null;
+
+      function parseField(field, min, max) {
+        const vals = new Set();
+        for (const part of field.split(',')) {
+          const stepMatch = part.match(/^(.+)\/(\d+)$/);
+          let range = stepMatch ? stepMatch[1] : part;
+          const step = stepMatch ? parseInt(stepMatch[2], 10) : 1;
+          if (!step || step < 1) return null;
+          if (range === '*') {
+            for (let i = min; i <= max; i += step) vals.add(i);
+          } else if (range.includes('-')) {
+            const [lo, hi] = range.split('-').map(Number);
+            if (isNaN(lo) || isNaN(hi) || lo < min || hi > max || lo > hi) return null;
+            for (let i = lo; i <= hi; i += step) vals.add(i);
+          } else {
+            const n = parseInt(range, 10);
+            if (isNaN(n) || n < min || n > max) return null;
+            if (step > 1) {
+              for (let i = n; i <= max; i += step) vals.add(i);
+            } else {
+              vals.add(n);
+            }
+          }
+        }
+        return vals.size ? Array.from(vals).sort((a, b) => a - b) : null;
+      }
+
+      const minutes = parseField(parts[0], 0, 59);
+      const hours = parseField(parts[1], 0, 23);
+      const doms = parseField(parts[2], 1, 31);
+      const months = parseField(parts[3], 1, 12);
+      const dows = parseField(parts[4], 0, 6);
+      if (!minutes || !hours || !doms || !months || !dows) return null;
+
+      const hasDomWildcard = parts[2] === '*';
+      const hasDowWildcard = parts[4] === '*';
+
+      const d = new Date(after || Date.now());
+      d.setSeconds(0, 0);
+      d.setMinutes(d.getMinutes() + 1); // start from next minute
+
+      // Search up to 366 days ahead
+      const limit = Date.now() + 366 * 86400000;
+      while (d.getTime() < limit) {
+        if (!months.includes(d.getMonth() + 1)) {
+          d.setMonth(d.getMonth() + 1, 1);
+          d.setHours(0, 0, 0, 0);
+          continue;
+        }
+        const domMatch = doms.includes(d.getDate());
+        const dowMatch = dows.includes(d.getDay());
+        // Standard cron: if both dom and dow are restricted, match either; if only one is restricted, match that one
+        const dayOk = (hasDomWildcard && hasDowWildcard) ? true
+          : (hasDomWildcard) ? dowMatch
+          : (hasDowWildcard) ? domMatch
+          : (domMatch || dowMatch);
+        if (!dayOk) {
+          d.setDate(d.getDate() + 1);
+          d.setHours(0, 0, 0, 0);
+          continue;
+        }
+        if (!hours.includes(d.getHours())) {
+          d.setHours(d.getHours() + 1, 0, 0, 0);
+          continue;
+        }
+        if (!minutes.includes(d.getMinutes())) {
+          d.setMinutes(d.getMinutes() + 1, 0, 0);
+          continue;
+        }
+        return d.getTime();
+      }
+      return null;
+    }
+
     function estimateNextRun(job) {
       if (!job || job.enabled === false) return null;
       const sched = job.schedule;
@@ -5071,7 +5183,9 @@ Response format:
         const at = Number(sched.atMs);
         return at > Date.now() ? at : null;
       }
-      // For cron expressions, we can't easily compute without a parser
+      if (sched.kind === 'cron' && sched.expr) {
+        return cronNextFromExpr(sched.expr, Date.now());
+      }
       return null;
     }
 
@@ -5090,8 +5204,15 @@ Response format:
       return 'in ' + s + 's';
     }
 
+    function getCronDetailPanel() {
+      if (state.currentView === 'recurring') {
+        return document.getElementById('recurringRightPanel') || document.getElementById('agentsRightPanel');
+      }
+      return document.getElementById('agentsRightPanel');
+    }
+
     function renderCronDetailPanel() {
-      const panel = document.getElementById('agentsRightPanel');
+      const panel = getCronDetailPanel();
       if (!panel) return;
 
       const jobId = state.selectedCronJobId;
@@ -5174,13 +5295,17 @@ Response format:
       if (!runsData || runsData.loading) {
         html += '<div class="cron-detail-runs-loading">Loading runs…</div>';
       } else if (runsData.error) {
+        // All dynamic error text is escaped to prevent XSS
         html += '<div class="cron-detail-runs-error">' + escapeHtml(runsData.error) + '</div>';
       } else if (!runsData.runs.length) {
         html += '<div class="cron-detail-runs-empty">No runs yet</div>';
       } else {
         html += '<div class="cron-runs-list">';
         const runs = runsData.runs.slice().sort((a, b) => (Number(b.startedAtMs || b.ts || 0)) - (Number(a.startedAtMs || a.ts || 0)));
-        for (const run of runs.slice(0, 20)) {
+        const visibleCount = state.cronRunsVisibleCount || 20;
+        const visibleRuns = runs.slice(0, visibleCount);
+        for (let ri = 0; ri < visibleRuns.length; ri++) {
+          const run = visibleRuns[ri];
           const runStatus = String(run.status || run.result || '').toLowerCase();
           const runTime = Number(run.startedAtMs || run.ts || 0);
           const duration = Number(run.durationMs || 0);
@@ -5189,17 +5314,27 @@ Response format:
           const dotCls = isSuccess ? 'run-dot-success' : isFail ? 'run-dot-failed' : 'run-dot-other';
           const durationStr = duration ? (duration < 1000 ? duration + 'ms' : (duration / 1000).toFixed(1) + 's') : '';
           const runOutcome = String(run.output || run.message || run.text || '').trim();
-          const shortOutcome = runOutcome.length > 100 ? runOutcome.slice(0, 97) + '…' : runOutcome;
+          const isLong = runOutcome.length > 100;
+          const shortOutcome = isLong ? runOutcome.slice(0, 97) + '…' : runOutcome;
 
+          // All dynamic values escaped via escapeHtml
           html += '<div class="cron-run-item">' +
             '<span class="cron-run-dot ' + dotCls + '"></span>' +
             '<span class="cron-run-time">' + (runTime ? escapeHtml(formatRelativeTime(runTime)) : '—') + '</span>' +
             (durationStr ? '<span class="cron-run-duration">' + escapeHtml(durationStr) + '</span>' : '') +
             '<span class="cron-run-status">' + escapeHtml(runStatus || '—') + '</span>' +
-            (shortOutcome ? '<div class="cron-run-output">' + escapeHtml(shortOutcome) + '</div>' : '') +
+            (runOutcome ? '<div class="cron-run-output' + (isLong ? '' : ' no-expand') + '" data-run-idx="' + ri + '" ' +
+              (isLong ? 'onclick="toggleRunOutput(this)" title="Click to expand"' : '') +
+              ' data-full="' + escapeHtml(runOutcome) + '" data-short="' + escapeHtml(shortOutcome) + '">' +
+              escapeHtml(shortOutcome) + '</div>' : '') +
           '</div>';
         }
         html += '</div>';
+
+        if (runs.length > visibleCount) {
+          const remaining = runs.length - visibleCount;
+          html += '<button class="cron-runs-show-more" onclick="showMoreCronRuns()">Show ' + Math.min(remaining, 20) + ' more (' + remaining + ' remaining)</button>';
+        }
       }
 
       html += '</div>'; // section
@@ -5207,6 +5342,23 @@ Response format:
 
       panel.classList.add('open');
       panel.innerHTML = html;
+    }
+
+    function toggleRunOutput(el) {
+      if (!el) return;
+      const isExpanded = el.classList.contains('expanded');
+      if (isExpanded) {
+        el.classList.remove('expanded');
+        el.textContent = el.dataset.short || '';
+      } else {
+        el.classList.add('expanded');
+        el.textContent = el.dataset.full || '';
+      }
+    }
+
+    function showMoreCronRuns() {
+      state.cronRunsVisibleCount = (state.cronRunsVisibleCount || 20) + 20;
+      renderCronDetailPanel();
     }
 
     async function ensureCronRuns(jobId) {
@@ -7147,11 +7299,32 @@ Response format:
       agentSelect.value = state.recurringAgentFilter || 'all';
     }
 
+    function cronStatusPriority(job) {
+      if (!job) return 99;
+      const s = getCronStatusInfo(job);
+      if (s.cls === 'status-failed') return 0;
+      if (s.cls === 'status-running') return 1;
+      if (s.cls === 'status-success') return 2;
+      if (s.cls === 'status-pending') return 3;
+      if (s.cls === 'status-idle') return 4;
+      if (s.cls === 'status-disabled') return 5;
+      return 6;
+    }
+
+    function cronGroupLabel(priority) {
+      if (priority === 0) return 'Failing';
+      if (priority === 1) return 'Running';
+      if (priority <= 4) return 'Active';
+      if (priority === 5) return 'Disabled';
+      return 'Other';
+    }
+
     function renderRecurringView() {
       const container = document.getElementById('recurringGrid');
       if (!container) return;
 
       if (!state.cronJobsLoaded) {
+        // NOTE: innerHTML here uses only static strings, no user input — safe from XSS
         container.innerHTML = '<div class="grid-card">Loading recurring tasks…</div>';
         loadCronJobs().then(() => renderRecurringView());
         return;
@@ -7165,10 +7338,6 @@ Response format:
         container.innerHTML = '<div class="grid-card">No recurring tasks found</div>';
         return;
       }
-
-      container.style.display = 'grid';
-      container.style.gridTemplateColumns = '1fr';
-      container.style.gap = '10px';
 
       const agentFilter = state.recurringAgentFilter || 'all';
       const search = (state.recurringSearch || '').trim().toLowerCase();
@@ -7198,35 +7367,53 @@ Response format:
         return;
       }
 
-      jobs.sort((a, b) => String(a.name || a.id).localeCompare(String(b.name || b.id)));
+      // Sort by status priority (failing first), then alphabetical within group
+      jobs.sort((a, b) => {
+        const pa = cronStatusPriority(a);
+        const pb = cronStatusPriority(b);
+        if (pa !== pb) return pa - pb;
+        return String(a.name || a.id).localeCompare(String(b.name || b.id));
+      });
 
-      container.innerHTML = jobs.map(j => {
+      let html = '';
+      let lastGroup = '';
+
+      for (const j of jobs) {
+        const group = cronGroupLabel(cronStatusPriority(j));
+        if (group !== lastGroup) {
+          html += '<div class="recurring-group-label">' + escapeHtml(group) + '</div>';
+          lastGroup = group;
+        }
+
         const name = j.name || j.id;
         const schedule = formatSchedule(j.schedule);
         const model = getJobModel(j.payload);
         const outcome = summarizeOutcome(j.payload);
+        const statusInfo = getCronStatusInfo(j);
         const last = j.state || {};
         const lastAt = Number(last.lastRunAtMs || 0);
         const lastStatus = last.lastStatus || '';
-        const line2 = `${j.agentId || 'main'} · ${model} · ${j.enabled === false ? 'disabled' : 'enabled'}`;
-        const line3 = lastAt ? `last ${formatRelativeTime(lastAt)}${lastStatus ? ` (${lastStatus})` : ''}` : '';
+        const nextRun = formatNextRun(j);
+        const isSelected = String(j.id) === state.selectedCronJobId;
+        const line2 = escapeHtml(String(j.agentId || 'main')) + ' · ' + escapeHtml(model);
+        const line3 = lastAt ? 'last ' + escapeHtml(formatRelativeTime(lastAt)) + (lastStatus ? ' (' + escapeHtml(lastStatus) + ')' : '') : '';
 
-        return `
-          <div class="grid-card" onclick="openCronJobDetail('${escapeHtml(String(j.id))}')">
-            <div class="grid-card-header">
-              <div class="grid-card-icon">⏰</div>
-              <div class="grid-card-actions">
-                <button class="icon-btn" title="Details" onclick="event.stopPropagation(); openCronJobDetail('${escapeHtml(String(j.id))}')">ℹ️</button>
-              </div>
-            </div>
-            <div class="grid-card-title">${escapeHtml(String(name))}</div>
-            <div class="grid-card-desc">${escapeHtml(schedule)}</div>
-            <div class="grid-card-desc">${escapeHtml(line2)}</div>
-            ${line3 ? `<div class="grid-card-desc">${escapeHtml(line3)}</div>` : ''}
-            ${outcome ? `<div class="grid-card-desc" style="color: var(--text-dim); margin-top:6px;">${escapeHtml(outcome)}</div>` : ''}
-          </div>
-        `;
-      }).join('');
+        // All dynamic values are passed through escapeHtml() to prevent XSS
+        html += '<div class="grid-card' + (isSelected ? ' active' : '') + '" onclick="openCronJobDetail(\'' + escapeHtml(String(j.id)) + '\')">' +
+          '<div class="grid-card-header">' +
+            '<div class="grid-card-icon">⏰</div>' +
+            '<span class="cron-status-badge ' + statusInfo.cls + '" style="font-size:10px; padding:2px 7px;">' + escapeHtml(statusInfo.label) + '</span>' +
+          '</div>' +
+          '<div class="grid-card-title">' + escapeHtml(String(name)) + '</div>' +
+          '<div class="grid-card-desc">' + escapeHtml(schedule) + '</div>' +
+          '<div class="grid-card-desc">' + line2 + '</div>' +
+          (line3 ? '<div class="grid-card-desc">' + line3 + '</div>' : '') +
+          (nextRun ? '<div class="grid-card-desc cron-card-next">next: ' + escapeHtml(nextRun) + '</div>' : '') +
+          (outcome ? '<div class="grid-card-desc" style="color: var(--text-dim); margin-top:4px;">' + escapeHtml(outcome) + '</div>' : '') +
+        '</div>';
+      }
+
+      container.innerHTML = html;
     }
 
     function selectApp(appId, opts = {}) {
