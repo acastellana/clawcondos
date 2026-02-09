@@ -228,7 +228,7 @@
         <div class="shortcut-row"><kbd>⌘K</kbd> <span>Search</span></div>
         <div class="shortcut-row"><kbd>⌘N</kbd> <span>New goal</span></div>
         <div class="shortcut-row"><kbd>Esc</kbd> <span>Close / Go back</span></div>
-        <div class="shortcut-row"><kbd>?</kbd> <span>Show this help</span></div>
+        <div class="shortcut-row"><kbd>?</kbd> or <kbd>⌘/</kbd> <span>Show this help</span></div>
         <div class="shortcut-row"><kbd>Enter</kbd> <span>Send message</span></div>
         <div class="shortcut-row"><kbd>Shift+Enter</kbd> <span>New line</span></div>
       </div>
@@ -6924,6 +6924,13 @@ Response format:
       if ((e.metaKey || e.ctrlKey) && e.key === 'n') {
         e.preventDefault();
         showCreateGoalModal();
+        return;
+      }
+
+      // Cmd+/ -> shortcuts help (common convention, works in inputs)
+      if ((e.metaKey || e.ctrlKey) && e.key === '/') {
+        e.preventDefault();
+        toggleShortcutsModal();
         return;
       }
 
