@@ -227,6 +227,7 @@
       <div class="shortcuts-grid">
         <div class="shortcut-row"><kbd>⌘K</kbd> <span>Search</span></div>
         <div class="shortcut-row"><kbd>⌘N</kbd> <span>New goal</span></div>
+        <div class="shortcut-row"><kbd>H</kbd> <span>Go home</span></div>
         <div class="shortcut-row"><kbd>Esc</kbd> <span>Close / Go back</span></div>
         <div class="shortcut-row"><kbd>?</kbd> or <kbd>⌘/</kbd> <span>Show this help</span></div>
         <div class="shortcut-row"><kbd>Enter</kbd> <span>Send message</span></div>
@@ -6938,6 +6939,13 @@ Response format:
       if (e.key === '?' && !isInput) {
         e.preventDefault();
         toggleShortcutsModal();
+        return;
+      }
+
+      // H -> go home/dashboard (only when not typing)
+      if ((e.key === 'h' || e.key === 'H') && !isInput && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault();
+        navigateTo('dashboard');
         return;
       }
 
