@@ -1049,7 +1049,7 @@ export default function register(api) {
     } catch (err) {
       api.logger.error(`clawcondos-goals: classification error for ${sessionKey}: ${err.message}`);
     }
-  });
+  }, { name: 'before_agent_start' });
 
   /**
    * Update cascade tracking on a condo after a goal's PM completes.
@@ -1376,7 +1376,7 @@ export default function register(api) {
     } catch (err) {
       api.logger.error(`clawcondos-goals: agent_end error for ${sessionKey}: ${err.message}`);
     }
-  });
+  }, { name: 'agent_end' });
 
   // Hook: intercept agent stream for plan.log events
   if (api.registerHook) {
@@ -1458,7 +1458,7 @@ export default function register(api) {
           planLogBuffer.append(sessionKey, logEntry);
         }
       }
-    });
+    }, { name: 'agent_stream' });
   }
 
   // Hook: start watching plan file when task is spawned
@@ -1471,7 +1471,7 @@ export default function register(api) {
 
     // Start watching the expected plan file path
     watchPlanFile(sessionKey, planFilePath);
-  });
+  }, { name: 'after_rpc' });
 
   // Tool: goal_update for agents to report task status
   const goalUpdateExecute = createGoalUpdateExecutor(store);

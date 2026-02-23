@@ -610,7 +610,7 @@ function getGatewayToken() {
 // Internal gateway client (lazy connect on first rpcCall)
 const gatewayClient = createGatewayClient({
   getWsUrl: getGatewayWsUrl,
-  getAuth: () => '',
+  getAuth: () => process.env.GATEWAY_AUTH || '',
   getPassword: getGatewayPassword
 });
 
@@ -1480,7 +1480,7 @@ server.on('upgrade', (req, socket, head) => {
       return;
     }
 
-    const gatewayToken = null;
+    const gatewayToken = process.env.GATEWAY_AUTH || null;
     const gatewayPassword = process.env.GATEWAY_PASSWORD || getGatewayPassword() || null;
 
     wss.handleUpgrade(req, socket, head, (clientWs) => {
