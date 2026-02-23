@@ -1,8 +1,10 @@
+import { readPlanFile, createEmptyPlan, computePlanStatus } from './plan-manager.js';
+
 export function createGoalUpdateExecutor(store) {
   const error = (text) => ({ content: [{ type: 'text', text: `Error: ${text}` }] });
 
   return async function execute(toolCallId, params) {
-    const { sessionKey, goalId, taskId, status, summary, addTasks, nextTask, goalStatus, notes, files } = params;
+    const { sessionKey, goalId, taskId, status, summary, addTasks, nextTask, goalStatus, notes, files, planFile, planStatus, stepIndex, stepStatus } = params;
 
     // Require at least one actionable param.
     const hasTaskUpdate = taskId && status;
@@ -11,8 +13,11 @@ export function createGoalUpdateExecutor(store) {
     const hasGoalStatus = typeof goalStatus === 'string';
     const hasNotes = typeof notes === 'string' && notes.trim();
     const hasFiles = Array.isArray(files) && files.length > 0;
-    if (!hasTaskUpdate && !hasAddTasks && !hasNextTask && !hasGoalStatus && !hasNotes && !hasFiles) {
-      return error('provide at least one of: taskId+status, addTasks, nextTask, goalStatus, notes, files.');
+    const hasPlanFile = typeof planFile === 'string' && planFile.trim();
+    const hasPlanStatus = typeof planStatus === 'string' && planStatus.trim();
+    const hasStepUpdate = typeof stepIndex === 'number' && typeof stepStatus === 'string';
+    if (!hasTaskUpdate && !hasAddTasks && !hasNextTask && !hasGoalStatus && !hasNotes && !hasFiles && !hasPlanFile && !hasPlanStatus && !hasStepUpdate) {
+      return error('provide at least one of: taskId+status, addTasks, nextTask, goalStatus, notes, files, planFile, planStatus, stepIndex+stepStatus.');
     }
 
     const data = store.load();
@@ -179,6 +184,86 @@ export function createGoalUpdateExecutor(store) {
       }
     }
 
+    // ── Plan file sync ──
+    if (hasPlanFile && taskId) {
+      const task = (goal.tasks || []).find(t => t.id === taskId);
+      if (task) {
+        const planResult = readPlanFile(planFile.trim());
+        if (planResult.success) {
+          const existingPlan = task.plan || createEmptyPlan();
+          const now = Date.now();
+          task.plan = {
+            ...existingPlan,
+            status: existingPlan.status === 'none' ? 'draft' : existingPlan.status,
+            filePath: planResult.filePath,
+            content: planResult.content,
+            steps: planResult.steps.map((step, idx) => {
+              // Preserve existing step status if step titles match
+              const existing = existingPlan.steps?.find(s => s.title === step.title);
+              return existing ? { ...step, ...existing, index: idx } : step;
+            }),
+            updatedAtMs: now,
+          };
+          task.plan.status = computePlanStatus(task.plan);
+          task.updatedAtMs = now;
+          results.push(`plan synced from ${planFile}`);
+        } else {
+          results.push(`plan sync failed: ${planResult.error}`);
+        }
+      }
+    }
+
+    // ── Plan status update ──
+    if (hasPlanStatus && taskId) {
+      const validPlanStatuses = ['none', 'draft', 'awaiting_approval', 'approved', 'rejected', 'executing', 'completed'];
+      const task = (goal.tasks || []).find(t => t.id === taskId);
+      if (task) {
+        if (!validPlanStatuses.includes(planStatus)) {
+          return error(`planStatus must be one of: ${validPlanStatuses.join(', ')}`);
+        }
+        if (!task.plan) {
+          task.plan = createEmptyPlan();
+        }
+        const now = Date.now();
+        task.plan.status = planStatus;
+        task.plan.updatedAtMs = now;
+        if (planStatus === 'approved') {
+          task.plan.approvedAtMs = now;
+        } else if (planStatus === 'rejected') {
+          task.plan.rejectedAtMs = now;
+        }
+        task.updatedAtMs = now;
+        results.push(`plan status → ${planStatus}`);
+      }
+    }
+
+    // ── Plan step update ──
+    if (hasStepUpdate && taskId) {
+      const validStepStatuses = ['pending', 'in-progress', 'done', 'skipped'];
+      if (!validStepStatuses.includes(stepStatus)) {
+        return error(`stepStatus must be one of: ${validStepStatuses.join(', ')}`);
+      }
+      const task = (goal.tasks || []).find(t => t.id === taskId);
+      if (!task) {
+        return error(`task ${taskId} not found in goal.`);
+      }
+      if (!task.plan || !task.plan.steps || !task.plan.steps[stepIndex]) {
+        return error(`step ${stepIndex} not found in task plan (${task.plan?.steps?.length || 0} steps available).`);
+      }
+      const step = task.plan.steps[stepIndex];
+      const now = Date.now();
+      step.status = stepStatus;
+      if (stepStatus === 'in-progress' && !step.startedAtMs) {
+        step.startedAtMs = now;
+      } else if (stepStatus === 'done' || stepStatus === 'skipped') {
+        step.completedAtMs = now;
+      }
+      task.plan.updatedAtMs = now;
+      task.plan.status = computePlanStatus(task.plan);
+      task.updatedAtMs = now;
+      results.push(`step ${stepIndex} → ${stepStatus}`);
+    }
+
     goal.updatedAtMs = Date.now();
     store.save(data);
 
@@ -187,8 +272,18 @@ export function createGoalUpdateExecutor(store) {
       ? ` (${remaining} task${remaining !== 1 ? 's' : ''} remaining)`
       : ' (all tasks done)';
 
+    // Build _meta for task completion events (consumed by index.js wrapper)
+    const _meta = {
+      goalId: goal.id,
+    };
+    if (hasTaskUpdate && status === 'done' && taskId) {
+      _meta.taskCompletedId = taskId;
+      _meta.allTasksDone = remaining === 0;
+    }
+
     return {
       content: [{ type: 'text', text: `Goal "${goal.title}" updated: ${results.join(', ')}.${countSuffix}` }],
+      _meta,
     };
   };
 }

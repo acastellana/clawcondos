@@ -1,4 +1,7 @@
-export function createGoalHandlers(store) {
+import { pushBranch } from './github.js';
+
+export function createGoalHandlers(store, options = {}) {
+  const { wsOps, logger, rpcCall } = options;
   function loadData() { return store.load(); }
   function saveData(data) { store.save(data); }
 
@@ -14,7 +17,7 @@ export function createGoalHandlers(store) {
 
     'goals.create': ({ params, respond }) => {
       try {
-        const { title, condoId, description, completed, status, priority, deadline, notes, tasks } = params;
+        const { title, condoId, description, completed, status, priority, deadline, notes, tasks, autonomyMode } = params;
         if (!title || typeof title !== 'string' || !title.trim()) {
           respond(false, undefined, { message: 'title is required' });
           return;
@@ -22,8 +25,9 @@ export function createGoalHandlers(store) {
         const data = loadData();
         const now = Date.now();
         const isCompleted = completed === true || status === 'done';
+        const goalId = store.newId('goal');
         const goal = {
-          id: store.newId('goal'),
+          id: goalId,
           title: title.trim(),
           description: description || notes || '',
           notes: notes || '',
@@ -32,11 +36,41 @@ export function createGoalHandlers(store) {
           condoId: condoId || null,
           priority: priority || null,
           deadline: deadline || null,
+          autonomyMode: autonomyMode || null,
+          worktree: null,
           tasks: [],
           sessions: [],
           createdAtMs: now,
           updatedAtMs: now,
         };
+
+        // Create worktree if parent condo has a workspace
+        if (wsOps && condoId) {
+          const condo = data.condos.find(c => c.id === condoId);
+          if (condo?.workspace?.path) {
+            const wtResult = wsOps.createGoalWorktree(condo.workspace.path, goalId, title.trim());
+            if (wtResult.ok) {
+              goal.worktree = { path: wtResult.path, branch: wtResult.branch, createdAtMs: now };
+
+              // Auto-push new branch to GitHub if remote is configured (best-effort)
+              if (condo.workspace.repoUrl) {
+                try {
+                  const pushResult = pushBranch(condo.workspace.path, wtResult.branch, { setUpstream: true });
+                  if (!pushResult.ok && logger) {
+                    logger.warn(`clawcondos-goals: goals.create: failed to push branch ${wtResult.branch}: ${pushResult.error}`);
+                    goal.pushError = pushResult.error;
+                    goal.pushStatus = 'failed';
+                  } else if (pushResult.ok) {
+                    goal.pushStatus = 'pushed';
+                  }
+                } catch { /* best-effort */ }
+              }
+            } else if (logger) {
+              logger.error(`clawcondos-goals: worktree creation failed for goal ${goalId}: ${wtResult.error}`);
+            }
+          }
+        }
+
         data.goals.unshift(goal);
         saveData(data);
         respond(true, { goal });
@@ -84,7 +118,7 @@ export function createGoalHandlers(store) {
         }
 
         // Whitelist allowed patch fields (prevent overwriting internal fields)
-        const allowed = ['title', 'description', 'status', 'completed', 'condoId', 'priority', 'deadline', 'notes', 'tasks', 'nextTask', 'dropped', 'droppedAtMs', 'files'];
+        const allowed = ['title', 'description', 'status', 'completed', 'condoId', 'priority', 'deadline', 'notes', 'tasks', 'nextTask', 'dropped', 'droppedAtMs', 'files', 'plan', 'autonomyMode', 'phase', 'dependsOn', 'closedAtMs'];
         for (const f of allowed) {
           if (f in params) goal[f] = params[f];
         }
@@ -105,7 +139,7 @@ export function createGoalHandlers(store) {
       }
     },
 
-    'goals.delete': ({ params, respond }) => {
+    'goals.delete': async ({ params, respond }) => {
       try {
         const data = loadData();
         const idx = data.goals.findIndex(g => g.id === params.id);
@@ -113,13 +147,42 @@ export function createGoalHandlers(store) {
           respond(false, undefined, { message: 'Goal not found' });
           return;
         }
+        const deletedGoal = data.goals[idx];
+
+        // Collect ALL sessions for this goal (for abort + frontend cleanup)
+        const sessionKeys = new Set([
+          ...(deletedGoal.sessions || []),
+          ...(deletedGoal.tasks || []).filter(t => t.sessionKey).map(t => t.sessionKey),
+        ]);
+        // Include goal PM session
+        if (deletedGoal.pmSessionKey) sessionKeys.add(deletedGoal.pmSessionKey);
+
+        // Kill running sessions (best-effort) — try delete first, then abort
+        if (rpcCall) {
+          for (const sk of sessionKeys) {
+            try { await rpcCall('sessions.delete', { sessionKey: sk }); } catch { /* may not exist */ }
+            try { await rpcCall('chat.abort', { sessionKey: sk }); } catch { /* best-effort */ }
+          }
+        }
+
+        // Remove worktree if it exists
+        if (wsOps && deletedGoal.worktree?.path && deletedGoal.condoId) {
+          const condo = data.condos.find(c => c.id === deletedGoal.condoId);
+          if (condo?.workspace?.path) {
+            const rmResult = wsOps.removeGoalWorktree(condo.workspace.path, deletedGoal.id, deletedGoal.worktree?.branch);
+            if (!rmResult.ok && logger) {
+              logger.error(`clawcondos-goals: worktree removal failed for goal ${params.id}: ${rmResult.error}`);
+            }
+          }
+        }
+
         // Clean up session index entries pointing to this goal
         for (const [key, val] of Object.entries(data.sessionIndex)) {
           if (val.goalId === params.id) delete data.sessionIndex[key];
         }
         data.goals.splice(idx, 1);
         saveData(data);
-        respond(true, { ok: true });
+        respond(true, { ok: true, killedSessions: [...sessionKeys] });
       } catch (err) {
         respond(false, undefined, { message: String(err) });
       }
@@ -249,7 +312,7 @@ export function createGoalHandlers(store) {
 
     'goals.addTask': ({ params, respond }) => {
       try {
-        const { goalId, text, description, priority, dependsOn } = params;
+        const { goalId, text, description, priority, dependsOn, assignedAgent, model } = params;
         if (!goalId || !text || typeof text !== 'string' || !text.trim()) {
           respond(false, undefined, { message: 'goalId and text are required' });
           return;
@@ -269,6 +332,8 @@ export function createGoalHandlers(store) {
           done: false,
           priority: priority || null,
           sessionKey: null,
+          assignedAgent: assignedAgent || null,
+          model: model || null,
           dependsOn: Array.isArray(dependsOn) ? dependsOn : [],
           summary: '',
           createdAtMs: now,
@@ -302,7 +367,7 @@ export function createGoalHandlers(store) {
           return;
         }
         // Whitelist allowed patch fields
-        const allowed = ['text', 'description', 'status', 'done', 'priority', 'dependsOn', 'summary'];
+        const allowed = ['text', 'description', 'status', 'done', 'priority', 'dependsOn', 'summary', 'assignedAgent', 'model'];
         for (const f of allowed) {
           if (f in params) task[f] = params[f];
         }
@@ -412,6 +477,88 @@ export function createGoalHandlers(store) {
         goal.updatedAtMs = Date.now();
         saveData(data);
         respond(true, { ok: true, files: goal.files });
+      } catch (err) {
+        respond(false, undefined, { message: String(err) });
+      }
+    },
+
+    'goals.updatePlan': ({ params, respond }) => {
+      try {
+        const { goalId, plan } = params;
+        if (!goalId) {
+          respond(false, undefined, { message: 'goalId is required' });
+          return;
+        }
+        if (!plan || typeof plan !== 'object') {
+          respond(false, undefined, { message: 'plan object is required' });
+          return;
+        }
+        const data = loadData();
+        const goal = data.goals.find(g => g.id === goalId);
+        if (!goal) {
+          respond(false, undefined, { message: 'Goal not found' });
+          return;
+        }
+
+        // Initialize or update goal-level plan
+        const now = Date.now();
+        const existingPlan = goal.plan || {};
+
+        // Validate plan fields
+        const validStatuses = ['none', 'draft', 'awaiting_approval', 'approved', 'rejected', 'executing', 'completed'];
+        const newPlan = {
+          status: validStatuses.includes(plan.status) ? plan.status : (existingPlan.status || 'draft'),
+          content: typeof plan.content === 'string' ? plan.content : (existingPlan.content || ''),
+          steps: Array.isArray(plan.steps) ? plan.steps.map((step, idx) => ({
+            index: idx,
+            title: step.title || step.text || '',
+            taskId: step.taskId || null,
+            status: step.status || 'pending',
+            description: step.description || '',
+          })) : (existingPlan.steps || []),
+          feedback: typeof plan.feedback === 'string' ? plan.feedback : (existingPlan.feedback || null),
+          updatedAtMs: now,
+          createdAtMs: existingPlan.createdAtMs || now,
+        };
+
+        goal.plan = newPlan;
+        goal.updatedAtMs = now;
+        saveData(data);
+
+        respond(true, { goal, plan: newPlan });
+      } catch (err) {
+        respond(false, undefined, { message: String(err) });
+      }
+    },
+
+    'goals.checkConflicts': ({ params, respond }) => {
+      try {
+        const { condoId } = params || {};
+        if (!condoId) {
+          respond(false, undefined, { message: 'condoId is required' });
+          return;
+        }
+        const data = loadData();
+        const condo = data.condos.find(c => c.id === condoId);
+        if (!condo) {
+          respond(false, undefined, { message: 'Condo not found' });
+          return;
+        }
+        if (!wsOps || !condo.workspace?.path) {
+          respond(true, { condoId, results: [], message: 'No workspace configured' });
+          return;
+        }
+        const goals = data.goals.filter(g => g.condoId === condoId && g.worktree?.branch);
+        const results = goals.map(g => {
+          const status = wsOps.checkBranchStatus(condo.workspace.path, g.worktree.branch);
+          return {
+            goalId: g.id,
+            goalTitle: g.title,
+            branch: g.worktree.branch,
+            ...status,
+          };
+        });
+        respond(true, { condoId, results });
       } catch (err) {
         respond(false, undefined, { message: String(err) });
       }

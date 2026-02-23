@@ -1,11 +1,11 @@
 #!/usr/bin/env node
-// clawcondos/condo-management/scripts/populate-condos.js
+// plugins/clawcondos-goals/scripts/populate-condos.js
 import { createGoalsStore } from '../lib/goals-store.js';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const dataDir = process.env.CONDO_DATA_DIR || join(__dirname, '..', '.data');
+const dataDir = process.env.STRAND_DATA_DIR || join(__dirname, '..', '.data');
 
 const store = createGoalsStore(dataDir);
 const data = store.load();

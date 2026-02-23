@@ -1,4 +1,4 @@
-// clawcondos/condo-management/lib/learning.js
+// learning.js — Classification correction analysis
 
 /**
  * Analyze corrections to find frequently-corrected-to condos.

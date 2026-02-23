@@ -1,4 +1,4 @@
-// clawcondos/condo-management/lib/classifier.js
+// classifier.js — Tier 1 pattern-based session classifier
 
 export const CLASSIFIER_CONFIG = {
   autoRouteThreshold: 0.8,
@@ -6,7 +6,7 @@ export const CLASSIFIER_CONFIG = {
   keywordWeight: 0.15,          // Per keyword hit
   keywordMax: 0.45,             // Max from keywords
   nameMatchWeight: 0.3,         // Condo name in message
-  enabled: process.env.CLAWCONDOS_CLASSIFICATION !== 'off',
+  enabled: (process.env.HELIX_CLASSIFICATION) !== 'off',
 };
 
 /**

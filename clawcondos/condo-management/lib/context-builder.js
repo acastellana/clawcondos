@@ -13,6 +13,10 @@ export function buildGoalContext(goal, opts = {}) {
   if (goal.deadline) meta.push(`Deadline: ${goal.deadline}`);
   if (meta.length) lines.push(meta.join(' · '));
 
+  if (goal.worktree?.path) {
+    lines.push(`Workspace: ${goal.worktree.path} (branch: ${goal.worktree.branch})`);
+  }
+
   if (goal.description) lines.push('', goal.description);
 
   if (goal.tasks?.length) {
@@ -82,7 +86,7 @@ export function getProjectSummaryForGoal(goal, data) {
   return buildProjectSummary(condo, siblingGoals, goal.id);
 }
 
-export function buildCondoMenuContext(condos, goals) {
+export function buildStrandMenuContext(condos, goals) {
   if (!condos?.length) return null;
 
   const lines = [
@@ -108,13 +112,19 @@ export function buildCondoMenuContext(condos, goals) {
   return lines.join('\n');
 }
 
-export function buildCondoContext(condo, goals, opts = {}) {
+export function buildStrandContext(condo, goals, opts = {}) {
   if (!condo) return null;
   const { currentSessionKey } = opts;
 
   const lines = [
+    `[SESSION SCOPE: condo ${condo.id}] This session is exclusively for condo "${condo.name}". Do not reference or mix context from other condos or projects.`,
+    '',
     `# Condo: ${condo.name}`,
   ];
+
+  if (condo.workspace?.path) {
+    lines.push(`Workspace: ${condo.workspace.path}`);
+  }
 
   if (condo.description) lines.push('', condo.description);
 
@@ -138,7 +148,7 @@ export function buildCondoContext(condo, goals, opts = {}) {
 
   // Tool usage instructions
   lines.push('');
-  lines.push('> You are the orchestrator for this condo. Use `condo_create_goal` to create new goals, `condo_add_task` to add tasks to goals, and `goal_update` to report task status.');
+  lines.push('> Use `condo_pm_chat` to send work requests to the PM — describe what you want built and the PM will create a plan with goals and tasks. Use `condo_pm_kickoff` to approve a plan and spawn workers. Use `condo_status` to check progress. Use `goal_update` only to report on tasks assigned to you (marked `← you` above).');
 
   return lines.join('\n');
 }
