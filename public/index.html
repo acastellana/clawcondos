@@ -21,6 +21,132 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/prismjs@1/themes/prism-tomorrow.min.css">
   <link rel="stylesheet" href="/styles/plans.css">
   <link rel="stylesheet" href="/styles/roles.css">
+  <style>
+    /* ═══════════ AGENTS HUB ═══════════ */
+    /* #agentsHubView visibility is handled by .view / .view.active in app.css */
+    #agentsHubView { overflow:hidden; }
+
+    .ah-body { display:flex; flex:1; overflow:hidden; min-height:0; height:0; }
+
+    /* Left rail */
+    .ah-rail {
+      width:240px; min-width:200px; max-width:300px;
+      background: var(--bg-elevated, #111827);
+      border-right:1px solid var(--border-subtle,rgba(255,255,255,.07));
+      display:flex; flex-direction:column; overflow:hidden;
+      flex-shrink:0;
+    }
+    .ah-rail-hdr {
+      padding:10px 12px 8px;
+      border-bottom:1px solid var(--border-subtle,rgba(255,255,255,.07));
+      flex-shrink:0;
+    }
+    .ah-rail-search {
+      width:100%; box-sizing:border-box;
+      background:var(--bg-input,rgba(255,255,255,.06));
+      border:1px solid var(--border,rgba(255,255,255,.12));
+      border-radius:6px; color:var(--text,#e5e7eb);
+      font-family:inherit; font-size:13px; padding:5px 9px; outline:none;
+    }
+    .ah-rail-search:focus { border-color:var(--accent,#6366f1); }
+    .ah-rail-search::placeholder { color:var(--text-muted,#6b7280); }
+    .ah-agent-list { flex:1; overflow-y:auto; padding:4px 0; }
+    .ah-agent-row {
+      display:flex; align-items:center; gap:9px; padding:8px 12px;
+      cursor:pointer; border-left:2px solid transparent;
+      transition:background 120ms;
+    }
+    .ah-agent-row:hover { background:var(--bg-hover,rgba(255,255,255,.04)); }
+    .ah-agent-row.active {
+      background:var(--bg-active,rgba(99,102,241,.12));
+      border-left-color:var(--accent,#6366f1);
+    }
+    .ah-agent-emoji { font-size:20px; line-height:1; flex-shrink:0; }
+    .ah-agent-info { flex:1; min-width:0; }
+    .ah-agent-name { font-size:13px; font-weight:600; color:var(--text,#e5e7eb); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .ah-agent-model { font-size:11px; color:var(--text-dim,#9ca3af); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .ah-agent-badge {
+      font-size:10px; font-weight:700; min-width:18px; height:18px;
+      padding:0 5px; border-radius:9px; display:flex; align-items:center; justify-content:center;
+      background:var(--accent,#6366f1); color:#fff; flex-shrink:0;
+    }
+    .ah-agent-badge.zero { background:var(--bg-secondary,rgba(255,255,255,.08)); color:var(--text-dim,#9ca3af); }
+    .ah-active-dot { width:7px; height:7px; border-radius:50%; background:var(--green,#22c55e); flex-shrink:0; animation:pulse-dot 2s infinite; }
+    @keyframes pulse-dot { 0%,100%{opacity:1}50%{opacity:.4} }
+
+    /* Right detail */
+    .ah-detail {
+      flex:1; display:flex; flex-direction:column; overflow:hidden; min-width:0;
+    }
+    .ah-detail-header {
+      padding:14px 20px 12px;
+      border-bottom:1px solid var(--border-subtle,rgba(255,255,255,.07));
+      display:flex; align-items:center; gap:14px; flex-shrink:0;
+      background:var(--bg-elevated,#111827);
+    }
+    .ah-detail-emoji { font-size:32px; line-height:1; }
+    .ah-detail-title-wrap { flex:1; min-width:0; }
+    .ah-detail-title { font-size:18px; font-weight:700; color:var(--text,#e5e7eb); margin:0; }
+    .ah-detail-meta { font-size:12px; color:var(--text-dim,#9ca3af); display:flex; gap:8px; flex-wrap:wrap; margin-top:3px; }
+    .ah-badge { display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:600; padding:2px 8px; border-radius:10px; }
+    .ah-badge.model { background:rgba(99,102,241,.18); color:#a5b4fc; }
+    .ah-badge.default { background:rgba(34,197,94,.16); color:#86efac; }
+    .ah-detail-actions { display:flex; gap:8px; }
+    .ah-action-btn {
+      padding:6px 14px; border-radius:6px; font-size:12px; font-weight:600; cursor:pointer;
+      border:1px solid var(--border,rgba(255,255,255,.12));
+      background:var(--bg-input,rgba(255,255,255,.06));
+      color:var(--text,#e5e7eb); transition:background 120ms;
+    }
+    .ah-action-btn:hover { background:var(--bg-hover,rgba(255,255,255,.1)); }
+    .ah-action-btn.primary { background:var(--accent,#6366f1); border-color:var(--accent,#6366f1); color:#fff; }
+    .ah-action-btn.primary:hover { background:#4f46e5; }
+
+    /* Tabs */
+    .ah-tabs { display:flex; gap:0; border-bottom:1px solid var(--border-subtle,rgba(255,255,255,.07)); flex-shrink:0; padding:0 20px; }
+    .ah-tab {
+      padding:10px 0; margin-right:20px; font-size:13px; font-weight:600;
+      color:var(--text-dim,#9ca3af); cursor:pointer; border-bottom:2px solid transparent;
+      transition:color 120ms, border-color 120ms;
+    }
+    .ah-tab.active { color:var(--text,#e5e7eb); border-bottom-color:var(--accent,#6366f1); }
+    .ah-tab-content { flex:1; overflow-y:auto; padding:16px 20px; }
+
+    /* Session cards in Agents Hub */
+    .ah-session-card {
+      background:var(--bg-elevated,#111827);
+      border:1px solid var(--border-subtle,rgba(255,255,255,.07));
+      border-radius:8px; padding:10px 14px; margin-bottom:8px;
+      cursor:pointer; transition:border-color 120ms, background 120ms;
+    }
+    .ah-session-card:hover { border-color:var(--border,rgba(255,255,255,.15)); background:var(--bg-hover,rgba(255,255,255,.04)); }
+    .ah-session-card-top { display:flex; align-items:center; gap:8px; }
+    .ah-session-label { flex:1; min-width:0; font-size:13px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .ah-session-age { font-size:11px; color:var(--text-dim,#9ca3af); flex-shrink:0; }
+    .ah-session-meta { font-size:11px; color:var(--text-muted,#6b7280); margin-top:3px; display:flex; gap:10px; flex-wrap:wrap; }
+    .ah-session-status { width:7px; height:7px; border-radius:50%; flex-shrink:0; }
+    .ah-session-status.active { background:var(--green,#22c55e); }
+    .ah-session-status.idle { background:var(--text-muted,#6b7280); }
+
+    /* About tab */
+    .ah-about-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:16px; }
+    .ah-about-card { background:var(--bg-elevated,#111827); border:1px solid var(--border-subtle,rgba(255,255,255,.07)); border-radius:8px; padding:12px 14px; }
+    .ah-about-card-label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--text-muted,#6b7280); margin-bottom:4px; }
+    .ah-about-card-value { font-size:13px; color:var(--text,#e5e7eb); word-break:break-all; }
+    .ah-soul-block { background:var(--bg-elevated,#111827); border:1px solid var(--border-subtle,rgba(255,255,255,.07)); border-radius:8px; padding:14px; }
+    .ah-soul-block h3 { margin:0 0 10px; font-size:13px; color:var(--text-dim,#9ca3af); font-weight:600; text-transform:uppercase; letter-spacing:.05em; }
+    .ah-soul-content { font-size:13px; line-height:1.65; color:var(--text,#e5e7eb); white-space:pre-wrap; word-break:break-word; }
+    .ah-empty { padding:32px 20px; text-align:center; color:var(--text-dim,#9ca3af); font-size:13px; }
+
+    /* Sidebar link for Agents Hub */
+    .ah-sidebar-link {
+      display:flex; align-items:center; gap:8px; padding:5px 10px 5px 14px;
+      font-size:12px; color:var(--text-dim,#9ca3af); cursor:pointer;
+      border-radius:4px; transition:background 120ms, color 120ms;
+    }
+    .ah-sidebar-link:hover { background:var(--bg-hover,rgba(255,255,255,.04)); color:var(--text,#e5e7eb); }
+    .ah-sidebar-link.active { color:var(--accent,#6366f1); background:rgba(99,102,241,.08); }
+  </style>
 </head>
 <body>
   <!-- Toast container for notifications -->
@@ -48,7 +174,7 @@
        ═══════════════════════════════════════════════════════════════ -->
   <div class="modal-overlay hidden" id="createGoalModal">
     <div class="modal">
-      <h2 class="modal-title">New Goal</h2>
+      <h2 class="modal-title">New Condo</h2>
       <p class="modal-desc">Create a new condo (goal). You can attach sessions and spawn agents inside it.</p>
       <div class="form-group">
         <label class="form-label">Title</label>
@@ -136,6 +262,8 @@
       <div class="form-group">
         <label class="form-label">Model</label>
         <select class="form-input" id="spawnModelSelect">
+          <option value="claude-sonnet-4-6">sonnet-4-6 (default)</option>
+          <option value="claude-opus-4-6">opus-4-6</option>
           <option value="claude-sonnet-4-5-20250929">sonnet-4-5</option>
           <option value="claude-opus-4-5-20251101">opus-4-5</option>
           <option value="claude-haiku-4-5-20251001">haiku-4-5</option>
@@ -320,7 +448,8 @@
         <div class="section-header">
           <span class="section-title">Agents</span>
         </div>
-        <div id="agentsList"></div>
+        <div class="ah-sidebar-link" id="ahSidebarLink" onclick="showAgentsHubView()">🗂 Agents Hub</div>
+        <div id="agentsList" style="display:none;"></div>
       </div>
 
       <!-- Recurring Tasks -->
@@ -587,6 +716,27 @@
         <div class="search-view-actions" id="searchViewActions">
           <span class="search-view-sel-count" id="searchViewSelCount">0 selected</span>
           <button class="btn-primary search-view-action-btn" onclick="startSessionWithSelected()">New Session &#x2192;</button>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════════
+           AGENTS HUB VIEW
+           ═══════════════════════════════════════════════════════════════ -->
+      <div class="view" id="agentsHubView">
+        <div class="ah-body">
+          <!-- Left Rail -->
+          <div class="ah-rail">
+            <div class="ah-rail-hdr">
+              <input type="text" class="ah-rail-search" id="ahSearch" placeholder="Filter agents…" oninput="ahFilterAgents(this.value)" autocomplete="off">
+            </div>
+            <div class="ah-agent-list" id="ahAgentList">
+              <div class="ah-empty">Loading agents…</div>
+            </div>
+          </div>
+          <!-- Right Detail -->
+          <div class="ah-detail" id="ahDetail">
+            <div class="ah-empty" style="margin:auto;">Select an agent to view details.</div>
+          </div>
         </div>
       </div>
 
@@ -2573,6 +2723,8 @@
       document.getElementById('overviewView').classList.remove('active');
       document.getElementById('chatView').classList.remove('active');
       document.getElementById('searchView').classList.remove('active');
+      document.getElementById('agentsHubView').classList.remove('active');
+      document.querySelectorAll('.ah-sidebar-link').forEach(function(el) { el.classList.remove('active'); });
       document.getElementById('goalView').classList.remove('panel-mode');
       document.getElementById('goalView').classList.add('active');
       document.querySelector('.main-content').classList.remove('split-view');
@@ -2787,35 +2939,84 @@
     }
 
     async function kickOffGoal() {
-      var goalId = state.currentGoalOpenId;
-      var goal = state.goals.find(function(g) { return g.id === goalId; });
-      if (!goal) return;
+      const goalId = state.currentGoalOpenId;
+      const goal = state.goals.find(g => g.id === goalId);
+      if (!goalId || !goal) {
+        showToast('Goal not ready', 'warning', 3000);
+        return;
+      }
+
+      if (state.goalChatSessionKey) {
+        // Already kicked off — just unlock the chat
+        setGoalChatLocked(false);
+        return;
+      }
+
+      setGoalChatLocked(true);
+
+      const agentId = 'main';
+      const timestamp = Date.now();
+      const sessionKey = `agent:${agentId}:webchat:${timestamp}`;
+
+      // Build rich kickoff prompt
+      const hasTasks = Array.isArray(goal.tasks) && goal.tasks.length > 0;
+      const desc = (goal.description || goal.notes || '').trim();
+      const hasDescription = !!desc;
+      const condoLabel = goal.condoId ? (goal.condoName || goal.condoId.split(':').pop() || goal.condoId) : null;
+
+      const taskLines = hasTasks
+        ? ['', 'Tasks:', ...goal.tasks.map(t => {
+            const st = t.status || (t.done ? 'done' : 'pending');
+            return `- [${st}] ${t.text} [${t.id}]`;
+          })]
+        : [];
+
+      let workflow;
+      if (hasTasks) {
+        workflow = `Pick a pending task, mark in-progress via goal_update, do the work, mark done with a summary. Repeat until all done, then set goalStatus: "done". If blocked, mark "blocked" and explain.`;
+      } else if (hasDescription) {
+        workflow = `Break this into 2-5 concrete tasks using goal_update({ goalId: "${goal.id}", addTasks: [...] }), then execute each in sequence. Mark in-progress, do the work, mark done. When all tasks are done, set goalStatus: "done".`;
+      } else {
+        workflow = `This goal has only a title. If the intent is clear, create 2-5 tasks and begin. If ambiguous, ask the user to clarify before acting.`;
+      }
+
+      const kickoff = [
+        `Goal: ${goal.title} [${goal.id}]`,
+        condoLabel ? `Project: ${condoLabel}` : null,
+        hasDescription ? desc : null,
+        ...taskLines,
+        ``,
+        workflow,
+      ].filter(line => line != null).join('\n');
+
       try {
-        var condoId = goal.condoId || null;
-        var result = await rpcCall('sessions.create', {
-          agentId: 'main',
-          channelId: 'main',
-          meta: { title: goal.title || 'Goal session' }
-        });
-        var sessionKey = result && result.sessionKey;
-        if (!sessionKey) { showToast('Failed to create session', 'error'); return; }
-        await rpcCall('goals.addSession', { id: goalId, sessionKey: sessionKey });
-        if (condoId) {
-          await rpcCall('goals.setSessionCondo', { sessionKey: sessionKey, condoId: condoId });
-        }
-        // Send goal context as first message
-        var msg = 'Goal: ' + (goal.title || '') + '\n';
-        if (goal.notes) msg += '\n' + goal.notes;
-        var tasks = Array.isArray(goal.tasks) ? goal.tasks : [];
-        if (tasks.length) {
-          msg += '\n\nTasks:\n' + tasks.map(function(t) { return '- ' + (t.text || ''); }).join('\n');
-        }
-        await rpcCall('chat.send', { sessionKey: sessionKey, message: msg });
+        // Attach session to goal so it shows up immediately
+        await rpcCall('goals.addSession', { id: goalId, sessionKey });
         state.goalChatSessionKey = sessionKey;
-        await loadGoals();
+
+        const chatMetaEl = document.getElementById('goalChatMeta');
+        if (chatMetaEl) chatMetaEl.textContent = `${sessionKey} · starting…`;
+
+        // Send kickoff message
+        await rpcCall('chat.send', {
+          sessionKey,
+          message: kickoff,
+          idempotencyKey: `kickoff-${goalId}-${timestamp}`,
+        }, 130000);
+
+        await Promise.all([loadSessions(), loadGoals()]);
+        setGoalChatLocked(false);
         renderGoalView();
+        await renderGoalChat();
+
+        const input = document.getElementById('goal_chatInput') || document.getElementById('goalChatInput');
+        if (input) input.focus();
+
       } catch (err) {
-        showToast('Kick-off failed: ' + err.message, 'error');
+        console.error('Kickoff failed', err);
+        showToast((err && err.message) || 'Kickoff failed', 'error');
+        state.goalChatSessionKey = null;
+        setGoalChatLocked(true);
       }
     }
 
@@ -3102,6 +3303,9 @@
     async function deleteGoalTask(taskId) {
       const goal = state.goals.find(g => g.id === state.currentGoalOpenId);
       if (!goal) return;
+      const task = (goal.tasks || []).find(t => String(t.id) === String(taskId));
+      const label = task?.text || task?.description || taskId;
+      if (!confirm(`Delete task "${label}"?`)) return;
       const tasks = Array.isArray(goal.tasks) ? goal.tasks.filter(t => String(t.id) != String(taskId)) : [];
       await updateGoal(goal.id, { tasks });
     }
@@ -4822,6 +5026,8 @@ Response format:
       document.getElementById('recurringView').classList.remove('active');
       document.getElementById('goalView').classList.remove('active');
       document.getElementById('goalView').classList.remove('panel-mode');
+      document.getElementById('agentsHubView').classList.remove('active');
+      document.querySelectorAll('.ah-sidebar-link').forEach(function(el) { el.classList.remove('active'); });
       document.querySelector('.main-content').classList.remove('split-view');
       document.getElementById('mainTitle').textContent = 'Dashboard';
       document.getElementById('mainSubtitle').textContent = '';
@@ -4850,6 +5056,32 @@ Response format:
         return 'other';
       }
       return 'other';
+    }
+
+    function formatSchedule(schedule) {
+      if (!schedule) return '—';
+      if (schedule.kind === 'cron') {
+        const tz = schedule.tz ? ` (${schedule.tz})` : '';
+        return `${schedule.expr || 'cron'}${tz}`;
+      }
+      if (schedule.kind === 'every') {
+        const ms = Number(schedule.everyMs || 0);
+        if (!ms) return 'every (unknown)';
+        const s = Math.round(ms / 1000);
+        const m = Math.round(s / 60);
+        const h = Math.round(m / 60);
+        const d = Math.round(h / 24);
+        const every = d >= 1 && d * 86400 === s ? `${d}d`
+          : h >= 1 && h * 3600 === s ? `${h}h`
+          : m >= 1 && m * 60 === s ? `${m}m`
+          : `${s}s`;
+        return `every ${every}`;
+      }
+      if (schedule.kind === 'at') {
+        const at = Number(schedule.atMs || 0);
+        return at ? `at ${new Date(at).toLocaleString()}` : 'at (unknown)';
+      }
+      return schedule.kind || '—';
     }
 
     async function renderRecurringSection() {
@@ -4938,6 +5170,8 @@ Response format:
       document.getElementById('searchView').classList.remove('active');
       document.getElementById('goalView').classList.remove('active');
       document.getElementById('goalView').classList.remove('panel-mode');
+      document.getElementById('agentsHubView').classList.remove('active');
+      document.querySelectorAll('.ah-sidebar-link').forEach(function(el) { el.classList.remove('active'); });
       document.getElementById('recurringView').classList.add('active');
       document.querySelector('.main-content').classList.remove('split-view');
       document.getElementById('mainTitle').textContent = 'Recurring Tasks';
@@ -4948,6 +5182,249 @@ Response format:
       renderRecurringSection();
       updateMobileHeader();
       closeSidebar();
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // AGENTS HUB
+    // ═══════════════════════════════════════════════════════════════
+
+    const ahState = { selectedAgentId: null, activeTab: 'sessions', filter: '' };
+
+    function showAgentsHubView(opts) {
+      if (!(opts && opts.fromRouter)) {
+        navigateTo('agents-hub' + (opts && opts.agentId ? '/' + encodeURIComponent(opts.agentId) : ''));
+        return;
+      }
+      state.currentView = 'agents-hub';
+      state.currentSession = null;
+      state.goalPanelOpen = false;
+      state.currentGoalOpenId = null;
+      closeDetailPanel({ fromRouter: true });
+
+      // Hide other views
+      ['overviewView','chatView','searchView','goalView','recurringView'].forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el) { el.classList.remove('active'); el.classList.remove('panel-mode'); }
+      });
+      document.querySelector('.main-content').classList.remove('split-view');
+      document.getElementById('agentsHubView').classList.add('active');
+      document.getElementById('mainTitle').textContent = 'Agents Hub';
+      document.getElementById('mainSubtitle').textContent = '';
+      document.getElementById('headerAction').style.display = 'none';
+      document.getElementById('headerStatusIndicator').style.display = 'none';
+
+      // Mark sidebar link active
+      document.querySelectorAll('.ah-sidebar-link').forEach(function(el) { el.classList.remove('active'); });
+      var sl = document.getElementById('ahSidebarLink');
+      if (sl) sl.classList.add('active');
+
+      ahRenderList();
+      if (opts && opts.agentId) {
+        ahSelectAgent(opts.agentId);
+      } else if (!ahState.selectedAgentId && state.agents && state.agents.length > 0) {
+        ahSelectAgent(state.agents[0].id);
+      } else if (ahState.selectedAgentId) {
+        ahSelectAgent(ahState.selectedAgentId);
+      }
+
+      updateMobileHeader();
+      closeSidebar();
+    }
+
+    function ahFilterAgents(val) {
+      ahState.filter = (val || '').toLowerCase();
+      ahRenderList();
+    }
+
+    function ahRenderList() {
+      var container = document.getElementById('ahAgentList');
+      if (!container) return;
+      var agents = state.agents || [];
+      var filter = ahState.filter;
+      if (filter) agents = agents.filter(function(a) {
+        var name = (a.identity && a.identity.name) || a.name || a.id;
+        return name.toLowerCase().includes(filter) || a.id.toLowerCase().includes(filter);
+      });
+      if (agents.length === 0) {
+        container.innerHTML = '<div class="ah-empty">No agents' + (filter ? ' matching "'+escapeHtml(filter)+'"' : '') + '</div>';
+        return;
+      }
+      // Count sessions per agent
+      var sessionCounts = {};
+      (state.sessions || []).forEach(function(s) {
+        var m = s.key.match(/^agent:([^:]+):/);
+        if (m) { sessionCounts[m[1]] = (sessionCounts[m[1]] || 0) + 1; }
+      });
+      // Check which agents are "active" (have a running session)
+      var activeAgents = new Set();
+      (state.sessions || []).forEach(function(s) {
+        if (s.status === 'running' || s.status === 'active' || s.hasActiveRun) {
+          var m = s.key.match(/^agent:([^:]+):/);
+          if (m) activeAgents.add(m[1]);
+        }
+      });
+
+      container.innerHTML = agents.map(function(a) {
+        var emoji = (a.identity && a.identity.emoji) || '🤖';
+        var name = (a.identity && a.identity.name) || a.name || a.id;
+        var model = a.model ? a.model.replace(/^anthropic\/|^openai\/|^google-gemini-cli\//, '') : '';
+        var count = sessionCounts[a.id] || 0;
+        var isActive = activeAgents.has(a.id);
+        var isSelected = ahState.selectedAgentId === a.id;
+        return '<div class="ah-agent-row' + (isSelected ? ' active' : '') + '" onclick="ahSelectAgent(' + "'" + escapeHtml(a.id) + "'" + ')" data-agent-id="' + escapeHtml(a.id) + '">'
+          + '<span class="ah-agent-emoji">' + escapeHtml(emoji) + '</span>'
+          + '<div class="ah-agent-info">'
+          +   '<div class="ah-agent-name">' + escapeHtml(name) + '</div>'
+          +   (model ? '<div class="ah-agent-model">' + escapeHtml(model) + '</div>' : '')
+          + '</div>'
+          + (isActive ? '<span class="ah-active-dot" title="Active"></span>' : '')
+          + '<span class="ah-agent-badge' + (count === 0 ? ' zero' : '') + '">' + count + '</span>'
+          + '</div>';
+      }).join('');
+    }
+
+    function ahSelectAgent(agentId) {
+      ahState.selectedAgentId = agentId;
+      // Update rail selection
+      document.querySelectorAll('#ahAgentList .ah-agent-row').forEach(function(el) {
+        el.classList.toggle('active', el.dataset.agentId === agentId);
+      });
+      ahRenderDetail(agentId);
+    }
+
+    function ahRenderDetail(agentId) {
+      var agent = (state.agents || []).find(function(a) { return a.id === agentId; });
+      if (!agent) return;
+      var detail = document.getElementById('ahDetail');
+      if (!detail) return;
+      var emoji = (agent.identity && agent.identity.emoji) || '🤖';
+      var name = (agent.identity && agent.identity.name) || agent.name || agent.id;
+      var model = agent.model ? agent.model.replace(/^anthropic\/|^openai\/|^google-gemini-cli\//, '') : 'default';
+      var workspace = agent.workspace || '/home/albert/clawd';
+      var isDefault = agent.isDefault || false;
+
+      detail.innerHTML =
+        '<div class="ah-detail-header">'
+        + '<div class="ah-detail-emoji">' + escapeHtml(emoji) + '</div>'
+        + '<div class="ah-detail-title-wrap">'
+        +   '<div class="ah-detail-title">' + escapeHtml(name) + '</div>'
+        +   '<div class="ah-detail-meta">'
+        +     '<span style="color:var(--text-muted,#6b7280);">' + escapeHtml(agentId) + '</span>'
+        +     '<span class="ah-badge model">' + escapeHtml(model) + '</span>'
+        +     (isDefault ? '<span class="ah-badge default">default</span>' : '')
+        +   '</div>'
+        + '</div>'
+        + '<div class="ah-detail-actions">'
+        +   '<button class="ah-action-btn primary" onclick="ahStartSession(' + "'" + escapeHtml(agentId) + "'" + ')">＋ New Session</button>'
+        + '</div>'
+        + '</div>'
+        + '<div class="ah-tabs" id="ahTabs">'
+        +   '<div class="ah-tab' + (ahState.activeTab==='sessions'?' active':'') + '" onclick="ahSwitchTab(' + "'" + escapeHtml(agentId) + "'" + ",'sessions')\">" + 'Sessions</div>'
+        +   '<div class="ah-tab' + (ahState.activeTab==='about'?' active':'') + '" onclick="ahSwitchTab(' + "'" + escapeHtml(agentId) + "'" + ",'about')\">" + 'About</div>'
+        + '</div>'
+        + '<div class="ah-tab-content" id="ahTabContent"></div>';
+
+      ahRenderActiveTab(agentId, workspace, model);
+    }
+
+    function ahSwitchTab(agentId, tab) {
+      ahState.activeTab = tab;
+      document.querySelectorAll('#ahTabs .ah-tab').forEach(function(el) {
+        el.classList.toggle('active', el.textContent.trim().toLowerCase() === tab);
+      });
+      var agent = (state.agents || []).find(function(a) { return a.id === agentId; });
+      var workspace = agent ? (agent.workspace || '/home/albert/clawd') : '/home/albert/clawd';
+      var model = agent && agent.model ? agent.model.replace(/^anthropic\/|^openai\/|^google-gemini-cli\//, '') : 'default';
+      ahRenderActiveTab(agentId, workspace, model);
+    }
+
+    function ahRenderActiveTab(agentId, workspace, model) {
+      var content = document.getElementById('ahTabContent');
+      if (!content) return;
+      if (ahState.activeTab === 'sessions') ahRenderSessions(agentId, content);
+      else ahRenderAbout(agentId, workspace, model, content);
+    }
+
+    function ahRenderSessions(agentId, container) {
+      var sessions = (state.sessions || []).filter(function(s) { return s.key.startsWith('agent:' + agentId + ':'); });
+      sessions.sort(function(a,b) { return (b.updatedAt||0)-(a.updatedAt||0); });
+      if (sessions.length === 0) {
+        container.innerHTML = '<div class="ah-empty">No sessions yet. Start one with ＋ New Session.</div>';
+        return;
+      }
+      var now = Date.now();
+      function fmtAge(ts) {
+        if (!ts) return '';
+        var diff = Math.floor((now - ts) / 1000);
+        if (diff < 60) return diff + 's ago';
+        if (diff < 3600) return Math.floor(diff/60) + 'm ago';
+        if (diff < 86400) return Math.floor(diff/3600) + 'h ago';
+        return Math.floor(diff/86400) + 'd ago';
+      }
+      container.innerHTML = sessions.map(function(s) {
+        var label = s.label || s.displayName || s.key.split(':').slice(-2).join(':');
+        var age = fmtAge(s.updatedAt || s.createdAt);
+        var isActive = s.status === 'running' || s.status === 'active' || s.hasActiveRun;
+        var tokens = s.totalTokens ? (s.totalTokens >= 1000 ? Math.round(s.totalTokens/1000)+'k' : s.totalTokens) + ' tok' : '';
+        var m = s.model ? s.model.replace(/^anthropic\/|^openai\/|^google-gemini-cli\//, '') : '';
+        return '<div class="ah-session-card" onclick="openSession(' + "'" + escapeHtml(s.key) + "'" + ')">'
+          + '<div class="ah-session-card-top">'
+          +   '<span class="ah-session-status ' + (isActive?'active':'idle') + '"></span>'
+          +   '<span class="ah-session-label">' + escapeHtml(label) + '</span>'
+          +   '<span class="ah-session-age">' + age + '</span>'
+          + '</div>'
+          + '<div class="ah-session-meta">'
+          +   (tokens ? '<span>' + escapeHtml(tokens) + '</span>' : '')
+          +   (m ? '<span>' + escapeHtml(m) + '</span>' : '')
+          +   (s.isSubagent ? '<span>subagent</span>' : '')
+          + '</div>'
+          + '</div>';
+      }).join('');
+    }
+
+    async function ahRenderAbout(agentId, workspace, model, container) {
+      var agent = (state.agents || []).find(function(a) { return a.id === agentId; });
+      var emoji = (agent && agent.identity && agent.identity.emoji) || '🤖';
+      var name = (agent && agent.identity && agent.identity.name) || (agent && agent.name) || agentId;
+
+      // Count sessions
+      var sessionCount = (state.sessions || []).filter(function(s) { return s.key.startsWith('agent:' + agentId + ':'); }).length;
+
+      container.innerHTML =
+        '<div class="ah-about-grid">'
+        + '<div class="ah-about-card"><div class="ah-about-card-label">Agent ID</div><div class="ah-about-card-value">' + escapeHtml(agentId) + '</div></div>'
+        + '<div class="ah-about-card"><div class="ah-about-card-label">Model</div><div class="ah-about-card-value">' + escapeHtml(model) + '</div></div>'
+        + '<div class="ah-about-card"><div class="ah-about-card-label">Workspace</div><div class="ah-about-card-value">' + escapeHtml(workspace) + '</div></div>'
+        + '<div class="ah-about-card"><div class="ah-about-card-label">Sessions</div><div class="ah-about-card-value">' + sessionCount + '</div></div>'
+        + '</div>'
+        + '<div class="ah-soul-block" id="ahSoulBlock"><div class="ah-soul-content" style="color:var(--text-dim);">Loading SOUL.md…</div></div>';
+
+      // Fetch SOUL.md
+      try {
+        var resp = await fetch('/api/agents/file?agentId=' + encodeURIComponent(agentId) + '&path=SOUL.md');
+        var data = await resp.json();
+        var soulBlock = document.getElementById('ahSoulBlock');
+        if (!soulBlock) return;
+        if (data.ok && data.content) {
+          soulBlock.innerHTML = '<h3>SOUL.md</h3><div class="ah-soul-content">' + escapeHtml(data.content) + '</div>';
+        } else {
+          // Try AGENTS.md or README.md as fallback
+          var fallbackResp = await fetch('/api/agents/file?agentId=' + encodeURIComponent(agentId) + '&path=AGENTS.md');
+          var fallbackData = await fallbackResp.json();
+          if (fallbackData.ok && fallbackData.content) {
+            soulBlock.innerHTML = '<h3>AGENTS.md</h3><div class="ah-soul-content">' + escapeHtml(fallbackData.content) + '</div>';
+          } else {
+            soulBlock.innerHTML = '<h3>Soul / README</h3><div class="ah-soul-content" style="color:var(--text-muted);">No SOUL.md or AGENTS.md found for this agent.</div>';
+          }
+        }
+      } catch(err) {
+        var soulBlock2 = document.getElementById('ahSoulBlock');
+        if (soulBlock2) soulBlock2.innerHTML = '<h3>Soul</h3><div class="ah-soul-content" style="color:var(--text-muted);">Error: ' + escapeHtml(err.message) + '</div>';
+      }
+    }
+
+    function ahStartSession(agentId) {
+      startNewSession(agentId);
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -5085,6 +5562,8 @@ Response format:
       
       document.getElementById('overviewView').classList.remove('active');
       document.getElementById('searchView').classList.remove('active');
+      document.getElementById('agentsHubView').classList.remove('active');
+      document.querySelectorAll('.ah-sidebar-link').forEach(function(el) { el.classList.remove('active'); });
       document.getElementById('chatView').classList.add('active');
       document.getElementById('mainTitle').textContent = getSessionName(session);
       document.getElementById('mainSubtitle').textContent = session.key;
@@ -7276,6 +7755,10 @@ Response format:
         case 'recurring':
           closeDetailPanel({ fromRouter: true });
           showRecurringView({ fromRouter: true });
+          break;
+        case 'agents-hub':
+          closeDetailPanel({ fromRouter: true });
+          showAgentsHubView({ fromRouter: true, agentId: payload || null });
           break;
         case 'dashboard':
         default:

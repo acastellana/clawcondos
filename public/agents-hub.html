@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <title>Agents Hub — ClawCondos</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="/app.css">
+  <style>
+    /* ─── LAYOUT ─────────────────────────────────────────────────── */
+    body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; background: var(--bg); color: var(--text); font-family: var(--font-sans); }
+
+    .ah-topbar {
+      display: flex; align-items: center; gap: 12px;
+      padding: 0 20px; height: 52px; min-height: 52px;
+      background: var(--bg-elevated); border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .ah-topbar a { color: var(--text-dim); font-size: 13px; text-decoration: none; display: flex; align-items: center; gap: 6px; }
+    .ah-topbar a:hover { color: var(--text); }
+    .ah-topbar-title { font-size: 15px; font-weight: 600; color: var(--text); }
+    .ah-topbar-sep { color: var(--border); }
+    .ah-topbar-meta { font-size: 12px; color: var(--text-dim); margin-left: auto; }
+    .ah-topbar-refresh { background: none; border: 1px solid var(--border); color: var(--text-dim); border-radius: var(--radius-sm); padding: 4px 10px; font-size: 12px; cursor: pointer; transition: var(--transition-fast); }
+    .ah-topbar-refresh:hover { border-color: var(--border-hover); color: var(--text); }
+
+    .ah-body { display: flex; flex: 1; overflow: hidden; }
+
+    /* ─── LEFT RAIL ──────────────────────────────────────────────── */
+    .ah-rail {
+      width: 260px; min-width: 260px;
+      background: var(--bg-elevated); border-right: 1px solid var(--border);
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+    .ah-rail-header {
+      padding: 12px 14px 10px;
+      border-bottom: 1px solid var(--border-subtle);
+      flex-shrink: 0;
+    }
+    .ah-rail-search {
+      width: 100%; background: var(--bg-input); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); color: var(--text); font-family: var(--font-sans);
+      font-size: 13px; padding: 6px 10px; outline: none;
+      transition: var(--transition-fast);
+    }
+    .ah-rail-search:focus { border-color: var(--accent); }
+    .ah-rail-search::placeholder { color: var(--text-muted); }
+    .ah-agent-list { flex: 1; overflow-y: auto; padding: 6px 0; }
+
+    .ah-agent-card {
+      display: flex; align-items: center; gap: 10px;
+      padding: 9px 14px; cursor: pointer;
+      transition: background var(--transition-fast);
+      border-left: 2px solid transparent;
+    }
+    .ah-agent-card:hover { background: var(--bg-hover); }
+    .ah-agent-card.active {
+      background: var(--bg-active);
+      border-left-color: var(--accent);
+    }
+    .ah-agent-emoji { font-size: 20px; width: 28px; text-align: center; flex-shrink: 0; }
+    .ah-agent-info { flex: 1; min-width: 0; }
+    .ah-agent-name { font-size: 13px; font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .ah-agent-model { font-size: 11px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .ah-agent-badge {
+      display: flex; gap: 4px; flex-shrink: 0;
+    }
+    .ah-badge {
+      font-size: 10px; font-weight: 600; padding: 2px 5px; border-radius: 9px;
+      background: var(--bg-card); border: 1px solid var(--border);
+      color: var(--text-dim);
+    }
+    .ah-badge.active-dot { background: var(--green-dim); border-color: var(--green); color: var(--green); }
+    .ah-badge.sessions { background: var(--accent-muted); border-color: var(--accent); color: var(--accent); }
+
+    /* ─── MAIN CONTENT ───────────────────────────────────────────── */
+    .ah-main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+    .ah-empty {
+      flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+      color: var(--text-dim); gap: 10px; font-size: 14px;
+    }
+    .ah-empty-icon { font-size: 48px; opacity: 0.3; }
+
+    /* ─── AGENT DETAIL ───────────────────────────────────────────── */
+    .ah-detail { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
+
+    .ah-detail-header {
+      padding: 20px 24px 16px;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg-elevated);
+      flex-shrink: 0;
+    }
+    .ah-detail-header-top { display: flex; align-items: flex-start; gap: 16px; }
+    .ah-detail-avatar { font-size: 40px; line-height: 1; }
+    .ah-detail-header-info { flex: 1; min-width: 0; }
+    .ah-detail-name { font-size: 20px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+    .ah-detail-id { font-size: 12px; color: var(--text-muted); font-family: var(--font-mono); margin-bottom: 10px; }
+    .ah-detail-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+    .ah-tag {
+      font-size: 11px; font-weight: 500; padding: 3px 8px; border-radius: var(--radius-sm);
+      border: 1px solid var(--border); color: var(--text-secondary); background: var(--bg-card);
+    }
+    .ah-tag.model { border-color: var(--accent); color: var(--accent); background: var(--accent-muted); }
+    .ah-tag.provider-anthropic { border-color: #d97706; color: #d97706; background: rgba(217,119,6,.12); }
+    .ah-tag.provider-openai { border-color: #10b981; color: #10b981; background: rgba(16,185,129,.12); }
+    .ah-tag.provider-google { border-color: var(--purple); color: var(--purple); background: var(--purple-dim); }
+    .ah-tag.default { border-color: var(--green); color: var(--green); background: var(--green-dim); }
+
+    .ah-detail-stats {
+      display: flex; gap: 20px; margin-top: 14px; padding-top: 14px;
+      border-top: 1px solid var(--border-subtle);
+    }
+    .ah-stat { display: flex; flex-direction: column; gap: 2px; }
+    .ah-stat-val { font-size: 18px; font-weight: 700; color: var(--text); }
+    .ah-stat-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+
+    /* ─── TABS ────────────────────────────────────────────────────── */
+    .ah-tabs { display: flex; border-bottom: 1px solid var(--border); background: var(--bg-elevated); flex-shrink: 0; padding: 0 24px; }
+    .ah-tab {
+      padding: 10px 16px; font-size: 13px; font-weight: 500; cursor: pointer;
+      border-bottom: 2px solid transparent; color: var(--text-dim);
+      transition: var(--transition-fast); margin-bottom: -1px;
+    }
+    .ah-tab:hover { color: var(--text); }
+    .ah-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+    .ah-tab-count { font-size: 11px; font-weight: 600; padding: 1px 5px; border-radius: 9px; background: var(--bg-input); margin-left: 4px; color: var(--text-dim); }
+
+    /* ─── TAB CONTENT ─────────────────────────────────────────────── */
+    .ah-tab-body { flex: 1; overflow-y: auto; background: var(--bg); }
+    .ah-tab-pane { display: none; padding: 20px 24px; }
+    .ah-tab-pane.active { display: block; }
+
+    /* ─── SESSION CARDS ───────────────────────────────────────────── */
+    .ah-sessions-grid { display: flex; flex-direction: column; gap: 6px; }
+    .ah-session-card {
+      display: flex; align-items: center; gap: 12px;
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius-md); padding: 10px 14px;
+      cursor: pointer; transition: var(--transition-fast);
+    }
+    .ah-session-card:hover { border-color: var(--border-hover); background: var(--bg-hover); }
+    .ah-session-card.has-active { border-color: var(--green); }
+    .ah-session-icon { font-size: 16px; flex-shrink: 0; }
+    .ah-session-info { flex: 1; min-width: 0; }
+    .ah-session-name { font-size: 13px; font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .ah-session-meta { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+    .ah-session-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+    .ah-session-tokens { font-size: 11px; color: var(--text-dim); font-family: var(--font-mono); }
+    .ah-session-kind { font-size: 10px; padding: 1px 6px; border-radius: 9px; background: var(--bg-input); border: 1px solid var(--border); color: var(--text-muted); }
+    .ah-active-pulse { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--green); margin-right: 4px; animation: pulse 1.5s ease-in-out infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+    /* ─── ABOUT / MEMORY ─────────────────────────────────────────── */
+    .ah-soul { font-size: 13px; line-height: 1.7; color: var(--text-secondary); }
+    .ah-soul h1,.ah-soul h2,.ah-soul h3 { color: var(--text); font-weight: 600; margin: 16px 0 6px; font-size: 14px; }
+    .ah-soul h1 { font-size: 16px; }
+    .ah-soul p { margin-bottom: 10px; }
+    .ah-soul ul,.ah-soul ol { padding-left: 18px; margin-bottom: 10px; }
+    .ah-soul li { margin-bottom: 4px; }
+    .ah-soul code { font-family: var(--font-mono); font-size: 12px; background: var(--bg-card); padding: 1px 5px; border-radius: 3px; color: var(--accent); }
+    .ah-soul pre { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px; overflow-x: auto; margin-bottom: 10px; }
+    .ah-soul strong { color: var(--text); font-weight: 600; }
+    .ah-soul hr { border: none; border-top: 1px solid var(--border-subtle); margin: 16px 0; }
+
+    .ah-memory-list { display: flex; flex-direction: column; gap: 4px; }
+    .ah-memory-item {
+      display: flex; align-items: center; gap: 10px;
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); padding: 8px 12px; cursor: pointer;
+      transition: var(--transition-fast);
+    }
+    .ah-memory-item:hover { border-color: var(--border-hover); background: var(--bg-hover); }
+    .ah-memory-item-icon { font-size: 14px; flex-shrink: 0; color: var(--text-dim); }
+    .ah-memory-item-name { font-size: 13px; color: var(--text); flex: 1; font-family: var(--font-mono); }
+    .ah-memory-item-size { font-size: 11px; color: var(--text-muted); }
+    .ah-memory-viewer {
+      margin-top: 12px; background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius-md); overflow: hidden;
+    }
+    .ah-memory-viewer-header { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; border-bottom: 1px solid var(--border); }
+    .ah-memory-viewer-title { font-size: 12px; font-family: var(--font-mono); color: var(--text-dim); }
+    .ah-memory-viewer-close { background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: 16px; padding: 0 4px; }
+    .ah-memory-viewer-close:hover { color: var(--text); }
+    .ah-memory-viewer-body { padding: 12px; max-height: 380px; overflow-y: auto; }
+    .ah-memory-viewer-body pre { font-family: var(--font-mono); font-size: 12px; color: var(--text-secondary); white-space: pre-wrap; word-break: break-word; }
+
+    /* ─── ORG SECTION ─────────────────────────────────────────────── */
+    .ah-org-tree { display: flex; flex-direction: column; gap: 4px; padding: 0; }
+    .ah-org-node {
+      display: flex; align-items: center; gap: 8px;
+      padding: 6px 10px; border-radius: var(--radius-sm);
+      background: var(--bg-card); border: 1px solid var(--border);
+      cursor: pointer; transition: var(--transition-fast); font-size: 13px;
+    }
+    .ah-org-node:hover { border-color: var(--border-hover); background: var(--bg-hover); }
+    .ah-org-node.selected { border-color: var(--accent); background: var(--accent-muted); }
+    .ah-org-indent { color: var(--text-muted); font-size: 11px; font-family: var(--font-mono); }
+
+    /* ─── LOADING / EMPTY ─────────────────────────────────────────── */
+    .ah-loading { color: var(--text-muted); font-size: 13px; padding: 24px; text-align: center; }
+    .ah-error { color: var(--red); font-size: 13px; padding: 16px; background: var(--red-dim); border-radius: var(--radius-sm); margin-bottom: 12px; }
+    .ah-section-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 10px; }
+    .ah-divider { border: none; border-top: 1px solid var(--border-subtle); margin: 20px 0; }
+  </style>
+</head>
+<body>
+
+<!-- ─── TOP BAR ─────────────────────────────────────────────────── -->
+<div class="ah-topbar">
+  <a href="/">← ClawCondos</a>
+  <span class="ah-topbar-sep">│</span>
+  <span class="ah-topbar-title">🤖 Agents Hub</span>
+  <span class="ah-topbar-meta" id="topbarMeta">Connecting…</span>
+  <button class="ah-topbar-refresh" onclick="refresh()">↻ Refresh</button>
+</div>
+
+<!-- ─── BODY ─────────────────────────────────────────────────────── -->
+<div class="ah-body">
+
+  <!-- Left rail: agent list -->
+  <div class="ah-rail">
+    <div class="ah-rail-header">
+      <input class="ah-rail-search" id="agentSearch" placeholder="Search agents…" oninput="filterAgents(this.value)">
+    </div>
+    <div class="ah-agent-list" id="agentList">
+      <div class="ah-loading">Loading agents…</div>
+    </div>
+  </div>
+
+  <!-- Main content -->
+  <div class="ah-main" id="ahMain">
+    <div class="ah-empty" id="ahEmpty">
+      <div class="ah-empty-icon">🤖</div>
+      <div>Select an agent to inspect</div>
+    </div>
+    <!-- Detail panel (hidden until agent selected) -->
+    <div class="ah-detail" id="ahDetail" style="display:none;">
+      <!-- Header -->
+      <div class="ah-detail-header" id="detailHeader"></div>
+      <!-- Tabs -->
+      <div class="ah-tabs" id="detailTabs"></div>
+      <!-- Content -->
+      <div class="ah-tab-body" id="detailTabBody"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ───────────────────────────────────────────────────────────────────
+   STATE
+─────────────────────────────────────────────────────────────────── */
+const state = {
+  agents: [],         // enriched agent objects
+  sessions: [],       // all sessions from gateway
+  activeRuns: [],     // active run keys
+  selectedAgent: null,
+  activeTab: 'sessions',
+  ws: null,
+  wsReady: false,
+  searchQuery: '',
+};
+
+/* Agent identity metadata hardcoded per known agent */
+const AGENT_META = {
+  main:               { emoji: '🤖', role: 'Orchestrator', tier: 0 },
+  'app-assistant':    { emoji: '🛠️', role: 'App Dev', tier: 1 },
+  codex:              { emoji: '🧑‍💻', role: 'Architecture / Review', tier: 1 },
+  claude:             { emoji: '⚡', role: 'Implementation', tier: 1 },
+  caffeine:           { emoji: '☕', role: 'Caffeine Ops', tier: 1 },
+  librarian:          { emoji: '📚', role: 'Knowledge / Docs', tier: 1 },
+  'genlayer-scout':   { emoji: '🔭', role: 'GenLayer Scout', tier: 1 },
+  'shill-scout':      { emoji: '📡', role: 'Community Radar', tier: 1 },
+  'qa-verifier':      { emoji: '🔍', role: 'QA / Verification', tier: 1 },
+  'memory-steward':   { emoji: '🧠', role: 'Memory & Context', tier: 1 },
+  'experiment-analyst': { emoji: '🧪', role: 'Experiments', tier: 1 },
+  'fixer-debugger':   { emoji: '🔧', role: 'Debug & Fix', tier: 1 },
+  gatsby:             { emoji: '🎭', role: 'Creative', tier: 1 },
+  'claude-coder':     { emoji: '💡', role: 'Coding Agent', tier: 2 },
+  'codex-coder':      { emoji: '🧩', role: 'Coding Agent', tier: 2 },
+  'openclaw-librarian': { emoji: '🗂️', role: 'OpenClaw Docs', tier: 1 },
+};
+
+function getMeta(id) {
+  return AGENT_META[id] || { emoji: '🤖', role: 'Agent', tier: 1 };
+}
+
+/* ───────────────────────────────────────────────────────────────────
+   WS CONNECT
+─────────────────────────────────────────────────────────────────── */
+function getToken() {
+  // Same logic as main app: Tailscale auto-token, else localStorage
+  if (location.port === '9000' || location.hostname.endsWith('.ts.net')) {
+    return 'grHNTjGAq1hFVI6CtuHpTiy1_nFNXF87tAYNtFpjS-0';
+  }
+  return localStorage.getItem('sharp_token') || '';
+}
+
+function connectWs() {
+  const wsUrl = `ws://${location.host}/ws`;
+  const ws = new WebSocket(wsUrl);
+  state.ws = ws;
+
+  ws.addEventListener('message', (ev) => {
+    let msg;
+    try { msg = JSON.parse(ev.data); } catch { return; }
+    handleWsMsg(msg);
+  });
+  ws.addEventListener('close', () => {
+    state.wsReady = false;
+    setMeta('Disconnected — reconnecting…');
+    setTimeout(connectWs, 3000);
+  });
+  ws.addEventListener('error', () => {});
+}
+
+let _wsIdSeq = 0;
+function wsReq(method, params) {
+  return new Promise((resolve, reject) => {
+    if (!state.ws || state.ws.readyState !== WebSocket.OPEN) return reject(new Error('WS not open'));
+    const id = `ah${++_wsIdSeq}`;
+    const onMsg = (ev) => {
+      let msg; try { msg = JSON.parse(ev.data); } catch { return; }
+      if (msg.id === id) {
+        state.ws.removeEventListener('message', onMsg);
+        if (msg.ok || msg.ok === undefined) resolve(msg.result ?? msg.payload ?? msg);
+        else reject(new Error(msg.error?.message || 'RPC error'));
+      }
+    };
+    state.ws.addEventListener('message', onMsg);
+    state.ws.send(JSON.stringify({ type: 'req', id, method, params: params || {} }));
+    setTimeout(() => { state.ws.removeEventListener('message', onMsg); reject(new Error('timeout')); }, 10000);
+  });
+}
+
+let _pendingConnect = null;
+function handleWsMsg(msg) {
+  if (msg.type === 'event' && msg.event === 'connect.challenge') {
+    const token = getToken();
+    state.ws.send(JSON.stringify({ type: 'req', id: 'ah_auth', method: 'connect', params: {
+      minProtocol: 3, maxProtocol: 3,
+      client: { id: 'webchat-ui', mode: 'ui', version: '1.0.0', platform: 'web' },
+      auth: token ? { token } : {}
+    }}));
+  }
+  if (msg.type === 'res' && msg.id === 'ah_auth') {
+    if (msg.ok) {
+      state.wsReady = true;
+      loadAll();
+    } else {
+      // Prompt for token
+      const t = prompt('Gateway token required:');
+      if (t) { localStorage.setItem('sharp_token', t.trim()); location.reload(); }
+    }
+  }
+  // Live agent event → update active runs
+  if (msg.type === 'event' && msg.event === 'agent') {
+    const sk = msg.payload?.sessionKey;
+    const phase = msg.payload?.data?.phase;
+    if (sk) {
+      if (phase === 'start') { if (!state.activeRuns.includes(sk)) state.activeRuns.push(sk); }
+      else if (phase === 'end') { state.activeRuns = state.activeRuns.filter(k => k !== sk); }
+      // Re-render rail badge for affected agent
+      const agentId = sk.split(':')[1];
+      if (agentId) rerenderRailCard(agentId);
+      if (state.selectedAgent === agentId && state.activeTab === 'sessions') renderSessionsTab(agentId);
+    }
+  }
+}
+
+/* ───────────────────────────────────────────────────────────────────
+   DATA LOAD
+─────────────────────────────────────────────────────────────────── */
+async function loadAll() {
+  setMeta('Loading…');
+  try {
+    const [agentsRes, sessionsRes, runsRes] = await Promise.allSettled([
+      wsReq('agents.list', {}),
+      wsReq('sessions.list', { limit: 500 }),
+      wsReq('chat.activeRuns', {}),
+    ]);
+
+    if (agentsRes.status === 'fulfilled') {
+      const raw = agentsRes.value?.agents || [];
+      state.agents = raw.map(a => ({
+        ...a,
+        ...getMeta(a.id),
+        name: a.name || a.identity?.name || a.id,
+      })).sort((a, b) => (a.tier - b.tier) || a.name.localeCompare(b.name));
+    }
+    if (sessionsRes.status === 'fulfilled') {
+      state.sessions = sessionsRes.value?.sessions || [];
+    }
+    if (runsRes.status === 'fulfilled') {
+      state.activeRuns = (runsRes.value?.activeRuns || []).map(r => r.sessionKey);
+    }
+
+    renderRail();
+    setMeta(`${state.agents.length} agents · ${state.sessions.length} sessions`);
+
+    if (state.selectedAgent) selectAgent(state.selectedAgent);
+  } catch (err) {
+    setMeta('Error: ' + err.message);
+  }
+}
+
+function setMeta(txt) {
+  document.getElementById('topbarMeta').textContent = txt;
+}
+
+function refresh() { loadAll(); }
+
+/* ───────────────────────────────────────────────────────────────────
+   RAIL RENDER
+─────────────────────────────────────────────────────────────────── */
+function agentSessions(agentId) {
+  return state.sessions.filter(s => {
+    const key = s.key || '';
+    return key === `agent:${agentId}` || key.startsWith(`agent:${agentId}:`);
+  });
+}
+
+function agentActiveRuns(agentId) {
+  return state.activeRuns.filter(k => k === `agent:${agentId}` || k.startsWith(`agent:${agentId}:`));
+}
+
+function renderRail() {
+  const q = state.searchQuery.toLowerCase();
+  const list = document.getElementById('agentList');
+  const visible = state.agents.filter(a => !q || a.name.toLowerCase().includes(q) || a.id.toLowerCase().includes(q));
+
+  if (!visible.length) {
+    list.innerHTML = '<div class="ah-loading">No agents found</div>';
+    return;
+  }
+
+  // Group by tier
+  let html = '';
+  let lastTier = -1;
+  for (const a of visible) {
+    if (a.tier !== lastTier) {
+      lastTier = a.tier;
+      const label = a.tier === 0 ? 'Orchestrator' : a.tier === 1 ? 'Specialists' : 'Workers';
+      if (html) html += '<div style="height:4px"></div>';
+      html += `<div style="padding:8px 14px 4px; font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.06em; color:var(--text-muted)">${label}</div>`;
+    }
+    html += renderAgentCard(a);
+  }
+  list.innerHTML = html;
+}
+
+function renderAgentCard(a) {
+  const sessions = agentSessions(a.id);
+  const runs = agentActiveRuns(a.id);
+  const isActive = state.selectedAgent === a.id;
+  const modelShort = shortModel(a.model || '');
+  return `<div class="ah-agent-card${isActive ? ' active' : ''}" onclick="selectAgent('${esc(a.id)}')">
+    <div class="ah-agent-emoji">${a.emoji}</div>
+    <div class="ah-agent-info">
+      <div class="ah-agent-name">${esc(a.name || a.id)}</div>
+      <div class="ah-agent-model">${esc(a.role)}${modelShort ? ' · ' + esc(modelShort) : ''}</div>
+    </div>
+    <div class="ah-agent-badge">
+      ${runs.length ? `<span class="ah-badge active-dot" title="${runs.length} active">▶</span>` : ''}
+      ${sessions.length ? `<span class="ah-badge sessions" title="${sessions.length} sessions">${sessions.length}</span>` : ''}
+    </div>
+  </div>`;
+}
+
+function rerenderRailCard(agentId) {
+  const agent = state.agents.find(a => a.id === agentId);
+  if (!agent) return;
+  const allCards = document.querySelectorAll('.ah-agent-card');
+  // find by onclick attr
+  for (const el of allCards) {
+    if (el.getAttribute('onclick') === `selectAgent('${agentId}')`) {
+      el.outerHTML = renderAgentCard(agent);
+      break;
+    }
+  }
+}
+
+function filterAgents(q) {
+  state.searchQuery = q;
+  renderRail();
+}
+
+/* ───────────────────────────────────────────────────────────────────
+   AGENT DETAIL
+─────────────────────────────────────────────────────────────────── */
+async function selectAgent(agentId) {
+  state.selectedAgent = agentId;
+  // Mark active in rail
+  document.querySelectorAll('.ah-agent-card').forEach(el => {
+    el.classList.toggle('active', el.getAttribute('onclick') === `selectAgent('${agentId}')`);
+  });
+
+  const agent = state.agents.find(a => a.id === agentId);
+  if (!agent) return;
+
+  document.getElementById('ahEmpty').style.display = 'none';
+  document.getElementById('ahDetail').style.display = 'flex';
+
+  renderDetailHeader(agent);
+  renderDetailTabs(agent);
+  showTab(state.activeTab, agent);
+}
+
+function renderDetailHeader(agent) {
+  const sessions = agentSessions(agent.id);
+  const runs = agentActiveRuns(agent.id);
+  const lastActive = sessions.reduce((max, s) => Math.max(max, s.updatedAt || 0), 0);
+  const totalTokens = sessions.reduce((sum, s) => sum + (s.totalTokens || 0), 0);
+  const modelFull = agent.model || '';
+  const provider = modelFull.includes('anthropic') ? 'anthropic' : modelFull.includes('openai') ? 'openai' : modelFull.includes('google') || modelFull.includes('gemini') ? 'google' : '';
+
+  document.getElementById('detailHeader').innerHTML = `
+    <div class="ah-detail-header-top">
+      <div class="ah-detail-avatar">${agent.emoji}</div>
+      <div class="ah-detail-header-info">
+        <div class="ah-detail-name">${esc(agent.name || agent.id)}</div>
+        <div class="ah-detail-id">${esc(agent.id)}</div>
+        <div class="ah-detail-tags">
+          ${agent.default ? `<span class="ah-tag default">default</span>` : ''}
+          ${agent.role ? `<span class="ah-tag">${esc(agent.role)}</span>` : ''}
+          ${modelFull ? `<span class="ah-tag model provider-${provider}">${esc(shortModel(modelFull))}</span>` : ''}
+          ${agent.workspace ? `<span class="ah-tag" title="${esc(agent.workspace)}">${esc(shortPath(agent.workspace))}</span>` : ''}
+        </div>
+        <div class="ah-detail-stats">
+          <div class="ah-stat">
+            <div class="ah-stat-val">${sessions.length}</div>
+            <div class="ah-stat-label">Sessions</div>
+          </div>
+          <div class="ah-stat">
+            <div class="ah-stat-val" style="${runs.length ? 'color:var(--green)' : ''}">${runs.length || '—'}</div>
+            <div class="ah-stat-label">Active</div>
+          </div>
+          <div class="ah-stat">
+            <div class="ah-stat-val">${totalTokens ? fmtTokens(totalTokens) : '—'}</div>
+            <div class="ah-stat-label">Total Tokens</div>
+          </div>
+          <div class="ah-stat">
+            <div class="ah-stat-val" style="font-size:13px">${lastActive ? relTime(lastActive) : '—'}</div>
+            <div class="ah-stat-label">Last Active</div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+}
+
+function renderDetailTabs(agent) {
+  const sessions = agentSessions(agent.id);
+  const tabs = [
+    { id: 'sessions', label: 'Sessions', count: sessions.length },
+    { id: 'about',    label: 'About',    count: 0 },
+    { id: 'memory',   label: 'Memory',   count: 0 },
+  ];
+  document.getElementById('detailTabs').innerHTML = tabs.map(t => `
+    <div class="ah-tab${state.activeTab === t.id ? ' active' : ''}" onclick="showTab('${t.id}', null)">
+      ${t.label}${t.count ? `<span class="ah-tab-count">${t.count}</span>` : ''}
+    </div>`).join('');
+
+  document.getElementById('detailTabBody').innerHTML = tabs.map(t =>
+    `<div class="ah-tab-pane${state.activeTab === t.id ? ' active' : ''}" id="pane_${t.id}"></div>`
+  ).join('');
+}
+
+async function showTab(tabId, agentOverride) {
+  const agent = agentOverride || state.agents.find(a => a.id === state.selectedAgent);
+  if (!agent) return;
+  state.activeTab = tabId;
+
+  // Update tab highlight
+  document.querySelectorAll('.ah-tab').forEach(el => {
+    el.classList.toggle('active', el.textContent.trim().toLowerCase().startsWith(tabId));
+  });
+  document.querySelectorAll('.ah-tab-pane').forEach(el => {
+    el.classList.toggle('active', el.id === `pane_${tabId}`);
+  });
+
+  const pane = document.getElementById(`pane_${tabId}`);
+  if (!pane) return;
+
+  if (tabId === 'sessions') renderSessionsTab(agent.id, pane);
+  if (tabId === 'about')    await renderAboutTab(agent, pane);
+  if (tabId === 'memory')   await renderMemoryTab(agent, pane);
+}
+
+/* ─── SESSIONS TAB ─────────────────────────────────────────────── */
+function renderSessionsTab(agentId, pane) {
+  pane = pane || document.getElementById('pane_sessions');
+  if (!pane) return;
+  const sessions = agentSessions(agentId)
+    .slice()
+    .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+
+  if (!sessions.length) {
+    pane.innerHTML = '<div class="ah-loading">No sessions found for this agent.</div>';
+    return;
+  }
+
+  const cards = sessions.map(s => {
+    const isActive = state.activeRuns.includes(s.key);
+    const kind = s.kind || kindFromKey(s.key);
+    const kindIcon = { direct: '💬', cron: '⏱', webchat: '🌐', subagent: '🔀', direct_subchat: '↩' }[kind] || '📄';
+    const name = s.displayName || s.label || s.key.split(':').slice(2).join(':') || s.key;
+    const tokens = s.totalTokens ? fmtTokens(s.totalTokens) : '';
+    const when = s.updatedAt ? relTime(s.updatedAt) : '';
+    const model = s.model ? `· ${shortModel(s.model)}` : '';
+    return `<div class="ah-session-card${isActive ? ' has-active' : ''}">
+      <div class="ah-session-icon">${isActive ? `<span class="ah-active-pulse"></span>` : kindIcon}</div>
+      <div class="ah-session-info">
+        <div class="ah-session-name" title="${esc(s.key)}">${esc(truncate(name, 64))}</div>
+        <div class="ah-session-meta">${esc(when)} ${esc(model)}</div>
+      </div>
+      <div class="ah-session-right">
+        ${tokens ? `<div class="ah-session-tokens">${esc(tokens)}</div>` : ''}
+        <div class="ah-session-kind">${esc(kind)}</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  pane.innerHTML = `<div class="ah-sessions-grid">${cards}</div>`;
+}
+
+/* ─── ABOUT TAB ─────────────────────────────────────────────────── */
+async function renderAboutTab(agent, pane) {
+  pane.innerHTML = '<div class="ah-loading">Loading…</div>';
+  try {
+    const r = await fetch(`/api/agents/file?agentId=${encodeURIComponent(agent.id)}&path=SOUL.md`);
+    if (!r.ok) throw new Error(r.status === 404 ? 'No SOUL.md found for this agent.' : `HTTP ${r.status}`);
+    const data = await r.json();
+    const raw = data.content || data.text || '';
+    pane.innerHTML = `<div class="ah-soul">${mdToHtml(raw)}</div>`;
+  } catch (err) {
+    // Try IDENTITY.md as fallback
+    try {
+      const r2 = await fetch(`/api/agents/file?agentId=${encodeURIComponent(agent.id)}&path=IDENTITY.md`);
+      if (r2.ok) {
+        const d2 = await r2.json();
+        pane.innerHTML = `<div class="ah-soul">${mdToHtml(d2.content || '')}</div>`;
+        return;
+      }
+    } catch {}
+    pane.innerHTML = `<div class="ah-error">${esc(err.message)}</div>
+      <div class="ah-loading" style="padding-top:0">No identity file found.<br>
+      Add a SOUL.md to the agent workspace to display it here.</div>`;
+  }
+}
+
+/* ─── MEMORY TAB ─────────────────────────────────────────────────── */
+let _openMemoryFile = null;
+async function renderMemoryTab(agent, pane) {
+  pane.innerHTML = '<div class="ah-loading">Loading file tree…</div>';
+  try {
+    const r = await fetch(`/api/agents/files?agentId=${encodeURIComponent(agent.id)}`);
+    if (!r.ok) throw new Error(r.status === 404 ? 'Workspace not configured for this agent.' : `HTTP ${r.status}`);
+    const data = await r.json();
+    const entries = (data.entries || []).filter(e => e.type === 'file');
+    if (!entries.length) {
+      pane.innerHTML = '<div class="ah-loading">No files found in workspace.</div>';
+      return;
+    }
+
+    // Priority files first
+    const priority = ['SOUL.md','MEMORY.md','IDENTITY.md','USER.md','AGENTS.md','README.md'];
+    const sorted = [...entries].sort((a, b) => {
+      const ai = priority.indexOf(a.path), bi = priority.indexOf(b.path);
+      if (ai !== -1 && bi !== -1) return ai - bi;
+      if (ai !== -1) return -1;
+      if (bi !== -1) return 1;
+      return a.path.localeCompare(b.path);
+    });
+
+    const rows = sorted.map(e => {
+      const icon = e.path.endsWith('.md') ? '📄' : e.path.endsWith('.json') ? '{}' : e.path.endsWith('.jsonl') ? '≡' : '📃';
+      return `<div class="ah-memory-item" onclick="openMemoryFile('${esc(agent.id)}','${esc(e.path)}')">
+        <span class="ah-memory-item-icon">${icon}</span>
+        <span class="ah-memory-item-name">${esc(e.path)}</span>
+        <span class="ah-memory-item-size">${fmtSize(e.size)}</span>
+      </div>`;
+    }).join('');
+
+    pane.innerHTML = `
+      <div class="ah-section-label">Workspace: ${esc(data.workspace || '')}</div>
+      <div class="ah-memory-list">${rows}</div>
+      <div id="memoryViewer"></div>`;
+  } catch (err) {
+    pane.innerHTML = `<div class="ah-error">${esc(err.message)}</div>`;
+  }
+}
+
+async function openMemoryFile(agentId, filePath) {
+  const viewer = document.getElementById('memoryViewer');
+  if (!viewer) return;
+  if (_openMemoryFile === filePath) {
+    _openMemoryFile = null;
+    viewer.innerHTML = '';
+    return;
+  }
+  _openMemoryFile = filePath;
+  viewer.innerHTML = `<div class="ah-memory-viewer"><div class="ah-memory-viewer-header">
+    <span class="ah-memory-viewer-title">${esc(filePath)}</span>
+    <button class="ah-memory-viewer-close" onclick="_openMemoryFile=null; this.closest('.ah-memory-viewer').remove()">✕</button>
+  </div><div class="ah-memory-viewer-body"><div class="ah-loading">Loading…</div></div></div>`;
+
+  try {
+    const r = await fetch(`/api/agents/file?agentId=${encodeURIComponent(agentId)}&path=${encodeURIComponent(filePath)}`);
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const data = await r.json();
+    const content = data.content || data.text || '';
+    const body = viewer.querySelector('.ah-memory-viewer-body');
+    if (filePath.endsWith('.md')) {
+      body.innerHTML = `<div class="ah-soul">${mdToHtml(content)}</div>`;
+    } else {
+      body.innerHTML = `<pre>${esc(content)}</pre>`;
+    }
+  } catch (err) {
+    viewer.querySelector('.ah-memory-viewer-body').innerHTML = `<div class="ah-error">${esc(err.message)}</div>`;
+  }
+}
+
+/* ───────────────────────────────────────────────────────────────────
+   HELPERS
+─────────────────────────────────────────────────────────────────── */
+function esc(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function truncate(s, n) { return s.length > n ? s.slice(0, n) + '…' : s; }
+function shortModel(m) {
+  if (!m) return '';
+  const parts = m.split('/');
+  const last = parts[parts.length - 1];
+  return last.replace('claude-','').replace('gpt-','gpt-').replace('gemini-','gemini-').slice(0, 22);
+}
+function shortPath(p) {
+  return p ? p.replace('/home/albert/', '~/') : '';
+}
+function kindFromKey(key) {
+  if (!key) return 'other';
+  const parts = key.split(':');
+  return parts[2] || 'other';
+}
+function relTime(ms) {
+  const d = Date.now() - ms;
+  if (d < 60000) return 'just now';
+  if (d < 3600000) return Math.round(d/60000) + 'm ago';
+  if (d < 86400000) return Math.round(d/3600000) + 'h ago';
+  return Math.round(d/86400000) + 'd ago';
+}
+function fmtTokens(n) {
+  if (n >= 1e6) return (n/1e6).toFixed(1) + 'M';
+  if (n >= 1e3) return (n/1e3).toFixed(0) + 'k';
+  return String(n);
+}
+function fmtSize(b) {
+  if (!b) return '';
+  if (b < 1024) return b + 'B';
+  if (b < 1048576) return (b/1024).toFixed(1) + 'KB';
+  return (b/1048576).toFixed(1) + 'MB';
+}
+
+function mdToHtml(md) {
+  // Very minimal Markdown → HTML (no dependencies)
+  let html = esc(md)
+    .replace(/^#{3} (.+)$/gm, '<h3>$1</h3>')
+    .replace(/^#{2} (.+)$/gm, '<h2>$1</h2>')
+    .replace(/^# (.+)$/gm, '<h1>$1</h1>')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/^---+$/gm, '<hr>')
+    .replace(/^- (.+)$/gm, '<li>$1</li>')
+    .replace(/(<li>.*<\/li>\n?)+/g, s => `<ul>${s}</ul>`)
+    .replace(/\n\n/g, '</p><p>')
+    .replace(/\n/g, '<br>');
+  return `<p>${html}</p>`;
+}
+
+/* ───────────────────────────────────────────────────────────────────
+   BOOT
+─────────────────────────────────────────────────────────────────── */
+connectWs();
+</script>
+</body>
+</html>
