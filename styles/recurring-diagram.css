@@ -1,0 +1,55 @@
+/* Recurring tasks visual map */
+.recurring-diagram-card {
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: rgba(20, 26, 51, 0.55);
+  padding: 12px;
+  margin-bottom: 12px;
+}
+.recurring-diagram-title { font-weight: 700; margin-bottom: 2px; }
+.recurring-diagram-sub { color: var(--text-dim); font-size: 12px; margin-bottom: 10px; }
+.recurring-diagram-empty { color: var(--text-dim); font-size: 13px; }
+
+.recurring-lane {
+  border: 1px solid rgba(120,140,200,0.25);
+  border-radius: 10px;
+  padding: 8px;
+  margin-bottom: 8px;
+  background: rgba(10,14,28,0.45);
+}
+.recurring-lane-header {
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-bottom: 6px;
+}
+.recurring-lane-flow {
+  display: grid;
+  grid-template-columns: 90px 20px 1fr;
+  gap: 8px;
+  align-items: start;
+}
+.recurring-source {
+  background: rgba(91,156,244,.18);
+  border: 1px solid rgba(91,156,244,.45);
+  border-radius: 8px;
+  padding: 8px;
+  font-size: 12px;
+  text-align: center;
+}
+.recurring-arrow { color: var(--text-dim); padding-top: 8px; text-align: center; }
+.recurring-nodes {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 8px;
+}
+.recurring-node {
+  border: 1px solid rgba(120,140,200,0.3);
+  border-radius: 8px;
+  padding: 8px;
+  cursor: pointer;
+  background: rgba(18, 25, 48, 0.65);
+}
+.recurring-node:hover { border-color: rgba(91,156,244,.8); }
+.recurring-node-top { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
+.recurring-node-name { font-size: 12px; font-weight: 600; }
+.recurring-node-meta { color: var(--text-dim); font-size: 11px; margin-top: 4px; }

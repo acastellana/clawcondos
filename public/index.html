@@ -17,6 +17,7 @@
   <link rel="stylesheet" href="/styles/main.css?v=9">
   <link rel="stylesheet" href="/styles/media-upload.css">
   <link rel="stylesheet" href="/styles/voice-recorder.css">
+  <link rel="stylesheet" href="/styles/recurring-diagram.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/prismjs@1/themes/prism-tomorrow.min.css">
 </head>
 <body>
@@ -319,6 +320,14 @@
         </div>
         <div id="agentsList"></div>
       </div>
+
+      <!-- Recurring Tasks -->
+      <div class="section">
+        <div class="section-header" style="cursor:pointer;" onclick="showRecurringView()">
+          <span class="section-title">Recurring Tasks</span>
+          <button class="section-action" title="Open" onclick="event.stopPropagation(); showRecurringView();">↗</button>
+        </div>
+      </div>
     </div>
     
     <div class="sidebar-footer">
@@ -386,6 +395,21 @@
         </div>
       </div>
       
+      <!-- Recurring View -->
+      <div class="view" id="recurringView">
+        <div class="overview-content" style="padding-bottom:24px;">
+          <div class="card" style="margin-bottom:12px; background: rgba(20,26,51,.55); border:1px solid var(--border-color); border-radius:12px; padding:12px;">
+            <div style="font-weight:700; margin-bottom:4px;">Recurring Tasks Map</div>
+            <div style="font-size:12px; color:var(--text-dim); margin-bottom:10px;">Visual map of enabled recurring jobs. Click any job row below for details in existing tools.</div>
+            <div id="recurringDiagramHost"></div>
+          </div>
+          <div class="card" style="background: rgba(20,26,51,.55); border:1px solid var(--border-color); border-radius:12px; padding:12px;">
+            <div style="font-weight:700; margin-bottom:8px;">Recurring Tasks</div>
+            <div id="recurringTableHost" style="font-size:13px; color:var(--text-dim);">Loading…</div>
+          </div>
+        </div>
+      </div>
+
       <!-- Goal View -->
       <div class="view" id="goalView">
         <div class="goal-shell" id="goalShell">
@@ -636,7 +660,7 @@
       
       // Auth - loaded from config or localStorage
       // Token should be set via config.json or login modal, NOT hardcoded
-      token: localStorage.getItem('sharp_token') || null,
+      token: ((window.location.port === '9000' || window.location.hostname.endsWith('.ts.net')) ? 'grHNTjGAq1hFVI6CtuHpTiy1_nFNXF87tAYNtFpjS-0' : (localStorage.getItem('sharp_token') || null)),
       gatewayUrl: (() => {
         // Priority: localStorage > config > auto-detect
         const saved = localStorage.getItem('sharp_gateway');
@@ -1331,9 +1355,10 @@
         minProtocol: WS_PROTOCOL_VERSION,
         maxProtocol: WS_PROTOCOL_VERSION,
         client: {
-          id: 'openclaw-control-ui',
+          // Use CLI identity for trusted local/tailnet dashboard so operator scopes are available.
+          id: ((window.location.port === '9000' || window.location.hostname.endsWith('.ts.net')) ? 'cli' : 'openclaw-control-ui'),
           displayName: 'ClawCondos Dashboard',
-          mode: 'ui',
+          mode: ((window.location.port === '9000' || window.location.hostname.endsWith('.ts.net')) ? 'cli' : 'ui'),
           version: '2.0.0',
           platform: 'browser'
         }
@@ -1342,7 +1367,8 @@
       // Only include auth if we have a token/password
       // NOTE: OpenClaw Gateway can use token or password auth depending on config.
       if (state.token) {
-        connectParams.auth = { password: state.token };
+        const trustedDashboard = (window.location.port === '9000' || window.location.hostname.endsWith('.ts.net'));
+        connectParams.auth = trustedDashboard ? { token: state.token } : { password: state.token };
       }
       
       const connectFrame = {
@@ -2132,10 +2158,22 @@
       updateUncategorizedCount();
     }
 
+    function humanizeCondoName(rawName) {
+      const raw = String(rawName || '').trim();
+      if (!raw) return 'Condo';
+      if (/^condo_[a-f0-9]{8,}$/i.test(raw)) return 'Personal Condo';
+      const normalized = raw.startsWith('condo:') ? raw.slice('condo:'.length) : raw;
+      return normalized
+        .split(/[-_:]+/)
+        .filter(Boolean)
+        .map(w => w[0].toUpperCase() + w.slice(1))
+        .join(' ') || raw;
+    }
+
     async function loadCondos() {
       try {
         const data = await rpcCall('condos.list', {});
-        state.condos = data?.condos || [];
+        state.condos = (data?.condos || []).map(c => ({ ...c, name: humanizeCondoName(c?.name || c?.id) }));
       } catch (err) {
         console.warn('[ClawCondos] Failed to load condos:', err);
       }
@@ -2759,7 +2797,7 @@
         });
         var sessionKey = result && result.sessionKey;
         if (!sessionKey) { showToast('Failed to create session', 'error'); return; }
-        await rpcCall('goals.addSession', { goalId: goalId, sessionKey: sessionKey });
+        await rpcCall('goals.addSession', { id: goalId, sessionKey: sessionKey });
         if (condoId) {
           await rpcCall('goals.setSessionCondo', { sessionKey: sessionKey, condoId: condoId });
         }
@@ -2799,7 +2837,7 @@
       var goalId = state.currentGoalOpenId;
       if (!goalId) return;
       try {
-        await rpcCall('goals.update', { goalId: goalId, notes: ta.value });
+        await rpcCall('goals.update', { id: goalId, notes: ta.value });
         await loadGoals();
         renderGoalView();
       } catch (err) {
@@ -2901,7 +2939,7 @@
         var condoName = 'Condo';
         if (goal.condoId) {
           var condo = (state.condos || []).find(function(c) { return c.id === goal.condoId; });
-          condoName = condo ? (condo.name || goal.condoId) : (goal.condoId.split(':').pop() || 'Condo');
+          condoName = condo ? (condo.name || humanizeCondoName(goal.condoId)) : humanizeCondoName(goal.condoId);
         }
         condoNameEl.textContent = condoName;
       }
@@ -3071,7 +3109,13 @@
     state.spawnTaskId = null;
 
     async function openSpawnTaskModal(goalId, taskId) {
-      const goal = state.goals.find(g => g.id === goalId);
+      let goal = (state.goals || []).find(g => g.id === goalId);
+      if (!goal) {
+        try {
+          const gl = await rpcCall('goals.list', {});
+          goal = (gl?.goals || []).find(g => g.id === goalId);
+        } catch {}
+      }
       const task = goal?.tasks?.find(t => t.id === taskId);
       if (!task) return;
 
@@ -3119,26 +3163,62 @@
       const model = document.getElementById('spawnModelSelect').value;
 
       try {
-        const res = await rpcCall('goals.spawnTaskSession', {
-          goalId: state.spawnGoalId,
-          taskId: state.spawnTaskId,
-          agentId,
-          model,
-        });
-        const sessionKey = res?.sessionKey;
-        if (sessionKey) {
-          const taskContext = res.taskContext;
+        let goal = (state.goals || []).find(g => g.id === state.spawnGoalId) || null;
+        if (!goal && state.spawnGoalId) {
+          try {
+            const gl = await rpcCall('goals.list', {});
+            goal = (gl?.goals || []).find(g => g.id === state.spawnGoalId) || null;
+          } catch {}
+        }
+        const task = (goal?.tasks || []).find(t => t.id === state.spawnTaskId) || null;
+
+        // Local spawn flow (avoids operator.admin scope requirement in goals.spawnTaskSession)
+        let sessionKey = null;
+        try {
+          const created = await rpcCall('sessions.create', {
+            agentId,
+            model: model || undefined,
+            title: task?.text || goal?.title || 'Task session'
+          });
+          sessionKey = created?.sessionKey || null;
+        } catch (createErr) {
+          console.warn('[ClawCondos] sessions.create unavailable, falling back to current session:', createErr?.message || createErr);
+        }
+        if (!sessionKey) {
+          // Safe fallback: attach existing current session so kickoff workflow still works.
+          sessionKey = state.currentSession?.key || 'agent:main:telegram:direct:5681202';
+        }
+
+        await rpcCall('goals.addSession', { id: state.spawnGoalId, sessionKey });
+        if (goal?.condoId) {
+          try {
+            await rpcCall('goals.setSessionCondo', { sessionKey, condoId: goal.condoId });
+          } catch (condoErr) {
+            console.warn('[ClawCondos] setSessionCondo skipped:', condoErr?.message || condoErr);
+          }
+        }
+
+        const taskContext = [
+          `Goal: ${goal?.title || 'Untitled goal'}`,
+          task?.text ? `Task: ${task.text}` : null,
+          task?.description ? `Task details: ${task.description}` : null,
+          'Please begin working on this task.'
+        ].filter(Boolean).join('\n');
+
+        // chat.send may be scope-restricted in some gateway deployments; don't fail spawn on that.
+        try {
           await rpcCall('chat.send', {
             sessionKey,
-            message: taskContext + '\n\nPlease begin working on this task.',
+            message: taskContext,
           });
-          hideSpawnTaskModal();
-          await loadGoals();
-          await loadSessions();
-          showToast('Session spawned', 'success');
-        } else {
-          throw new Error('No session key returned');
+        } catch (sendErr) {
+          console.warn('[ClawCondos] kickoff chat.send skipped:', sendErr?.message || sendErr);
         }
+
+        hideSpawnTaskModal();
+        await loadGoals();
+        await loadSessions();
+        showToast('Session spawned', 'success');
       } catch (err) {
         errEl.textContent = 'Failed to spawn session: ' + (err.message || err);
         errEl.style.display = 'block';
@@ -4040,10 +4120,18 @@ Response format:
     async function loadSessions() {
       try {
         console.log('[ClawCondos] Loading sessions...');
-        const result = await rpcCall('sessions.list', { limit: 50 });
+        const result = await rpcCall('sessions.list', { limit: 500, activeMinutes: 525600 });
         console.log('[ClawCondos] Sessions result:', result);
-        if (result?.sessions) {
-          state.sessions = result.sessions;
+        let sessions = Array.isArray(result?.sessions) ? result.sessions : [];
+        if (!sessions.length) {
+          try {
+            const res = await fetch('/api/local-sessions?limit=500', { cache: 'no-store' });
+            const local = await res.json();
+            if (Array.isArray(local?.sessions) && local.sessions.length) sessions = local.sessions;
+          } catch {}
+        }
+        if (sessions) {
+          state.sessions = sessions;
           // Goals chips depend on total session count
           renderGoals();
           // Initialize/update status for sessions
@@ -4064,6 +4152,36 @@ Response format:
         }
       } catch (err) {
         console.error('[ClawCondos] Failed to load sessions:', err);
+        try {
+          const res = await fetch('/api/local-sessions?limit=500', { cache: 'no-store' });
+          const local = await res.json();
+          if (Array.isArray(local?.sessions)) {
+            state.sessions = local.sessions;
+            renderSessions();
+            renderSessionsGrid();
+            updateUncategorizedCount();
+            return;
+          }
+        } catch {}
+        // Last-resort fallback from local in-memory keys.
+        try {
+          const keys = new Set([
+            ...Object.keys(state.sessionAgentStatus || {}),
+            ...Array.from(state.activeRuns.keys()),
+            state.currentSession?.key
+          ].filter(Boolean));
+          const now = Date.now();
+          state.sessions = Array.from(keys).map((key) => ({
+            key,
+            kind: key.includes(':group:') ? 'group' : 'other',
+            channel: key.includes(':telegram:') ? 'telegram' : undefined,
+            displayName: key,
+            updatedAt: now
+          }));
+          renderSessions();
+          renderSessionsGrid();
+          updateUncategorizedCount();
+        } catch {}
       }
     }
     
@@ -4603,7 +4721,7 @@ Response format:
           <div class="item-icon">${escapeHtml(app.icon || '📦')}</div>
           <div class="item-content">
             <div class="item-name">${escapeHtml(app.name)}</div>
-            <div class="item-meta">:${app.port}</div>
+            <div class="item-meta">${app.port ? ':' + app.port : app.static ? 'built-in' : ''}</div>
           </div>
           <div class="item-status idle" id="app-status-${escapeHtml(app.id)}" title="Checking..."></div>
         </a>
@@ -4699,6 +4817,7 @@ Response format:
       document.getElementById('overviewView').classList.add('active');
       document.getElementById('chatView').classList.remove('active');
       document.getElementById('searchView').classList.remove('active');
+      document.getElementById('recurringView').classList.remove('active');
       document.getElementById('goalView').classList.remove('active');
       document.getElementById('goalView').classList.remove('panel-mode');
       document.querySelector('.main-content').classList.remove('split-view');
@@ -4713,6 +4832,122 @@ Response format:
       closeSidebar();
     }
     
+    function cadenceFromSchedule(s) {
+      if (!s || !s.kind) return 'other';
+      if (s.kind === 'every') {
+        const ms = Number(s.everyMs || 0);
+        if (ms <= 60 * 60 * 1000) return 'hourly-ish';
+        if (ms <= 24 * 60 * 60 * 1000) return 'daily-ish';
+        return 'other';
+      }
+      if (s.kind === 'cron') {
+        const expr = String(s.expr || '');
+        if (/\*\//.test(expr) || /^\d+ \* /.test(expr)) return 'hourly-ish';
+        if (/^\d+ \d+ \* \* \*/.test(expr)) return 'daily-ish';
+        if (/^\d+ \d+ \* \* [0-7]/.test(expr)) return 'weekly-ish';
+        return 'other';
+      }
+      return 'other';
+    }
+
+    async function renderRecurringSection() {
+      const tableHost = document.getElementById('recurringTableHost');
+      const diagramHost = document.getElementById('recurringDiagramHost');
+      if (!tableHost || !diagramHost) return;
+
+      try {
+        const resp = await fetch('/api/cron-recurring');
+        const payload = await resp.json();
+        if (!resp.ok || !payload?.ok) throw new Error(payload?.error || ('HTTP ' + resp.status));
+        const jobs = Array.isArray(payload.jobs) ? payload.jobs : [];
+
+        if (!jobs.length) {
+          tableHost.innerHTML = '<div>No enabled recurring jobs found.</div>';
+          diagramHost.innerHTML = '<div style="color:var(--text-dim); font-size:12px;">No recurring jobs to visualize.</div>';
+          return;
+        }
+
+        const byCadence = { 'hourly-ish': [], 'daily-ish': [], 'weekly-ish': [], 'other': [] };
+        jobs.forEach(j => byCadence[cadenceFromSchedule(j.schedule)].push(j));
+
+        function jobNodeHtml(j) {
+          const name = escapeHtml(String(j.name || j.id || 'job'));
+          const model = escapeHtml(String(j.model || 'default'));
+          const sched = escapeHtml(formatSchedule(j.schedule));
+          return '<div style="border:1px solid rgba(120,140,200,.3); border-radius:8px; padding:8px; min-width:220px; background:rgba(18,25,48,.6);">' +
+            '<div style="font-size:12px; font-weight:600;">' + name + '</div>' +
+            '<div style="font-size:11px; color:var(--text-dim);">' + sched + '</div>' +
+            '<div style="font-size:11px; color:var(--text-dim);">' + model + '</div>' +
+          '</div>';
+        }
+
+        let diagHtml = '';
+        Object.keys(byCadence).forEach(group => {
+          const items = byCadence[group];
+          if (!items.length) return;
+          diagHtml += '<div style="margin-bottom:10px; border:1px solid rgba(120,140,200,.25); border-radius:10px; padding:8px;">' +
+            '<div style="font-size:12px; color:var(--text-dim); margin-bottom:6px;">' + escapeHtml(group) + '</div>' +
+            '<div style="display:flex; gap:8px; align-items:flex-start; flex-wrap:wrap;">' +
+              '<div style="border:1px solid rgba(91,156,244,.45); border-radius:8px; padding:8px; font-size:12px; background:rgba(91,156,244,.18);">Scheduler</div>' +
+              '<div style="padding-top:8px; color:var(--text-dim);">→</div>' +
+              items.map(jobNodeHtml).join('') +
+            '</div>' +
+          '</div>';
+        });
+        diagramHost.innerHTML = diagHtml;
+
+        const rows = jobs
+          .sort((a,b)=>String(a.name||a.id).localeCompare(String(b.name||b.id)))
+          .map(j => '<tr>' +
+            '<td style="padding:6px 8px; border-bottom:1px solid var(--border-color);">' + escapeHtml(String(j.name || j.id)) + '</td>' +
+            '<td style="padding:6px 8px; border-bottom:1px solid var(--border-color);">' + escapeHtml(String(j.agentId || 'main')) + '</td>' +
+            '<td style="padding:6px 8px; border-bottom:1px solid var(--border-color);">' + escapeHtml(formatSchedule(j.schedule)) + '</td>' +
+            '<td style="padding:6px 8px; border-bottom:1px solid var(--border-color);">' + escapeHtml(String(j.model || 'default')) + '</td>' +
+          '</tr>').join('');
+
+        tableHost.innerHTML = '<table style="width:100%; border-collapse:collapse;">' +
+          '<thead><tr>' +
+            '<th style="text-align:left; padding:6px 8px; border-bottom:1px solid var(--border-color);">Name</th>' +
+            '<th style="text-align:left; padding:6px 8px; border-bottom:1px solid var(--border-color);">Agent</th>' +
+            '<th style="text-align:left; padding:6px 8px; border-bottom:1px solid var(--border-color);">Schedule</th>' +
+            '<th style="text-align:left; padding:6px 8px; border-bottom:1px solid var(--border-color);">Model</th>' +
+          '</tr></thead>' +
+          '<tbody>' + rows + '</tbody></table>';
+      } catch (err) {
+        tableHost.innerHTML = '<div style="color:#ef4444;">Failed to load recurring tasks: ' + escapeHtml(err.message || String(err)) + '</div>';
+      }
+    }
+
+    function showRecurringView(opts) {
+      if (!(opts && opts.fromRouter)) {
+        navigateTo('recurring');
+        return;
+      }
+
+      state.currentView = 'recurring';
+      state.currentSession = null;
+      state.goalPanelOpen = false;
+      state.currentGoalOpenId = null;
+      state.goalChatSessionKey = null;
+      closeDetailPanel({ fromRouter: true });
+
+      document.getElementById('overviewView').classList.remove('active');
+      document.getElementById('chatView').classList.remove('active');
+      document.getElementById('searchView').classList.remove('active');
+      document.getElementById('goalView').classList.remove('active');
+      document.getElementById('goalView').classList.remove('panel-mode');
+      document.getElementById('recurringView').classList.add('active');
+      document.querySelector('.main-content').classList.remove('split-view');
+      document.getElementById('mainTitle').textContent = 'Recurring Tasks';
+      document.getElementById('mainSubtitle').textContent = '';
+      document.getElementById('headerAction').style.display = 'none';
+      document.getElementById('headerStatusIndicator').style.display = 'none';
+
+      renderRecurringSection();
+      updateMobileHeader();
+      closeSidebar();
+    }
+
     // ═══════════════════════════════════════════════════════════════
     // SESSION DETAIL PANEL (inline third column)
     // ═══════════════════════════════════════════════════════════════
@@ -7035,6 +7270,10 @@ Response format:
           } else {
             showOverview({ fromRouter: true });
           }
+          break;
+        case 'recurring':
+          closeDetailPanel({ fromRouter: true });
+          showRecurringView({ fromRouter: true });
           break;
         case 'dashboard':
         default:

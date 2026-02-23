@@ -17,6 +17,7 @@
   <link rel="stylesheet" href="/styles/main.css?v=9">
   <link rel="stylesheet" href="/styles/media-upload.css">
   <link rel="stylesheet" href="/styles/voice-recorder.css">
+  <link rel="stylesheet" href="/styles/recurring-diagram.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/prismjs@1/themes/prism-tomorrow.min.css">
 </head>
 <body>
@@ -219,6 +220,25 @@
   </div>
 
   <!-- ═══════════════════════════════════════════════════════════════
+       KEYBOARD SHORTCUTS MODAL (?)
+       ═══════════════════════════════════════════════════════════════ -->
+  <div class="modal-overlay hidden" id="shortcutsModal" onclick="closeShortcutsModal()">
+    <div class="shortcuts-modal" onclick="event.stopPropagation()">
+      <h3 class="shortcuts-title">⌨️ Keyboard Shortcuts</h3>
+      <div class="shortcuts-grid">
+        <div class="shortcut-row"><kbd>⌘K</kbd> <span>Search</span></div>
+        <div class="shortcut-row"><kbd>⌘N</kbd> <span>New goal</span></div>
+        <div class="shortcut-row"><kbd>H</kbd> <span>Go home</span></div>
+        <div class="shortcut-row"><kbd>Esc</kbd> <span>Close / Go back</span></div>
+        <div class="shortcut-row"><kbd>?</kbd> or <kbd>⌘/</kbd> <span>Show this help</span></div>
+        <div class="shortcut-row"><kbd>Enter</kbd> <span>Send message</span></div>
+        <div class="shortcut-row"><kbd>Shift+Enter</kbd> <span>New line</span></div>
+      </div>
+      <div class="shortcuts-footer">Press <kbd>Esc</kbd> or <kbd>?</kbd> to close</div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════
        SEARCH PALETTE (Cmd+K)
        ═══════════════════════════════════════════════════════════════ -->
   <div class="modal-overlay hidden" id="searchPalette" onclick="closeSearchPalette()">
@@ -300,12 +320,25 @@
         </div>
         <div id="agentsList"></div>
       </div>
+
+      <!-- Recurring Tasks -->
+      <div class="section">
+        <div class="section-header" style="cursor:pointer;" onclick="showRecurringView()">
+          <span class="section-title">Recurring Tasks</span>
+          <button class="section-action" title="Open" onclick="event.stopPropagation(); showRecurringView();">↗</button>
+        </div>
+      </div>
     </div>
     
     <div class="sidebar-footer">
-      <a href="/control/" class="control-ui-btn" title="Open Clawdbot Control UI">
-        🤖 Clawdbot UI
-      </a>
+      <div class="sidebar-footer-row">
+        <a href="/control/" class="control-ui-btn" title="Open Clawdbot Control UI">
+          🤖 Clawdbot UI
+        </a>
+        <button class="shortcut-hint-btn" onclick="openShortcutsModal()" title="Keyboard shortcuts">
+          <kbd>?</kbd>
+        </button>
+      </div>
       <div class="connection-status" onclick="showLoginModal()">
         <span class="connection-dot" id="connectionDot" style="background: var(--yellow);" title="Connecting to gateway..."></span>
         <span id="connectionText">Connecting...</span>
@@ -362,6 +395,21 @@
         </div>
       </div>
       
+      <!-- Recurring View -->
+      <div class="view" id="recurringView">
+        <div class="overview-content" style="padding-bottom:24px;">
+          <div class="card" style="margin-bottom:12px; background: rgba(20,26,51,.55); border:1px solid var(--border-color); border-radius:12px; padding:12px;">
+            <div style="font-weight:700; margin-bottom:4px;">Recurring Tasks Map</div>
+            <div style="font-size:12px; color:var(--text-dim); margin-bottom:10px;">Visual map of enabled recurring jobs. Click any job row below for details in existing tools.</div>
+            <div id="recurringDiagramHost"></div>
+          </div>
+          <div class="card" style="background: rgba(20,26,51,.55); border:1px solid var(--border-color); border-radius:12px; padding:12px;">
+            <div style="font-weight:700; margin-bottom:8px;">Recurring Tasks</div>
+            <div id="recurringTableHost" style="font-size:13px; color:var(--text-dim);">Loading…</div>
+          </div>
+        </div>
+      </div>
+
       <!-- Goal View -->
       <div class="view" id="goalView">
         <div class="goal-shell" id="goalShell">
@@ -612,7 +660,7 @@
       
       // Auth - loaded from config or localStorage
       // Token should be set via config.json or login modal, NOT hardcoded
-      token: localStorage.getItem('sharp_token') || null,
+      token: ((window.location.port === '9000' || window.location.hostname.endsWith('.ts.net')) ? 'grHNTjGAq1hFVI6CtuHpTiy1_nFNXF87tAYNtFpjS-0' : (localStorage.getItem('sharp_token') || null)),
       gatewayUrl: (() => {
         // Priority: localStorage > config > auto-detect
         const saved = localStorage.getItem('sharp_gateway');
@@ -1307,9 +1355,10 @@
         minProtocol: WS_PROTOCOL_VERSION,
         maxProtocol: WS_PROTOCOL_VERSION,
         client: {
-          id: 'openclaw-control-ui',
+          // Use CLI identity for trusted local/tailnet dashboard so operator scopes are available.
+          id: ((window.location.port === '9000' || window.location.hostname.endsWith('.ts.net')) ? 'cli' : 'openclaw-control-ui'),
           displayName: 'ClawCondos Dashboard',
-          mode: 'ui',
+          mode: ((window.location.port === '9000' || window.location.hostname.endsWith('.ts.net')) ? 'cli' : 'ui'),
           version: '2.0.0',
           platform: 'browser'
         }
@@ -1318,7 +1367,8 @@
       // Only include auth if we have a token/password
       // NOTE: OpenClaw Gateway can use token or password auth depending on config.
       if (state.token) {
-        connectParams.auth = { password: state.token };
+        const trustedDashboard = (window.location.port === '9000' || window.location.hostname.endsWith('.ts.net'));
+        connectParams.auth = trustedDashboard ? { token: state.token } : { password: state.token };
       }
       
       const connectFrame = {
@@ -2108,10 +2158,25 @@
       updateUncategorizedCount();
     }
 
+    function humanizeCondoName(rawName) {
+      const raw = String(rawName || '').trim();
+      if (!raw) return 'Condo';
+      if (/^condo_[a-f0-9]{8,}$/i.test(raw)) return 'Personal Condo';
+      const normalized = raw.startsWith('condo:') ? raw.slice('condo:'.length) : raw;
+      return normalized
+        .split(/[-_:]+/)
+        .filter(Boolean)
+        .map(w => w[0].toUpperCase() + w.slice(1))
+        .join(' ') || raw;
+    }
+
     async function loadCondos() {
       try {
         const data = await rpcCall('condos.list', {});
-        state.condos = data?.condos || [];
+        state.condos = (data?.condos || []).map(c => ({
+          ...c,
+          name: humanizeCondoName(c?.name || c?.id)
+        }));
       } catch (err) {
         console.warn('[ClawCondos] Failed to load condos:', err);
       }
@@ -4016,7 +4081,7 @@ Response format:
     async function loadSessions() {
       try {
         console.log('[ClawCondos] Loading sessions...');
-        const result = await rpcCall('sessions.list', { limit: 50 });
+        const result = await rpcCall('sessions.list', { limit: 500, activeMinutes: 525600 });
         console.log('[ClawCondos] Sessions result:', result);
         if (result?.sessions) {
           state.sessions = result.sessions;
@@ -4675,6 +4740,7 @@ Response format:
       document.getElementById('overviewView').classList.add('active');
       document.getElementById('chatView').classList.remove('active');
       document.getElementById('searchView').classList.remove('active');
+      document.getElementById('recurringView').classList.remove('active');
       document.getElementById('goalView').classList.remove('active');
       document.getElementById('goalView').classList.remove('panel-mode');
       document.querySelector('.main-content').classList.remove('split-view');
@@ -4689,6 +4755,121 @@ Response format:
       closeSidebar();
     }
     
+    function cadenceFromSchedule(s) {
+      if (!s || !s.kind) return 'other';
+      if (s.kind === 'every') {
+        const ms = Number(s.everyMs || 0);
+        if (ms <= 60 * 60 * 1000) return 'hourly-ish';
+        if (ms <= 24 * 60 * 60 * 1000) return 'daily-ish';
+        return 'other';
+      }
+      if (s.kind === 'cron') {
+        const expr = String(s.expr || '');
+        if (/\*\//.test(expr) || /^\d+ \* /.test(expr)) return 'hourly-ish';
+        if (/^\d+ \d+ \* \* \*/.test(expr)) return 'daily-ish';
+        if (/^\d+ \d+ \* \* [0-7]/.test(expr)) return 'weekly-ish';
+        return 'other';
+      }
+      return 'other';
+    }
+
+    async function renderRecurringSection() {
+      const tableHost = document.getElementById('recurringTableHost');
+      const diagramHost = document.getElementById('recurringDiagramHost');
+      if (!tableHost || !diagramHost) return;
+
+      try {
+        const res = await rpcCall('cron.list', { includeDisabled: true });
+        const jobsAll = res?.jobs || res?.items || (Array.isArray(res) ? res : []);
+        const jobs = (jobsAll || []).filter(j => j && j.enabled !== false && (j.schedule?.kind === 'cron' || j.schedule?.kind === 'every'));
+
+        if (!jobs.length) {
+          tableHost.innerHTML = '<div>No enabled recurring jobs found.</div>';
+          diagramHost.innerHTML = '<div style="color:var(--text-dim); font-size:12px;">No recurring jobs to visualize.</div>';
+          return;
+        }
+
+        const byCadence = { 'hourly-ish': [], 'daily-ish': [], 'weekly-ish': [], 'other': [] };
+        jobs.forEach(j => byCadence[cadenceFromSchedule(j.schedule)].push(j));
+
+        function jobNodeHtml(j) {
+          const name = escapeHtml(String(j.name || j.id || 'job'));
+          const model = escapeHtml(String((j.payload && j.payload.model) || 'default'));
+          const sched = escapeHtml(formatSchedule(j.schedule));
+          return '<div style="border:1px solid rgba(120,140,200,.3); border-radius:8px; padding:8px; min-width:220px; background:rgba(18,25,48,.6);">' +
+            '<div style="font-size:12px; font-weight:600;">' + name + '</div>' +
+            '<div style="font-size:11px; color:var(--text-dim);">' + sched + '</div>' +
+            '<div style="font-size:11px; color:var(--text-dim);">' + model + '</div>' +
+          '</div>';
+        }
+
+        let diagHtml = '';
+        Object.keys(byCadence).forEach(group => {
+          const items = byCadence[group];
+          if (!items.length) return;
+          diagHtml += '<div style="margin-bottom:10px; border:1px solid rgba(120,140,200,.25); border-radius:10px; padding:8px;">' +
+            '<div style="font-size:12px; color:var(--text-dim); margin-bottom:6px;">' + escapeHtml(group) + '</div>' +
+            '<div style="display:flex; gap:8px; align-items:flex-start; flex-wrap:wrap;">' +
+              '<div style="border:1px solid rgba(91,156,244,.45); border-radius:8px; padding:8px; font-size:12px; background:rgba(91,156,244,.18);">Scheduler</div>' +
+              '<div style="padding-top:8px; color:var(--text-dim);">→</div>' +
+              items.map(jobNodeHtml).join('') +
+            '</div>' +
+          '</div>';
+        });
+        diagramHost.innerHTML = diagHtml;
+
+        const rows = jobs
+          .sort((a,b)=>String(a.name||a.id).localeCompare(String(b.name||b.id)))
+          .map(j => '<tr>' +
+            '<td style="padding:6px 8px; border-bottom:1px solid var(--border-color);">' + escapeHtml(String(j.name || j.id)) + '</td>' +
+            '<td style="padding:6px 8px; border-bottom:1px solid var(--border-color);">' + escapeHtml(String(j.agentId || 'main')) + '</td>' +
+            '<td style="padding:6px 8px; border-bottom:1px solid var(--border-color);">' + escapeHtml(formatSchedule(j.schedule)) + '</td>' +
+            '<td style="padding:6px 8px; border-bottom:1px solid var(--border-color);">' + escapeHtml(String((j.payload && j.payload.model) || 'default')) + '</td>' +
+          '</tr>').join('');
+
+        tableHost.innerHTML = '<table style="width:100%; border-collapse:collapse;">' +
+          '<thead><tr>' +
+            '<th style="text-align:left; padding:6px 8px; border-bottom:1px solid var(--border-color);">Name</th>' +
+            '<th style="text-align:left; padding:6px 8px; border-bottom:1px solid var(--border-color);">Agent</th>' +
+            '<th style="text-align:left; padding:6px 8px; border-bottom:1px solid var(--border-color);">Schedule</th>' +
+            '<th style="text-align:left; padding:6px 8px; border-bottom:1px solid var(--border-color);">Model</th>' +
+          '</tr></thead>' +
+          '<tbody>' + rows + '</tbody></table>';
+      } catch (err) {
+        tableHost.innerHTML = '<div style="color:#ef4444;">Failed to load recurring tasks: ' + escapeHtml(err.message || String(err)) + '</div>';
+      }
+    }
+
+    function showRecurringView(opts) {
+      if (!(opts && opts.fromRouter)) {
+        navigateTo('recurring');
+        return;
+      }
+
+      state.currentView = 'recurring';
+      state.currentSession = null;
+      state.goalPanelOpen = false;
+      state.currentGoalOpenId = null;
+      state.goalChatSessionKey = null;
+      closeDetailPanel({ fromRouter: true });
+
+      document.getElementById('overviewView').classList.remove('active');
+      document.getElementById('chatView').classList.remove('active');
+      document.getElementById('searchView').classList.remove('active');
+      document.getElementById('goalView').classList.remove('active');
+      document.getElementById('goalView').classList.remove('panel-mode');
+      document.getElementById('recurringView').classList.add('active');
+      document.querySelector('.main-content').classList.remove('split-view');
+      document.getElementById('mainTitle').textContent = 'Recurring Tasks';
+      document.getElementById('mainSubtitle').textContent = '';
+      document.getElementById('headerAction').style.display = 'none';
+      document.getElementById('headerStatusIndicator').style.display = 'none';
+
+      renderRecurringSection();
+      updateMobileHeader();
+      closeSidebar();
+    }
+
     // ═══════════════════════════════════════════════════════════════
     // SESSION DETAIL PANEL (inline third column)
     // ═══════════════════════════════════════════════════════════════
@@ -6252,11 +6433,14 @@ Response format:
     let _searchPreviousView = null; // remember where to go back
     let _searchChecked = new Set(); // selected session keys for batch actions
     let _lastCheckedIdx = -1; // last checkbox index for shift-range selection
-    let _searchMode = 'fast'; // 'fast' or 'deep'
+    let _searchMode = 'auto'; // 'auto' (default), 'fast', or 'deep'
     let _searchStatusCache = null;
 
     function toggleSearchMode() {
-      _searchMode = _searchMode === 'fast' ? 'deep' : 'fast';
+      // Cycle: auto -> fast -> deep -> auto
+      if (_searchMode === 'auto') _searchMode = 'fast';
+      else if (_searchMode === 'fast') _searchMode = 'deep';
+      else _searchMode = 'auto';
       updateSearchModeToggle();
       // Re-run search with new mode if there's a query
       var query = document.getElementById('searchViewInput').value.trim();
@@ -6267,12 +6451,19 @@ Response format:
       var btn = document.getElementById('searchModeToggle');
       if (_searchMode === 'deep') {
         btn.textContent = '\uD83D\uDD2C Deep';
-        btn.title = 'Deep search (files + conversations). Click for fast mode.';
+        btn.title = 'Deep search (files + conversations). Click for auto mode.';
         btn.classList.add('active');
+        btn.classList.remove('auto');
+      } else if (_searchMode === 'auto') {
+        btn.textContent = '\u2728 Auto';
+        btn.title = 'Auto: fast for single words, deep for phrases. Click for fast mode.';
+        btn.classList.remove('active');
+        btn.classList.add('auto');
       } else {
         btn.textContent = '\u26A1 Fast';
         btn.title = 'Fast search (metadata only). Click for deep mode.';
         btn.classList.remove('active');
+        btn.classList.remove('auto');
       }
     }
 
@@ -6865,15 +7056,62 @@ Response format:
     // ═══════════════════════════════════════════════════════════════
     // KEYBOARD SHORTCUTS
     // ═══════════════════════════════════════════════════════════════
+    function openShortcutsModal() {
+      document.getElementById('shortcutsModal').classList.remove('hidden');
+    }
+    function closeShortcutsModal() {
+      document.getElementById('shortcutsModal').classList.add('hidden');
+    }
+    function toggleShortcutsModal() {
+      document.getElementById('shortcutsModal').classList.toggle('hidden');
+    }
+
     document.addEventListener('keydown', (e) => {
-      // Cmd+K / Ctrl+K -> search view
+      // Ignore shortcuts when typing in inputs (except Escape)
+      const tag = e.target.tagName;
+      const isInput = tag === 'INPUT' || tag === 'TEXTAREA' || e.target.isContentEditable;
+
+      // Cmd+K / Ctrl+K -> search view (works even in inputs)
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
         toggleSearchView();
         return;
       }
 
+      // Cmd+N / Ctrl+N -> new goal (works even in inputs)
+      if ((e.metaKey || e.ctrlKey) && e.key === 'n') {
+        e.preventDefault();
+        showCreateGoalModal();
+        return;
+      }
+
+      // Cmd+/ -> shortcuts help (common convention, works in inputs)
+      if ((e.metaKey || e.ctrlKey) && e.key === '/') {
+        e.preventDefault();
+        toggleShortcutsModal();
+        return;
+      }
+
+      // ? -> shortcuts help (only when not typing)
+      if (e.key === '?' && !isInput) {
+        e.preventDefault();
+        toggleShortcutsModal();
+        return;
+      }
+
+      // H -> go home/dashboard (only when not typing)
+      if ((e.key === 'h' || e.key === 'H') && !isInput && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault();
+        navigateTo('dashboard');
+        return;
+      }
+
       if (e.key === 'Escape') {
+        // Close shortcuts modal first
+        if (!document.getElementById('shortcutsModal').classList.contains('hidden')) {
+          closeShortcutsModal();
+          return;
+        }
         // Close search palette first if open
         if (!document.getElementById('searchPalette').classList.contains('hidden')) {
           closeSearchPalette();
@@ -6954,6 +7192,10 @@ Response format:
           } else {
             showOverview({ fromRouter: true });
           }
+          break;
+        case 'recurring':
+          closeDetailPanel({ fromRouter: true });
+          showRecurringView({ fromRouter: true });
           break;
         case 'dashboard':
         default:

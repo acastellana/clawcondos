@@ -230,6 +230,17 @@
       return `misc:${session.key.split(':')[0] || 'misc'}`;
     }
 
+    function humanizeCondoId(condoId) {
+      const raw = String(condoId || '').trim();
+      if (!raw) return 'Condo';
+      if (raw.startsWith('condo:')) {
+        const slug = raw.slice('condo:'.length);
+        return slug.split(/[-_]+/).filter(Boolean).map(w => w[0].toUpperCase() + w.slice(1)).join(' ') || 'Condo';
+      }
+      if (/^condo_[a-f0-9]{8,}$/i.test(raw)) return 'Personal Condo';
+      return raw.split(/[-_:]+/).filter(Boolean).map(w => w[0].toUpperCase() + w.slice(1)).join(' ') || raw;
+    }
+
     function getSessionCondoName(session) {
       if (!session) return 'Unknown';
       if (session.key.startsWith('cron:')) return 'Recurring';
@@ -2281,16 +2292,12 @@
 
       const condos = new Map();
       const condoNameForId = (condoId, fallbackSession) => {
-        if (condoId === 'condo:genlayer') return 'GenLayer';
-        if (condoId === 'condo:clawcondos') return 'ClawCondos';
-        if (condoId === 'condo:rally') return 'Rally';
-        if (condoId === 'condo:moltcourt') return 'MoltCourt';
-        if (condoId === 'condo:personal') return 'Personal';
-        if (condoId === 'condo:finances') return 'Finances';
-        if (condoId === 'condo:subastas') return 'Subastas';
         if (condoId === 'condo:system') return 'SYSTEM';
-        if (condoId?.startsWith('condo:')) return condoId.split(':').slice(1).join(':');
-        return fallbackSession ? getSessionCondoName(fallbackSession) : 'Condo';
+        if (condoId === 'cron') return 'Recurring';
+        if (condoId?.startsWith('condo:') || /^condo_[a-f0-9]{8,}$/i.test(String(condoId || ''))) {
+          return humanizeCondoId(condoId);
+        }
+        return fallbackSession ? getSessionCondoName(fallbackSession) : humanizeCondoId(condoId);
       };
 
       const sessionByKey = new Map((state.sessions || []).map(s => [s.key, s]));
@@ -4897,7 +4904,7 @@ Response format:
     async function loadSessions() {
       try {
         console.log('[ClawCondos] Loading sessions...');
-        const result = await rpcCall('sessions.list', { limit: 50 });
+        const result = await rpcCall('sessions.list', { limit: 500, activeMinutes: 525600 });
         console.log('[ClawCondos] Sessions result:', result);
         if (result?.sessions) {
           state.sessions = result.sessions;
@@ -6511,7 +6518,7 @@ Response format:
           <div class="item-icon">${escapeHtml(app.icon || '📦')}</div>
           <div class="item-content">
             <div class="item-name">${escapeHtml(app.name)}</div>
-            <div class="item-meta">:${app.port}</div>
+            <div class="item-meta">${app.port ? ':' + app.port : app.static ? 'built-in' : ''}</div>
           </div>
           <div class="item-status idle" id="app-status-${escapeHtml(app.id)}" title="Checking..."></div>
         </a>
@@ -7319,6 +7326,74 @@ Response format:
       return 'Other';
     }
 
+    function getCadenceLabel(job) {
+      const s = job?.schedule || {};
+      if (s.kind === 'every') {
+        const ms = Number(s.everyMs || 0);
+        if (!ms) return 'every ?';
+        const m = Math.round(ms / 60000);
+        if (m < 60) return `every ${m}m`;
+        const h = Math.round(m / 60);
+        if (h < 24) return `every ${h}h`;
+        const d = Math.round(h / 24);
+        return `every ${d}d`;
+      }
+      if (s.kind === 'cron') {
+        const expr = String(s.expr || '');
+        if (/\*\//.test(expr) || /^\d+ \* /.test(expr)) return 'hourly';
+        if (/^\d+ \d+ \* \* \*/.test(expr)) return 'daily';
+        if (/^\d+ \d+ \* \* [0-7]/.test(expr)) return 'weekly';
+        return 'cron';
+      }
+      return s.kind || 'other';
+    }
+
+    function renderRecurringDiagram(jobs) {
+      if (!Array.isArray(jobs) || !jobs.length) {
+        return '<div class="recurring-diagram-card"><div class="recurring-diagram-title">Recurring Tasks Map</div><div class="recurring-diagram-empty">No recurring tasks</div></div>';
+      }
+
+      const byAgent = new Map();
+      for (const j of jobs) {
+        const aid = String(j.agentId || 'main');
+        if (!byAgent.has(aid)) byAgent.set(aid, []);
+        byAgent.get(aid).push(j);
+      }
+
+      const lanes = Array.from(byAgent.entries())
+        .sort((a,b)=>a[0].localeCompare(b[0]))
+        .map(([agentId, items]) => {
+          const nodes = items
+            .sort((a,b)=>String(a.name||a.id).localeCompare(String(b.name||b.id)))
+            .map(j => {
+              const status = getCronStatusInfo(j);
+              const cadence = getCadenceLabel(j);
+              return '<div class="recurring-node" onclick="openCronJobDetail(\'' + escapeHtml(String(j.id)) + '\')">' +
+                '<div class="recurring-node-top">' +
+                  '<span class="recurring-node-name">' + escapeHtml(String(j.name || j.id)) + '</span>' +
+                  '<span class="cron-status-badge ' + status.cls + '" style="font-size:10px; padding:1px 6px;">' + escapeHtml(status.label) + '</span>' +
+                '</div>' +
+                '<div class="recurring-node-meta">' + escapeHtml(cadence) + ' · ' + escapeHtml(getJobModel(j.payload)) + '</div>' +
+              '</div>';
+            }).join('');
+
+          return '<div class="recurring-lane">' +
+            '<div class="recurring-lane-header">🤖 ' + escapeHtml(agentId) + '</div>' +
+            '<div class="recurring-lane-flow">' +
+              '<div class="recurring-source">Scheduler</div>' +
+              '<div class="recurring-arrow">→</div>' +
+              '<div class="recurring-nodes">' + nodes + '</div>' +
+            '</div>' +
+          '</div>';
+        }).join('');
+
+      return '<div class="recurring-diagram-card">' +
+        '<div class="recurring-diagram-title">Recurring Tasks Map</div>' +
+        '<div class="recurring-diagram-sub">Click any node to open job details.</div>' +
+        lanes +
+      '</div>';
+    }
+
     function renderRecurringView() {
       const container = document.getElementById('recurringGrid');
       if (!container) return;
@@ -7375,7 +7450,7 @@ Response format:
         return String(a.name || a.id).localeCompare(String(b.name || b.id));
       });
 
-      let html = '';
+      let html = renderRecurringDiagram(jobs);
       let lastGroup = '';
 
       for (const j of jobs) {
