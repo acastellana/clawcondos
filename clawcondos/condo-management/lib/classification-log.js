@@ -1,4 +1,4 @@
-// clawcondos/condo-management/lib/classification-log.js
+// classification-log.js — Classification attempt logging
 import { existsSync, readFileSync, writeFileSync, mkdirSync, renameSync } from 'fs';
 import { join } from 'path';
 import crypto from 'crypto';

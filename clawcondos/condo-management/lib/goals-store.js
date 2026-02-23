@@ -11,13 +11,25 @@ export function createGoalsStore(dataDir) {
 
   function load() {
     if (!existsSync(filePath)) {
-      return { version: 2, goals: [], condos: [], sessionIndex: {}, sessionCondoIndex: {} };
+      return { version: 2, goals: [], condos: [], sessionIndex: {}, sessionCondoIndex: {}, notifications: [], config: {} };
     }
     try {
       const parsed = JSON.parse(readFileSync(filePath, 'utf-8'));
       const rawGoals = Array.isArray(parsed.goals) ? parsed.goals : [];
       const goals = rawGoals.map(g => {
         const completed = g?.completed === true || g?.status === 'done';
+        // Normalize goal-level plan
+        let plan = null;
+        if (g?.plan && typeof g.plan === 'object') {
+          plan = {
+            status: g.plan.status || 'none',
+            content: g.plan.content || '',
+            steps: Array.isArray(g.plan.steps) ? g.plan.steps : [],
+            feedback: g.plan.feedback || null,
+            createdAtMs: g.plan.createdAtMs || null,
+            updatedAtMs: g.plan.updatedAtMs || null,
+          };
+        }
         return {
           ...g,
           condoId: g?.condoId ?? null,
@@ -26,6 +38,7 @@ export function createGoalsStore(dataDir) {
           sessions: Array.isArray(g?.sessions) ? g.sessions : [],
           tasks: Array.isArray(g?.tasks) ? g.tasks : [],
           files: Array.isArray(g?.files) ? g.files : [],
+          plan,
         };
       });
       return {
@@ -34,9 +47,11 @@ export function createGoalsStore(dataDir) {
         condos: Array.isArray(parsed.condos) ? parsed.condos : [],
         sessionIndex: parsed.sessionIndex && typeof parsed.sessionIndex === 'object' ? parsed.sessionIndex : {},
         sessionCondoIndex: parsed.sessionCondoIndex && typeof parsed.sessionCondoIndex === 'object' ? parsed.sessionCondoIndex : {},
+        notifications: Array.isArray(parsed.notifications) ? parsed.notifications : [],
+        config: parsed.config && typeof parsed.config === 'object' ? parsed.config : {},
       };
     } catch (err) {
-      return { version: 2, goals: [], condos: [], sessionIndex: {}, sessionCondoIndex: {}, _loadError: true };
+      return { version: 2, goals: [], condos: [], sessionIndex: {}, sessionCondoIndex: {}, notifications: [], config: {}, _loadError: true };
     }
   }
 

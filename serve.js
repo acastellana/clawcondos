@@ -7,9 +7,10 @@
  */
 
 import { createServer, request as httpRequest } from 'http';
+import https from 'https';
 import WebSocket, { WebSocketServer } from 'ws';
 import { readFileSync, writeFileSync, existsSync, statSync, mkdirSync, readdirSync } from 'fs';
-import { join, extname, resolve as resolvePath } from 'path';
+import { join, dirname, extname, resolve as resolvePath } from 'path';
 import { fileURLToPath } from 'url';
 import { spawn, execFileSync } from 'child_process';
 import crypto from 'crypto';
@@ -515,6 +516,53 @@ function initGoalsWatcher() {
 }
 initGoalsWatcher();
 
+// ── Kickoff event relay: plugin writes events to a file, serve.js broadcasts to clients ──
+const KICKOFF_FILE = join(__dirname, 'clawcondos/condo-management/.data/kickoff-events.json');
+let lastKickoffMtime = 0;
+
+function broadcastKickoffEvents() {
+  try {
+    const raw = readFileSync(KICKOFF_FILE, 'utf-8').trim();
+    if (!raw) return;
+    const events = JSON.parse(raw);
+    if (!Array.isArray(events) || events.length === 0) return;
+    for (const evt of events) {
+      const msg = JSON.stringify({ type: 'event', event: evt.event || 'goal.kickoff', payload: evt });
+      let count = 0;
+      for (const ws of connectedClients) {
+        try {
+          if (ws.readyState === WebSocket.OPEN) { ws.send(msg); count++; }
+        } catch {}
+      }
+      console.log(`[kickoff-relay] Broadcast ${evt.event || 'goal.kickoff'} to ${count} clients (goal=${evt.goalId})`);
+    }
+    // Clear the file after broadcasting
+    writeFileSync(KICKOFF_FILE, '[]', 'utf-8');
+  } catch (err) {
+    if (err.code !== 'ENOENT') console.error(`[kickoff-relay] Error: ${err.message}`);
+  }
+}
+
+function initKickoffWatcher() {
+  // Create file if missing
+  const dir = dirname(KICKOFF_FILE);
+  if (!existsSync(dir)) return;
+  if (!existsSync(KICKOFF_FILE)) writeFileSync(KICKOFF_FILE, '[]', 'utf-8');
+  try {
+    lastKickoffMtime = statSync(KICKOFF_FILE).mtimeMs;
+    watchFile(KICKOFF_FILE, { interval: 300 }, (curr) => {
+      if (curr.mtimeMs !== lastKickoffMtime) {
+        lastKickoffMtime = curr.mtimeMs;
+        broadcastKickoffEvents();
+      }
+    });
+    console.log(`[kickoff-relay] Watching ${KICKOFF_FILE} for events`);
+  } catch (err) {
+    console.error(`[kickoff-relay] Failed to watch: ${err.message}`);
+  }
+}
+initKickoffWatcher();
+
 function getGatewayWsUrl() {
   const host = process.env.GATEWAY_HTTP_HOST || '127.0.0.1';
   const port = Number(process.env.GATEWAY_HTTP_PORT || 18789);
@@ -808,12 +856,13 @@ const server = createServer(async (req, res) => {
       if (goalsRes.status === 'rejected') console.error('[search] goals.list failed:', goalsRes.reason?.message);
       if (sessionsRes.status === 'rejected') console.error('[search] sessions.list failed:', sessionsRes.reason?.message);
 
-      // Enrich sessions with goal/condo info and subagent detection
+      // Enrich sessions with goal/condo info and worker/subagent detection
       function enrichSession(s) {
-        s.isSubagent = s.key.includes(':subagent:');
+        // Match both legacy subagent format and new webchat:task- format
+        s.isSubagent = s.key.includes(':subagent:') || s.key.includes(':webchat:task-');
         if (s.isSubagent) {
           const parts = s.key.split(':');
-          if (parts.length >= 4 && parts[2] === 'subagent') {
+          if (parts.length >= 4 && (parts[2] === 'subagent' || (parts[2] === 'webchat' && parts[3]?.startsWith('task-')))) {
             s.parentKey = parts[0] + ':' + parts[1] + ':main';
           }
         }
@@ -1036,7 +1085,7 @@ const server = createServer(async (req, res) => {
       const p = url.searchParams.get('path') || '';
       if (!p) throw new Error('Missing path');
       const full = resolvePath(p);
-      const extraUploadDir = process.env.CLAWCONDOS_UPLOAD_DIR;
+      const extraUploadDir = process.env.CLAWCONDOS_UPLOAD_DIR || '';
       const allowedRoots = [
         resolvePath(join(__dirname, 'media')),
         ...(extraUploadDir ? [resolvePath(extraUploadDir)] : []),
@@ -1139,7 +1188,7 @@ const server = createServer(async (req, res) => {
   // Static files
   //
   // Serve ClawCondos's config module without colliding with Apps Gateway /lib/* handler
-  if (pathname === '/clawcondos-lib/config.js') {
+  if (pathname === '/clawcondos-lib/config.js' || pathname === '/clawcondos-lib/config.js') {
     const filePath = join(__dirname, 'lib', 'config.js');
     serveFile(res, filePath);
     return;
@@ -1204,6 +1253,219 @@ const server = createServer(async (req, res) => {
 
   serveFile(res, filePath);
 });
+
+// ── Local service config RPC handler ──
+// Handles config.getServices, config.setService, config.deleteService locally
+// so they work even if the gateway plugin hasn't been restarted.
+function tryHandleLocalServiceRpc(raw, clientWs) {
+  let frame;
+  try { frame = JSON.parse(raw); } catch { return false; }
+  if (!frame || frame.type !== 'req') return false;
+
+  const LOCAL_METHODS = ['config.getServices', 'config.setService', 'config.deleteService', 'config.verifyGitHub'];
+  if (!LOCAL_METHODS.includes(frame.method)) return false;
+
+  const respond = (ok, payload, error) => {
+    const res = ok
+      ? { type: 'res', id: frame.id, ok: true, payload }
+      : { type: 'res', id: frame.id, ok: false, error: typeof error === 'string' ? { message: error } : error };
+    try { if (clientWs.readyState === WebSocket.OPEN) clientWs.send(JSON.stringify(res)); } catch {}
+  };
+
+  try {
+    const goalsPath = GOALS_FILE;
+    const loadData = () => {
+      if (!existsSync(goalsPath)) return { config: {}, condos: [] };
+      return JSON.parse(readFileSync(goalsPath, 'utf-8'));
+    };
+    const persistData = (d) => {
+      const dir = join(__dirname, 'clawcondos/condo-management/.data');
+      if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+      writeFileSync(goalsPath, JSON.stringify(d, null, 2));
+    };
+
+    const params = frame.params || {};
+
+    // ── Token masking ──
+    const SENSITIVE = ['token', 'apiKey', 'secret', 'password', 'accessToken', 'agentToken'];
+    const maskSvc = (svc) => {
+      if (!svc || typeof svc !== 'object') return svc;
+      const m = { ...svc };
+      for (const k of SENSITIVE) {
+        if (m[k] && typeof m[k] === 'string') {
+          const v = m[k];
+          m[k] = v.length > 8 ? v.slice(0, 4) + '****' + v.slice(-4) : '****';
+          m[k + 'Configured'] = true;
+        }
+      }
+      return m;
+    };
+    const maskAll = (svcs) => {
+      const r = {};
+      for (const [n, s] of Object.entries(svcs || {})) r[n] = maskSvc(s);
+      return r;
+    };
+
+    if (frame.method === 'config.getServices') {
+      const data = loadData();
+      const globalSvcs = data.config?.services || {};
+      if (params.condoId) {
+        const condo = (data.condos || []).find(c => c.id === params.condoId);
+        if (!condo) return respond(false, null, 'Condo not found'), true;
+        const overrides = condo.services || {};
+        const merged = { ...globalSvcs };
+        for (const [n, o] of Object.entries(overrides)) merged[n] = { ...(merged[n] || {}), ...o };
+        respond(true, { services: maskAll(merged), overrides: maskAll(overrides) });
+      } else {
+        respond(true, { services: maskAll(globalSvcs) });
+      }
+      return true;
+    }
+
+    if (frame.method === 'config.setService') {
+      const { service, config: svcCfg, condoId } = params;
+      if (!service || typeof service !== 'string') return respond(false, null, 'service name is required'), true;
+      if (!svcCfg || typeof svcCfg !== 'object') return respond(false, null, 'config object is required'), true;
+      const data = loadData();
+      if (condoId) {
+        const condo = (data.condos || []).find(c => c.id === condoId);
+        if (!condo) return respond(false, null, 'Condo not found'), true;
+        if (!condo.services) condo.services = {};
+        condo.services[service] = { ...(condo.services[service] || {}), ...svcCfg };
+        condo.updatedAtMs = Date.now();
+      } else {
+        if (!data.config) data.config = {};
+        if (!data.config.services) data.config.services = {};
+        data.config.services[service] = { ...(data.config.services[service] || {}), ...svcCfg };
+        data.config.updatedAtMs = Date.now();
+      }
+      persistData(data);
+      respond(true, { ok: true });
+      return true;
+    }
+
+    if (frame.method === 'config.deleteService') {
+      const { service, condoId } = params;
+      if (!service || typeof service !== 'string') return respond(false, null, 'service name is required'), true;
+      const data = loadData();
+      if (condoId) {
+        const condo = (data.condos || []).find(c => c.id === condoId);
+        if (!condo) return respond(false, null, 'Condo not found'), true;
+        if (condo.services) {
+          delete condo.services[service];
+          if (Object.keys(condo.services).length === 0) delete condo.services;
+        }
+        condo.updatedAtMs = Date.now();
+      } else {
+        if (data.config?.services) {
+          delete data.config.services[service];
+          if (Object.keys(data.config.services).length === 0) delete data.config.services;
+        }
+        if (data.config) data.config.updatedAtMs = Date.now();
+      }
+      persistData(data);
+      respond(true, { ok: true });
+      return true;
+    }
+
+    if (frame.method === 'config.verifyGitHub') {
+      const { token: rawToken, condoId, repoUrl } = params;
+
+      // Resolve token
+      let tokenToVerify = rawToken;
+      if (!tokenToVerify) {
+        const data = loadData();
+        if (condoId) {
+          const condo = (data.condos || []).find(c => c.id === condoId);
+          const condoGh = condo?.services?.github;
+          if (condoGh?.agentToken) tokenToVerify = condoGh.agentToken;
+          else if (condoGh?.token) tokenToVerify = condoGh.token;
+        }
+        if (!tokenToVerify) {
+          const gh = data.config?.services?.github;
+          if (gh?.agentToken) tokenToVerify = gh.agentToken;
+          else if (gh?.token) tokenToVerify = gh.token;
+        }
+      }
+
+      if (!tokenToVerify) {
+        respond(true, { valid: false, error: 'No GitHub token configured' });
+        return true;
+      }
+
+      // Async: make GitHub API calls and respond when done
+      const ghApiCall = (method, path) => new Promise((resolve, reject) => {
+        const req = https.request({
+          hostname: 'api.github.com', path, method,
+          headers: {
+            'Authorization': `Bearer ${tokenToVerify}`,
+            'Accept': 'application/vnd.github+json',
+            'User-Agent': 'ClawCondos/1.0',
+            'X-GitHub-Api-Version': '2022-11-28',
+          },
+        }, (res) => {
+          let raw = '';
+          res.on('data', chunk => raw += chunk);
+          res.on('end', () => {
+            let data = null;
+            try { data = JSON.parse(raw); } catch {}
+            resolve({ data, headers: res.headers, statusCode: res.statusCode });
+          });
+        });
+        req.on('error', reject);
+        req.setTimeout(15000, () => { req.destroy(); reject(new Error('Timeout')); });
+        req.end();
+      });
+
+      (async () => {
+        try {
+          const { data, headers: hdrs, statusCode } = await ghApiCall('GET', '/user');
+          if (statusCode === 401 || statusCode === 403) {
+            return respond(true, { valid: false, error: `Authentication failed (${statusCode}): ${data?.message || 'Invalid token'}` });
+          }
+          if (statusCode < 200 || statusCode >= 300) {
+            return respond(true, { valid: false, error: `GitHub API returned ${statusCode}: ${data?.message || 'Unknown error'}` });
+          }
+
+          const scopesHeader = hdrs['x-oauth-scopes'];
+          const scopes = scopesHeader ? scopesHeader.split(',').map(s => s.trim()).filter(Boolean) : [];
+          const tokenType = scopesHeader !== undefined ? 'classic' : 'fine-grained';
+          const result = { valid: true, login: data.login, name: data.name || null, scopes, tokenType };
+
+          if (repoUrl && typeof repoUrl === 'string') {
+            const ghMatch = repoUrl.match(/github\.com[/:]([^/]+)\/([^/.]+)/);
+            if (ghMatch) {
+              const [, owner, repo] = ghMatch;
+              try {
+                const repoResp = await ghApiCall('GET', `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`);
+                if (repoResp.statusCode >= 200 && repoResp.statusCode < 300) {
+                  result.repoAccess = { accessible: true, permissions: repoResp.data?.permissions || {} };
+                } else {
+                  result.repoAccess = { accessible: false, error: `${repoResp.statusCode}: ${repoResp.data?.message || 'Cannot access repo'}` };
+                }
+              } catch (repoErr) {
+                result.repoAccess = { accessible: false, error: repoErr.message };
+              }
+            } else {
+              result.repoAccess = { accessible: null, note: 'Non-GitHub URL' };
+            }
+          }
+
+          respond(true, result);
+        } catch (err) {
+          respond(true, { valid: false, error: err.message });
+        }
+      })();
+
+      return true;
+    }
+  } catch (err) {
+    respond(false, null, err.message);
+    return true;
+  }
+
+  return false;
+}
 
 server.on('upgrade', (req, socket, head) => {
   try {
@@ -1322,6 +1584,12 @@ server.on('upgrade', (req, socket, head) => {
         const raw = isBinary
           ? (Buffer.isBuffer(data) ? data.toString('utf-8') : String(data))
           : (typeof data === 'string' ? data : (Buffer.isBuffer(data) ? data.toString('utf-8') : String(data)));
+
+        // ── Local intercept for service config RPC ──
+        // These methods may not yet be registered on the gateway (requires restart),
+        // so handle them locally against the same goals.json store.
+        const localResult = tryHandleLocalServiceRpc(raw, clientWs);
+        if (localResult) return; // Handled locally, don't forward
 
         // Handle privileged reads server-side to avoid browser scope/device limitations.
         // Browser still uses /ws, but these methods execute via trusted gatewayClient auth.
@@ -1510,7 +1778,7 @@ server.on('upgrade', (req, socket, head) => {
 server.listen(PORT, () => {
   const apps = loadApps();
   console.log(`
-🎯 ClawCondos Dashboard
+🎯 [ClawCondos] Dashboard
    http://localhost:${PORT}
 
 📱 Registered Apps:`);
