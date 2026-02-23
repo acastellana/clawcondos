@@ -15,11 +15,23 @@ describe('rewriteConnectFrame', () => {
       method: 'connect',
       params: { minProtocol: 3, maxProtocol: 3 }
     };
+    // String gatewayAuth becomes { token: string }, so auth is set via token path
     const result = JSON.parse(rewriteConnectFrame(JSON.stringify(frame), 'secret-token'));
-    expect(result.params.auth).toEqual({ password: 'secret-token' });
+    expect(result.params.auth).toEqual({ token: 'secret-token' });
   });
 
-  it('should set client.id to webchat-ui', () => {
+  it('should inject auth with password when gatewayAuth is object with password', () => {
+    const frame = {
+      type: 'req',
+      id: 'r1',
+      method: 'connect',
+      params: { minProtocol: 3, maxProtocol: 3 }
+    };
+    const result = JSON.parse(rewriteConnectFrame(JSON.stringify(frame), { password: 'secret-pw' }));
+    expect(result.params.auth).toEqual({ password: 'secret-pw' });
+  });
+
+  it('should set client.id and mode from env defaults', () => {
     const frame = {
       type: 'req',
       id: 'r1',
@@ -27,8 +39,8 @@ describe('rewriteConnectFrame', () => {
       params: { client: { displayName: 'MyUI' } }
     };
     const result = JSON.parse(rewriteConnectFrame(JSON.stringify(frame), null));
-    expect(result.params.client.id).toBe('webchat-ui');
-    expect(result.params.client.mode).toBe('webchat');
+    expect(result.params.client.id).toBe('cli');
+    expect(result.params.client.mode).toBe('cli');
     expect(result.params.client.displayName).toBe('MyUI');
   });
 
@@ -43,30 +55,30 @@ describe('rewriteConnectFrame', () => {
     expect(result.params.client.displayName).toBe('ClawCondos');
   });
 
-  it('should not clobber existing auth.password', () => {
+  it('should enforce server-side auth even when client has existing auth', () => {
     const frame = {
       type: 'req',
       id: 'r1',
       method: 'connect',
       params: { auth: { password: 'existing' } }
     };
+    // Server-side token overrides client auth to prevent stale tokens
     const result = JSON.parse(rewriteConnectFrame(JSON.stringify(frame), 'new-token'));
-    expect(result.params.auth.password).toBe('existing');
+    expect(result.params.auth).toEqual({ token: 'new-token' });
   });
 
-  it('should inject password when auth exists but password is missing', () => {
+  it('should enforce server-side password auth over existing client auth', () => {
     const frame = {
       type: 'req',
       id: 'r1',
       method: 'connect',
       params: { auth: { token: 'some-token' } }
     };
-    const result = JSON.parse(rewriteConnectFrame(JSON.stringify(frame), 'gateway-pw'));
-    expect(result.params.auth.password).toBe('gateway-pw');
-    expect(result.params.auth.token).toBe('some-token');
+    const result = JSON.parse(rewriteConnectFrame(JSON.stringify(frame), { password: 'gateway-pw' }));
+    expect(result.params.auth).toEqual({ password: 'gateway-pw' });
   });
 
-  it('should not inject auth when gatewayAuth is null', () => {
+  it('should set empty auth when gatewayAuth is null and no existing auth', () => {
     const frame = {
       type: 'req',
       id: 'r1',
@@ -74,7 +86,7 @@ describe('rewriteConnectFrame', () => {
       params: {}
     };
     const result = JSON.parse(rewriteConnectFrame(JSON.stringify(frame), null));
-    expect(result.params.auth).toBeUndefined();
+    expect(result.params.auth).toEqual({});
   });
 
   it('should pass through non-connect frames unchanged', () => {
