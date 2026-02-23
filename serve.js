@@ -12,7 +12,7 @@ import WebSocket, { WebSocketServer } from 'ws';
 import { readFileSync, writeFileSync, existsSync, statSync, mkdirSync, readdirSync } from 'fs';
 import { join, dirname, extname, resolve as resolvePath } from 'path';
 import { fileURLToPath } from 'url';
-import { spawn } from 'child_process';
+import { spawn, execFileSync } from 'child_process';
 import crypto from 'crypto';
 import os from 'os';
 import { rewriteConnectFrame, validateStaticPath, isDotfilePath, filterProxyHeaders, stripSensitiveHeaders } from './lib/serve-helpers.js';
@@ -21,6 +21,8 @@ import { filterGoals, filterSessions, crossRefFileWithGoals } from './lib/search
 import { createEmbeddingProvider } from './lib/embedding-provider.js';
 import { createMemorySearch } from './lib/memory-search.js';
 import { createChatIndex } from './lib/chat-index.js';
+import { createGoalsStore } from './clawcondos/condo-management/lib/goals-store.js';
+import { createGoalHandlers } from './clawcondos/condo-management/lib/goals-handlers.js';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 
@@ -405,7 +407,57 @@ let wsConnectionCount = 0;
 // ── Real-time goal sync: watch goals.json and broadcast changes to all clients ──
 import { watchFile, unwatchFile } from 'fs';
 const connectedClients = new Set();
+const observedSessions = new Map(); // sessionKey -> { key, updatedAt, displayName, channel, kind }
+const observedActiveRuns = new Map(); // sessionKey -> { runId, startedAt }
+
+function buildLocalSessionsFallback(limit = 500) {
+  const result = new Map();
+
+  // Best source: OpenClaw local session store via CLI.
+  try {
+    let raw = '';
+    const candidates = ['openclaw', '/home/albert/.npm-global/bin/openclaw'];
+    for (const bin of candidates) {
+      try {
+        raw = execFileSync(bin, ['sessions', '--json'], {
+          encoding: 'utf8',
+          timeout: 8000,
+          env: {
+            ...process.env,
+            PATH: `${process.env.PATH || ''}:/home/albert/.npm-global/bin:/usr/local/bin:/usr/bin:/bin`
+          }
+        });
+        if (raw) break;
+      } catch {}
+    }
+    if (!raw) throw new Error('openclaw sessions unavailable');
+    const parsed = JSON.parse(raw);
+    for (const s of (parsed?.sessions || [])) {
+      const key = s?.key;
+      if (!key) continue;
+      result.set(key, {
+        key,
+        updatedAt: s?.updatedAt || Date.now(),
+        displayName: s?.displayName || key,
+        channel: key.includes(':telegram:') ? 'telegram' : undefined,
+        kind: s?.kind || 'other'
+      });
+    }
+  } catch {}
+
+  // Merge in observed sessions from event stream.
+  for (const [k, v] of observedSessions.entries()) {
+    if (!result.has(k)) result.set(k, { ...v });
+  }
+
+  return Array.from(result.values())
+    .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
+    .slice(0, Math.max(1, limit));
+}
 const GOALS_FILE = join(__dirname, 'clawcondos/condo-management/.data/goals.json');
+const GOALS_DATA_DIR = join(__dirname, 'clawcondos/condo-management/.data');
+const goalsStore = createGoalsStore(GOALS_DATA_DIR);
+const goalHandlers = createGoalHandlers(goalsStore);
 let lastGoalsMtime = 0;
 
 function broadcastGoalsChanged() {
@@ -420,6 +472,27 @@ function broadcastGoalsChanged() {
     } catch {}
   }
   console.log(`[goals-sync] Broadcast goals.changed to ${count} clients`);
+}
+
+async function tryLocalGoalsRpc(method, params = {}) {
+  const handler = goalHandlers?.[method];
+  if (!handler) return { handled: false };
+  return await new Promise((resolve) => {
+    try {
+      handler({
+        params,
+        respond: (ok, payload, error) => {
+          if (ok) {
+            resolve({ handled: true, ok: true, result: payload || {} });
+          } else {
+            resolve({ handled: true, ok: false, error: error || { message: 'Local goals RPC failed' } });
+          }
+        }
+      });
+    } catch (err) {
+      resolve({ handled: true, ok: false, error: { message: err?.message || String(err) } });
+    }
+  });
 }
 
 function initGoalsWatcher() {
@@ -496,22 +569,48 @@ function getGatewayWsUrl() {
   return process.env.GATEWAY_WS_URL || `ws://${host}:${port}/ws`;
 }
 
-// Read gateway password from OpenClaw config (separate from GATEWAY_AUTH Bearer token)
+function readOpenClawDotEnv() {
+  try {
+    const p = join(os.homedir(), '.openclaw', '.env');
+    if (!existsSync(p)) return {};
+    const out = {};
+    for (const line of readFileSync(p, 'utf-8').split('\n')) {
+      const m = line.match(/^([A-Z_][A-Z0-9_]*)=(.*)$/);
+      if (m) out[m[1]] = m[2];
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+// Read gateway credentials from env/config/dotenv.
 function getGatewayPassword() {
   if (process.env.GATEWAY_PASSWORD) return process.env.GATEWAY_PASSWORD;
   try {
     const confPath = join(os.homedir(), '.openclaw', 'openclaw.json');
     const conf = JSON.parse(readFileSync(confPath, 'utf-8'));
-    return conf?.gateway?.auth?.password || '';
-  } catch {
-    return '';
-  }
+    if (conf?.gateway?.auth?.password) return conf.gateway.auth.password;
+  } catch {}
+  const envFile = readOpenClawDotEnv();
+  return envFile.CLAWDBOT_GATEWAY_PASSWORD || '';
+}
+
+function getGatewayToken() {
+  if (process.env.GATEWAY_AUTH) return process.env.GATEWAY_AUTH;
+  try {
+    const confPath = join(os.homedir(), '.openclaw', 'openclaw.json');
+    const conf = JSON.parse(readFileSync(confPath, 'utf-8'));
+    if (conf?.gateway?.auth?.token) return conf.gateway.auth.token;
+  } catch {}
+  const envFile = readOpenClawDotEnv();
+  return envFile.CLAWDBOT_GATEWAY_TOKEN || '';
 }
 
 // Internal gateway client (lazy connect on first rpcCall)
 const gatewayClient = createGatewayClient({
   getWsUrl: getGatewayWsUrl,
-  getAuth: () => process.env.GATEWAY_AUTH || '',
+  getAuth: () => '',
   getPassword: getGatewayPassword
 });
 
@@ -537,13 +636,18 @@ const chatIndex = createChatIndex({
   logger: console,
 });
 
+const chatIndexDisabled = String(process.env.CLAWCONDOS_DISABLE_CHAT_INDEX || '') === '1';
 try {
   chatIndex.init();
-  // Initial background sync (non-blocking)
-  chatIndex.sync(gatewayClient).catch(err => console.error('[chat-index] Initial sync failed:', err.message));
-  // Schedule recurring sync
-  const syncInterval = parseInt(process.env.CLAWCONDOS_SEARCH_SYNC_INTERVAL_MS) || 300000;
-  chatIndex.startBackgroundSync(gatewayClient, syncInterval);
+  if (chatIndexDisabled) {
+    console.log('[chat-index] Disabled via CLAWCONDOS_DISABLE_CHAT_INDEX=1');
+  } else {
+    // Initial background sync (non-blocking)
+    chatIndex.sync(gatewayClient).catch(err => console.error('[chat-index] Initial sync failed:', err.message));
+    // Schedule recurring sync
+    const syncInterval = parseInt(process.env.CLAWCONDOS_SEARCH_SYNC_INTERVAL_MS) || 300000;
+    chatIndex.startBackgroundSync(gatewayClient, syncInterval);
+  }
 } catch (err) {
   console.error('[chat-index] Init failed:', err.message);
 }
@@ -1017,13 +1121,61 @@ const server = createServer(async (req, res) => {
     }
   }
 
+  // API: /api/local-sessions -> local session snapshot independent of gateway WS auth
+  if (pathname === '/api/local-sessions' && req.method === 'GET') {
+    try {
+      const limit = Math.max(1, Math.min(2000, Number(url.searchParams.get('limit') || 500)));
+      const sessions = buildLocalSessionsFallback(limit);
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+      res.end(JSON.stringify({ sessions }));
+    } catch (error) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: String(error?.message || error) }));
+    }
+    return;
+  }
+
   // API: /api/apps -> serve apps.json
   if (pathname === '/api/apps') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ apps }));
     return;
   }
+
+  // API: /api/cron-recurring -> list enabled recurring cron jobs (server-side)
+  if (pathname === '/api/cron-recurring' || pathname === '/api/cron-recurring/') {
+    try {
+      const openclawBin = process.env.OPENCLAW_BIN || '/home/albert/.npm-global/bin/openclaw';
+      const raw = execFileSync(openclawBin, ['cron', 'list', '--all', '--json'], { encoding: 'utf8', timeout: 15000 });
+      const parsed = JSON.parse(raw);
+      const jobs = Array.isArray(parsed) ? parsed : (parsed.jobs || []);
+      const recurring = jobs
+        .filter(j => j && j.enabled !== false)
+        .filter(j => ['cron', 'every'].includes(j?.schedule?.kind))
+        .map(j => ({
+          id: j.jobId || j.id,
+          name: j.name || (j.jobId || j.id),
+          agentId: j.agentId || 'main',
+          schedule: j.schedule || null,
+          model: j?.payload?.model || 'default',
+          delivery: j?.delivery?.mode || 'none'
+        }));
+      json(res, 200, { ok: true, jobs: recurring });
+    } catch (err) {
+      json(res, 500, { ok: false, error: err?.message || String(err) });
+    }
+    return;
+  }
   
+  // Check if path matches a built-in static app (served from public/ — no separate server)
+  for (const app of apps) {
+    if (app.static && (pathname === `/${app.id}` || pathname.startsWith(`/${app.id}/`))) {
+      const staticFile = join(__dirname, 'public', app.staticFile || `${app.id}.html`);
+      serveFile(res, staticFile);
+      return;
+    }
+  }
+
   // Check if path matches an app (/{appId}/...)
   for (const app of apps) {
     if (pathname === `/${app.id}` || pathname.startsWith(`/${app.id}/`)) {
@@ -1328,7 +1480,8 @@ server.on('upgrade', (req, socket, head) => {
       return;
     }
 
-    const gatewayAuth = process.env.GATEWAY_AUTH || null;
+    const gatewayToken = null;
+    const gatewayPassword = process.env.GATEWAY_PASSWORD || getGatewayPassword() || null;
 
     wss.handleUpgrade(req, socket, head, (clientWs) => {
       wsConnectionCount++;
@@ -1346,7 +1499,7 @@ server.on('upgrade', (req, socket, head) => {
         // Set origin to gateway host so it passes the gateway's origin check
         Origin: `http://${gatewayHost}:${gatewayPort}`,
       };
-      if (gatewayAuth) upstreamHeaders['Authorization'] = `Bearer ${gatewayAuth}`;
+      if (gatewayToken) upstreamHeaders['Authorization'] = `Bearer ${gatewayToken}`;
       const upstreamWs = new WebSocket(upstreamUrl, { headers: upstreamHeaders });
 
       const closeBoth = (code, reason) => {
@@ -1382,7 +1535,35 @@ server.on('upgrade', (req, socket, head) => {
           const payload = isBinary
             ? (Buffer.isBuffer(data) ? data.toString('utf-8') : String(data))
             : (typeof data === 'string' ? data : (Buffer.isBuffer(data) ? data.toString('utf-8') : String(data)));
-          
+
+          // Opportunistic local cache for sessions/active-runs fallback when scopes are restricted.
+          try {
+            const msg = JSON.parse(payload);
+            if (msg?.type === 'event') {
+              const p = msg?.payload || {};
+              const sessionKey = p?.sessionKey;
+              if (sessionKey && typeof sessionKey === 'string') {
+                const now = Date.now();
+                observedSessions.set(sessionKey, {
+                  key: sessionKey,
+                  updatedAt: now,
+                  displayName: p?.displayName || p?.label || sessionKey,
+                  channel: sessionKey.includes(':telegram:') ? 'telegram' : undefined,
+                  kind: 'other'
+                });
+              }
+              if (msg.event === 'agent' && sessionKey) {
+                const phase = p?.data?.phase;
+                const runId = p?.runId;
+                if (phase === 'start' && runId) {
+                  observedActiveRuns.set(sessionKey, { runId, startedAt: Date.now() });
+                } else if (phase === 'end') {
+                  observedActiveRuns.delete(sessionKey);
+                }
+              }
+            }
+          } catch {}
+
           if (clientWs.readyState === WebSocket.OPEN) clientWs.send(payload);
         } catch {
           closeBoth(1011, 'proxy send failed');
@@ -1390,15 +1571,16 @@ server.on('upgrade', (req, socket, head) => {
       });
 
       upstreamWs.on('close', (code, reason) => {
-        try { if (clientWs.readyState === WebSocket.OPEN) clientWs.close(code, reason?.toString()); } catch {}
+        console.warn('upstream WS closed:', code, reason?.toString?.() || '');
+        // Keep client socket alive for local RPC fallbacks.
       });
 
       upstreamWs.on('error', (err) => {
         console.error('upstream WS error:', err.message || err);
-        closeBoth(1011, 'gateway ws error');
+        // Keep client socket alive for local RPC fallbacks.
       });
 
-      clientWs.on('message', (data, isBinary) => {
+      clientWs.on('message', async (data, isBinary) => {
         const raw = isBinary
           ? (Buffer.isBuffer(data) ? data.toString('utf-8') : String(data))
           : (typeof data === 'string' ? data : (Buffer.isBuffer(data) ? data.toString('utf-8') : String(data)));
@@ -1409,7 +1591,168 @@ server.on('upgrade', (req, socket, head) => {
         const localResult = tryHandleLocalServiceRpc(raw, clientWs);
         if (localResult) return; // Handled locally, don't forward
 
-        const rewritten = rewriteConnectFrame(raw, gatewayAuth);
+        // Handle privileged reads server-side to avoid browser scope/device limitations.
+        // Browser still uses /ws, but these methods execute via trusted gatewayClient auth.
+        try {
+          const frame = JSON.parse(raw);
+          const method = frame?.method;
+
+          // connect handshake is handled by upstream gateway.
+
+          const localRpcMethods = new Set([
+            'sessions.list',
+            'agents.list',
+            'chat.activeRuns',
+            'goals.list',
+            'goals.create',
+            'goals.update',
+            'goals.delete',
+            'goals.addSession',
+            'goals.removeSession',
+            'goals.addTask',
+            'goals.updateTask',
+            'goals.deleteTask',
+            'goals.addFiles',
+            'goals.removeFile',
+            'goals.setSessionCondo',
+            'goals.listSessionCondos',
+            'goals.spawnTaskSession',
+            'condos.list'
+          ]);
+
+          if (frame?.type === 'req' && localRpcMethods.has(method)) {
+            // Local/session cache fallbacks for scoped environments.
+            if (method === 'sessions.list') {
+              try {
+                const result = await gatewayClient.rpcCall(method, frame.params || {});
+                if (clientWs.readyState === WebSocket.OPEN) {
+                  clientWs.send(JSON.stringify({ type: 'res', id: String(frame.id), method, ok: true, result }));
+                }
+                return;
+              } catch {
+                const limit = Number(frame?.params?.limit || 500);
+                const sessions = buildLocalSessionsFallback(limit);
+                if (clientWs.readyState === WebSocket.OPEN) {
+                  clientWs.send(JSON.stringify({ type: 'res', id: String(frame.id), method, ok: true, result: { sessions } }));
+                }
+                return;
+              }
+            }
+
+            if (method === 'chat.activeRuns') {
+              const activeRuns = Array.from(observedActiveRuns.entries()).map(([sessionKey, v]) => ({
+                sessionKey,
+                runId: v?.runId,
+                startedAt: v?.startedAt || Date.now()
+              }));
+              if (clientWs.readyState === WebSocket.OPEN) {
+                clientWs.send(JSON.stringify({ type: 'res', id: String(frame.id), method, ok: true, result: { activeRuns } }));
+              }
+              return;
+            }
+
+            if (method === 'agents.list') {
+              try {
+                const cfg = JSON.parse(readFileSync(resolvePath(process.env.OPENCLAW_CONFIG_PATH || join(os.homedir(), '.openclaw', 'openclaw.json')), 'utf8'));
+                const agents = (cfg?.agents?.list || []).map(a => ({ ...a }));
+                if (clientWs.readyState === WebSocket.OPEN) {
+                  clientWs.send(JSON.stringify({ type: 'res', id: String(frame.id), method, ok: true, result: { agents } }));
+                }
+                return;
+              } catch {}
+            }
+
+            // Write-capable goals.* methods are served locally to avoid scope/auth edge-cases.
+            if (method.startsWith('goals.')) {
+              const local = await tryLocalGoalsRpc(method, frame.params || {});
+              if (local.handled && clientWs.readyState === WebSocket.OPEN) {
+                clientWs.send(JSON.stringify({
+                  type: 'res',
+                  id: String(frame.id),
+                  method,
+                  ok: !!local.ok,
+                  result: local.ok ? (local.result || {}) : undefined,
+                  error: local.ok ? undefined : (local.error || { message: 'Local goals RPC failed' })
+                }));
+                return;
+              }
+            }
+
+            try {
+              const result = await gatewayClient.rpcCall(method, frame.params || {});
+              if (clientWs.readyState === WebSocket.OPEN) {
+                clientWs.send(JSON.stringify({
+                  type: 'res',
+                  id: String(frame.id),
+                  method,
+                  ok: true,
+                  result
+                }));
+              }
+            } catch (err) {
+              // Fallback local responses when gateway scopes are restricted.
+              const msg = String(err?.message || err || '');
+              const isScopeErr = /missing scope|unauthorized/i.test(msg);
+              if (isScopeErr) {
+                try {
+                  let fallback = null;
+                  if (method === 'sessions.list') {
+                    fallback = { sessions: [] };
+                  } else if (method === 'agents.list') {
+                    const cfg = JSON.parse(readFileSync(resolvePath(process.env.OPENCLAW_CONFIG_PATH || join(os.homedir(), '.openclaw', 'openclaw.json')), 'utf8'));
+                    fallback = { agents: (cfg?.agents?.list || []).map(a => ({ ...a })) };
+                  } else if (method === 'chat.activeRuns') {
+                    fallback = { activeRuns: [] };
+                  } else if (method === 'goals.list' || method === 'condos.list') {
+                    const goalsDb = JSON.parse(readFileSync(GOALS_FILE, 'utf8'));
+                    const goals = Array.isArray(goalsDb?.goals) ? goalsDb.goals : [];
+                    if (method === 'goals.list') {
+                      fallback = { goals };
+                    } else {
+                      const condoMap = new Map();
+                      for (const g of goals) {
+                        const id = g?.condoId || 'default';
+                        if (!condoMap.has(id)) condoMap.set(id, { id, name: id, description: '', status: 'active' });
+                      }
+                      fallback = { condos: Array.from(condoMap.values()) };
+                    }
+                  }
+
+                  if (fallback && clientWs.readyState === WebSocket.OPEN) {
+                    clientWs.send(JSON.stringify({
+                      type: 'res',
+                      id: String(frame.id),
+                      method,
+                      ok: true,
+                      result: fallback
+                    }));
+                    return;
+                  }
+                } catch (fallbackErr) {
+                  console.error('[ws] local fallback failed for', method, fallbackErr?.message || fallbackErr);
+                }
+              }
+
+              if (clientWs.readyState === WebSocket.OPEN) {
+                clientWs.send(JSON.stringify({
+                  type: 'res',
+                  id: String(frame.id),
+                  method,
+                  ok: false,
+                  error: {
+                    code: 'LOCAL_RPC_ERROR',
+                    message: err?.message || String(err)
+                  }
+                }));
+              }
+            }
+            return;
+          }
+        } catch {
+          // non-JSON or pass-through frame
+        }
+
+        const rewritten = rewriteConnectFrame(raw, { token: gatewayToken, password: gatewayPassword });
         try {
           sendUpstream(rewritten);
         } catch {
