@@ -11,7 +11,7 @@ import { createTeamHandlers } from './lib/team-handlers.js';
 import { createRolesHandlers } from './lib/roles-handlers.js';
 import { createNotificationHandlers } from './lib/notification-manager.js';
 import { createAutonomyHandlers } from './lib/autonomy.js';
-import { buildGoalContext, buildStrandContext, buildStrandMenuContext, getProjectSummaryForGoal } from './lib/context-builder.js';
+import { buildGoalContext, buildCondoContext, buildCondoMenuContext, getProjectSummaryForGoal } from './lib/context-builder.js';
 import { createGoalUpdateExecutor } from './lib/goal-update-tool.js';
 import { createTaskSpawnHandler, buildPlanFilePath } from './lib/task-spawn.js';
 import { matchLogToStep } from './lib/plan-manager.js';
@@ -163,8 +163,8 @@ export default function register(api) {
     }
   }
 
-  const strandHandlers = createCondoHandlers(store, { wsOps, logger: api.logger });
-  for (const [method, handler] of Object.entries(strandHandlers)) {
+  const condoHandlers2 = createCondoHandlers(store, { wsOps, logger: api.logger });
+  for (const [method, handler] of Object.entries(condoHandlers2)) {
     api.registerGatewayMethod(method, handler);
   }
 
@@ -719,8 +719,8 @@ export default function register(api) {
       // Resolve GitHub config
       const ghConfig = (() => {
         const globalServices = data.config?.services || {};
-        const strandServices = condo.services || {};
-        return strandServices.github || globalServices.github || null;
+        const condoServices = condo.services || {};
+        return condoServices.github || globalServices.github || null;
       })();
 
       if (!ghConfig?.agentToken) return respond(false, null, 'GitHub agent token not configured');
@@ -979,7 +979,7 @@ export default function register(api) {
       const condo = data.condos.find(c => c.id === condoId);
       if (condo) {
         const goals = data.goals.filter(g => g.condoId === condoId);
-        const context = buildStrandContext(condo, goals, { currentSessionKey: sessionKey });
+        const context = buildCondoContext(condo, goals, { currentSessionKey: sessionKey });
         if (context) return { prependContext: context };
       }
     }
@@ -1027,7 +1027,7 @@ export default function register(api) {
         const condo = data.condos.find(c => c.id === classification.condoId);
         if (condo) {
           const goals = data.goals.filter(g => g.condoId === classification.condoId);
-          const context = buildStrandContext(condo, goals, { currentSessionKey: sessionKey });
+          const context = buildCondoContext(condo, goals, { currentSessionKey: sessionKey });
 
           // Goal intent detection
           if (context) {
@@ -1043,7 +1043,7 @@ export default function register(api) {
 
       // Low confidence → inject condo menu for agent to decide
       if (data.condos.length > 0) {
-        const menu = buildStrandMenuContext(data.condos, data.goals);
+        const menu = buildCondoMenuContext(data.condos, data.goals);
         if (menu) return { prependContext: menu };
       }
     } catch (err) {
@@ -1853,6 +1853,6 @@ export default function register(api) {
     { names: ['condo_pm_kickoff'] }
   );
 
-  const totalMethods = Object.keys(handlers).length + Object.keys(strandHandlers).length + Object.keys(planHandlers).length + Object.keys(pmHandlers).length + Object.keys(configHandlers).length + Object.keys(teamHandlers).length + Object.keys(rolesHandlers).length + Object.keys(notificationHandlers).length + Object.keys(autonomyHandlers).length + Object.keys(sessionLifecycleHandlers).length + 11; // +11 directly: spawnTaskSession, kickoff, close, branchStatus, createPR, retryPush, retryMerge, pushMain, classification x3
+  const totalMethods = Object.keys(handlers).length + Object.keys(condoHandlers2).length + Object.keys(planHandlers).length + Object.keys(pmHandlers).length + Object.keys(configHandlers).length + Object.keys(teamHandlers).length + Object.keys(rolesHandlers).length + Object.keys(notificationHandlers).length + Object.keys(autonomyHandlers).length + Object.keys(sessionLifecycleHandlers).length + 11; // +11 directly: spawnTaskSession, kickoff, close, branchStatus, createPR, retryPush, retryMerge, pushMain, classification x3
   api.logger.info(`clawcondos-goals: registered ${totalMethods} gateway methods, 9 tools, ${planFileWatchers.size} plan file watchers, data at ${dataDir}`);
 }

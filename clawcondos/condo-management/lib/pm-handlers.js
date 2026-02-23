@@ -4,8 +4,8 @@
  */
 
 import { getPmSession, getAgentForRole, getDefaultRoles, getOrCreatePmSessionForGoal, getOrCreatePmSessionForCondo } from './agent-roles.js';
-import { getPmSkillContext, getStrandPmSkillContext } from './skill-injector.js';
-import { parseTasksFromPlan, detectPlan, parseGoalsFromPlan, detectStrandPlan, convertPhasesToDependsOn } from './plan-parser.js';
+import { getPmSkillContext, getCondoPmSkillContext } from './skill-injector.js';
+import { parseTasksFromPlan, detectPlan, parseGoalsFromPlan, detectCondoPlan, convertPhasesToDependsOn } from './plan-parser.js';
 import { buildProjectSnapshot } from './project-snapshot.js';
 import { getProjectSummaryForGoal } from './context-builder.js';
 
@@ -691,7 +691,7 @@ export function createPmHandlers(store, options = {}) {
   /**
    * Get or initialize PM chat history for a condo
    */
-  function getStrandPmHistory(condo) {
+  function getCondoPmHistory(condo) {
     if (!Array.isArray(condo.pmChatHistory)) {
       condo.pmChatHistory = [];
     }
@@ -701,8 +701,8 @@ export function createPmHandlers(store, options = {}) {
   /**
    * Add a message to condo PM chat history
    */
-  function addToStrandHistory(condo, role, content, maxHistory = DEFAULT_HISTORY_LIMIT) {
-    const history = getStrandPmHistory(condo);
+  function addToCondoHistory(condo, role, content, maxHistory = DEFAULT_HISTORY_LIMIT) {
+    const history = getCondoPmHistory(condo);
     history.push({
       role,
       content,
@@ -739,7 +739,7 @@ export function createPmHandlers(store, options = {}) {
 
       // Save user message to condo history
       const userMessage = message.trim();
-      addToStrandHistory(condo, 'user', userMessage);
+      addToCondoHistory(condo, 'user', userMessage);
       store.save(data);
 
       // Get/create condo PM session (registers in sessionCondoIndex)
@@ -768,7 +768,7 @@ export function createPmHandlers(store, options = {}) {
         taskCount: (g.tasks || []).length,
       }));
 
-      const condoPmSkillContext = getStrandPmSkillContext({
+      const condoPmSkillContext = getCondoPmSkillContext({
         condoId,
         condoName: condo.name,
         goalCount: goals.length,
@@ -803,7 +803,7 @@ export function createPmHandlers(store, options = {}) {
         logger.info(`pm.condoChat: prepared message for ${pmSessionKey}, condo "${condo.name}"`);
       }
 
-      const history = getStrandPmHistory(condo).slice(-20);
+      const history = getCondoPmHistory(condo).slice(-20);
 
       respond(true, {
         enrichedMessage,
@@ -843,11 +843,11 @@ export function createPmHandlers(store, options = {}) {
         return respond(false, null, `Condo ${condoId} not found`);
       }
 
-      addToStrandHistory(condo, 'assistant', content.trim());
+      addToCondoHistory(condo, 'assistant', content.trim());
       condo.updatedAtMs = Date.now();
       store.save(data);
 
-      const hasPlan = detectStrandPlan(content);
+      const hasPlan = detectCondoPlan(content);
 
       if (logger) {
         logger.info(`pm.condoSaveResponse: saved response for condo "${condo.name}" (hasPlan: ${hasPlan})`);
@@ -883,7 +883,7 @@ export function createPmHandlers(store, options = {}) {
         return respond(false, null, `Condo ${condoId} not found`);
       }
 
-      const history = getStrandPmHistory(condo);
+      const history = getCondoPmHistory(condo);
       const messages = history.slice(-Math.min(limit, DEFAULT_HISTORY_LIMIT));
 
       respond(true, {
@@ -923,7 +923,7 @@ export function createPmHandlers(store, options = {}) {
 
       if (!contentToParse) {
         // Try last assistant message from condo PM history
-        const history = getStrandPmHistory(condo);
+        const history = getCondoPmHistory(condo);
         for (let i = history.length - 1; i >= 0; i--) {
           if (history[i].role === 'assistant') {
             contentToParse = history[i].content;

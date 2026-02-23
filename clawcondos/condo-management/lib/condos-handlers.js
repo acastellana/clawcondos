@@ -29,9 +29,9 @@ export function createCondoHandlers(store, options = {}) {
     // Check per-condo override first
     if (condoId) {
       const condo = data.condos.find(c => c.id === condoId);
-      const strandGh = condo?.services?.github;
-      if (strandGh?.agentToken) return strandGh.agentToken;
-      if (strandGh?.token) return strandGh.token;
+      const condoGh = condo?.services?.github;
+      if (condoGh?.agentToken) return condoGh.agentToken;
+      if (condoGh?.token) return condoGh.token;
     }
     // Fall back to global
     const gh = data.config?.services?.github;
@@ -232,7 +232,7 @@ export function createCondoHandlers(store, options = {}) {
 
         // Remove workspace if it exists
         if (wsOps && deletedCondo.workspace?.path) {
-          const rmResult = wsOps.removeStrandWorkspace(deletedCondo.workspace.path);
+          const rmResult = wsOps.removeCondoWorkspace(deletedCondo.workspace.path);
           if (!rmResult.ok && logger) {
             logger.error(`clawcondos-goals: workspace removal failed for condo ${params.id}: ${rmResult.error}`);
           }

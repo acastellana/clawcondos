@@ -86,7 +86,7 @@ export function getProjectSummaryForGoal(goal, data) {
   return buildProjectSummary(condo, siblingGoals, goal.id);
 }
 
-export function buildStrandMenuContext(condos, goals) {
+export function buildCondoMenuContext(condos, goals) {
   if (!condos?.length) return null;
 
   const lines = [
@@ -112,7 +112,7 @@ export function buildStrandMenuContext(condos, goals) {
   return lines.join('\n');
 }
 
-export function buildStrandContext(condo, goals, opts = {}) {
+export function buildCondoContext(condo, goals, opts = {}) {
   if (!condo) return null;
   const { currentSessionKey } = opts;
 

@@ -31,7 +31,7 @@ function collectGoalSessionKeys(goal) {
  * @param {string} condoId - Condo ID
  * @returns {string[]} Unique session keys
  */
-function collectStrandSessionKeys(data, condoId) {
+function collectCondoSessionKeys(data, condoId) {
   const keys = new Set();
   // Condo PM session
   const condo = data.condos?.find(c => c.id === condoId);
@@ -125,7 +125,7 @@ export function createSessionLifecycleHandlers(store, options = {}) {
         const condo = data.condos.find(c => c.id === condoId);
         if (!condo) return respond(false, null, 'Condo not found');
 
-        const sessionKeys = collectStrandSessionKeys(data, condoId);
+        const sessionKeys = collectCondoSessionKeys(data, condoId);
         const results = await Promise.all(sessionKeys.map(abortSession));
 
         // Clear task session assignments for all goals in condo
@@ -239,4 +239,4 @@ export function createSessionLifecycleHandlers(store, options = {}) {
   };
 }
 
-export { collectGoalSessionKeys, collectStrandSessionKeys };
+export { collectGoalSessionKeys, collectCondoSessionKeys };

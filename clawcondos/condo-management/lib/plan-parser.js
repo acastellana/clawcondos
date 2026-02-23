@@ -404,7 +404,7 @@ export function parseTasksFromPlan(content) {
  * @param {string} content - Content to check
  * @returns {boolean} True if content appears to contain a goals plan
  */
-export function detectStrandPlan(content) {
+export function detectCondoPlan(content) {
   if (!content || typeof content !== 'string') {
     return false;
   }
@@ -467,7 +467,7 @@ export function parseGoalsFromPlan(content) {
     return { goals: [], hasPlan: false };
   }
 
-  const hasPlan = detectStrandPlan(content);
+  const hasPlan = detectCondoPlan(content);
   const goals = [];
 
   // Step 1: Try to parse goals from a table

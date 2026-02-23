@@ -123,7 +123,7 @@ export function setTaskAutonomy(store, goalId, taskId, mode) {
  * @param {string} mode - Autonomy mode to set
  * @returns {{ success: boolean, error?: string, condo?: object }}
  */
-export function setStrandAutonomy(store, condoId, mode) {
+export function setCondoAutonomy(store, condoId, mode) {
   if (!AUTONOMY_MODES.includes(mode)) {
     return { success: false, error: `Invalid mode. Must be one of: ${AUTONOMY_MODES.join(', ')}` };
   }
@@ -148,7 +148,7 @@ export function setStrandAutonomy(store, condoId, mode) {
  * @param {object} store - Goals store instance
  * @param {string} goalId - Goal ID
  * @param {string} taskId - Task ID
- * @returns {{ success: boolean, mode?: string, directive?: string, taskMode?: string, goalMode?: string, strandMode?: string, error?: string }}
+ * @returns {{ success: boolean, mode?: string, directive?: string, taskMode?: string, goalMode?: string, condoMode?: string, error?: string }}
  */
 export function getTaskAutonomyInfo(store, goalId, taskId) {
   const data = store.load();
@@ -178,7 +178,7 @@ export function getTaskAutonomyInfo(store, goalId, taskId) {
     directive,
     taskMode: task.autonomyMode || null,
     goalMode: goal.autonomyMode || null,
-    strandMode: condo?.autonomyMode || null,
+    condoMode: condo?.autonomyMode || null,
   };
 }
 
@@ -229,7 +229,7 @@ export function createAutonomyHandlers(store) {
       return respond(false, null, 'condoId and mode are required');
     }
     
-    const result = setStrandAutonomy(store, condoId, mode);
+    const result = setCondoAutonomy(store, condoId, mode);
     
     if (!result.success) {
       return respond(false, null, result.error);

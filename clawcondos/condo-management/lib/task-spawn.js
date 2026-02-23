@@ -28,9 +28,9 @@ export function resolveEffectiveServices(data, condoId) {
   if (!condoId) return { ...globalServices };
   const condo = data.condos.find(c => c.id === condoId);
   if (!condo) return { ...globalServices };
-  const strandOverrides = condo.services || {};
+  const condoOverrides = condo.services || {};
   const merged = { ...globalServices };
-  for (const [name, overrideCfg] of Object.entries(strandOverrides)) {
+  for (const [name, overrideCfg] of Object.entries(condoOverrides)) {
     merged[name] = { ...(merged[name] || {}), ...overrideCfg };
   }
   return merged;

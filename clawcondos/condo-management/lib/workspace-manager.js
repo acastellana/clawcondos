@@ -25,24 +25,24 @@ export function sanitizeDirName(name) {
 /**
  * Build the workspace directory path for a condo.
  * @param {string} baseDir - CLAWCONDOS_WORKSPACES_DIR
- * @param {string} condoId - Condo ID (e.g. strand_abc123)
+ * @param {string} condoId - Condo ID (e.g. condo_abc123)
  * @param {string} condoName - Human-readable condo name
  * @returns {string}
  */
-export function strandWorkspacePath(baseDir, condoId, condoName) {
+export function condoWorkspacePath(baseDir, condoId, condoName) {
   const slug = sanitizeDirName(condoName);
-  const suffix = condoId.replace(/^strand_/, '').slice(0, 8);
+  const suffix = condoId.replace(/^condo_/, '').slice(0, 8);
   return join(baseDir, `${slug}-${suffix}`);
 }
 
 /**
  * Build the worktree directory path for a goal inside a condo workspace.
- * @param {string} strandWs - Condo workspace root path
+ * @param {string} condoWs - Condo workspace root path
  * @param {string} goalId - Goal ID
  * @returns {string}
  */
-export function goalWorktreePath(strandWs, goalId) {
-  return join(strandWs, 'goals', goalId);
+export function goalWorktreePath(condoWs, goalId) {
+  return join(condoWs, 'goals', goalId);
 }
 
 /**
@@ -70,7 +70,7 @@ export function goalBranchName(goalId, goalTitle) {
  * @returns {{ ok: boolean, path?: string, existed?: boolean, error?: string }}
  */
 export function createCondoWorkspace(baseDir, condoId, condoName, repoUrl) {
-  const wsPath = strandWorkspacePath(baseDir, condoId, condoName);
+  const wsPath = condoWorkspacePath(baseDir, condoId, condoName);
 
   try {
     // Ensure base directory exists
@@ -119,13 +119,13 @@ export function createCondoWorkspace(baseDir, condoId, condoName, repoUrl) {
  * Handles branch name conflicts by appending a goalId suffix.
  * Idempotent — returns { ok: true, existed: true } if worktree already exists.
  *
- * @param {string} strandWs - Condo workspace root path
+ * @param {string} condoWs - Condo workspace root path
  * @param {string} goalId - Goal ID
  * @param {string} [goalTitle] - Optional goal title for readable branch names
  * @returns {{ ok: boolean, path?: string, branch?: string, existed?: boolean, error?: string }}
  */
-export function createGoalWorktree(strandWs, goalId, goalTitle) {
-  const wtPath = goalWorktreePath(strandWs, goalId);
+export function createGoalWorktree(condoWs, goalId, goalTitle) {
+  const wtPath = goalWorktreePath(condoWs, goalId);
   let branch = goalBranchName(goalId, goalTitle);
 
   try {
@@ -136,7 +136,7 @@ export function createGoalWorktree(strandWs, goalId, goalTitle) {
 
     // If using a title-based branch, check for conflicts and append suffix if needed
     if (goalTitle) {
-      const branchExists = branchExistsInRepo(strandWs, branch);
+      const branchExists = branchExistsInRepo(condoWs, branch);
       if (branchExists) {
         const suffix = goalId.replace(/^goal_/, '').slice(0, 6);
         branch = `${branch}-${suffix}`;
@@ -144,13 +144,13 @@ export function createGoalWorktree(strandWs, goalId, goalTitle) {
     }
 
     // Ensure goals/ parent exists
-    const goalsDir = join(strandWs, 'goals');
+    const goalsDir = join(condoWs, 'goals');
     if (!existsSync(goalsDir)) {
       mkdirSync(goalsDir, { recursive: true });
     }
 
     execSync(`git worktree add ${shellQuote(wtPath)} -b ${shellQuote(branch)}`, {
-      cwd: strandWs,
+      cwd: condoWs,
       stdio: 'pipe',
     });
 
@@ -164,31 +164,31 @@ export function createGoalWorktree(strandWs, goalId, goalTitle) {
  * Remove a goal's git worktree and prune.
  * Accepts an optional stored branch name to avoid recomputing.
  *
- * @param {string} strandWs - Condo workspace root path
+ * @param {string} condoWs - Condo workspace root path
  * @param {string} goalId - Goal ID
  * @param {string} [storedBranch] - Stored branch name from goal.worktree.branch
  * @returns {{ ok: boolean, error?: string }}
  */
-export function removeGoalWorktree(strandWs, goalId, storedBranch) {
-  const wtPath = goalWorktreePath(strandWs, goalId);
+export function removeGoalWorktree(condoWs, goalId, storedBranch) {
+  const wtPath = goalWorktreePath(condoWs, goalId);
   const branch = storedBranch || goalBranchName(goalId);
 
   try {
     if (existsSync(wtPath)) {
       execSync(`git worktree remove --force ${shellQuote(wtPath)}`, {
-        cwd: strandWs,
+        cwd: condoWs,
         stdio: 'pipe',
       });
     }
 
     // Prune stale worktree entries
     try {
-      execSync('git worktree prune', { cwd: strandWs, stdio: 'pipe' });
+      execSync('git worktree prune', { cwd: condoWs, stdio: 'pipe' });
     } catch { /* non-critical */ }
 
     // Delete the branch (best-effort)
     try {
-      execSync(`git branch -D ${shellQuote(branch)}`, { cwd: strandWs, stdio: 'pipe' });
+      execSync(`git branch -D ${shellQuote(branch)}`, { cwd: condoWs, stdio: 'pipe' });
     } catch { /* branch may not exist or may be checked out elsewhere */ }
 
     return { ok: true };
@@ -201,13 +201,13 @@ export function removeGoalWorktree(strandWs, goalId, storedBranch) {
  * Close a goal's worktree: merge branch into main (best-effort), remove worktree,
  * but preserve the branch (unlike removeGoalWorktree which deletes it).
  *
- * @param {string} strandWs - Condo workspace root path
+ * @param {string} condoWs - Condo workspace root path
  * @param {string} goalId - Goal ID
  * @param {string} [storedBranch] - Stored branch name from goal.worktree.branch
  * @returns {{ ok: boolean, merged?: boolean, conflict?: boolean, error?: string }}
  */
-export function closeGoalWorktree(strandWs, goalId, storedBranch) {
-  const wtPath = goalWorktreePath(strandWs, goalId);
+export function closeGoalWorktree(condoWs, goalId, storedBranch) {
+  const wtPath = goalWorktreePath(condoWs, goalId);
   const branch = storedBranch || goalBranchName(goalId);
 
   try {
@@ -217,19 +217,19 @@ export function closeGoalWorktree(strandWs, goalId, storedBranch) {
     }
 
     // 2. Best-effort merge into main (abort on conflict)
-    const mergeResult = mergeGoalBranch(strandWs, branch);
+    const mergeResult = mergeGoalBranch(condoWs, branch);
 
     // 3. Remove worktree directory
     if (existsSync(wtPath)) {
       execSync(`git worktree remove --force ${shellQuote(wtPath)}`, {
-        cwd: strandWs,
+        cwd: condoWs,
         stdio: 'pipe',
       });
     }
 
     // Prune stale worktree entries
     try {
-      execSync('git worktree prune', { cwd: strandWs, stdio: 'pipe' });
+      execSync('git worktree prune', { cwd: condoWs, stdio: 'pipe' });
     } catch { /* non-critical */ }
 
     // NOTE: branch is intentionally preserved (not deleted)
@@ -248,13 +248,13 @@ export function closeGoalWorktree(strandWs, goalId, storedBranch) {
 /**
  * Remove an entire condo workspace directory.
  *
- * @param {string} strandWs - Condo workspace root path
+ * @param {string} condoWs - Condo workspace root path
  * @returns {{ ok: boolean, error?: string }}
  */
-export function removeStrandWorkspace(strandWs) {
+export function removeCondoWorkspace(condoWs) {
   try {
-    if (existsSync(strandWs)) {
-      rmSync(strandWs, { recursive: true, force: true });
+    if (existsSync(condoWs)) {
+      rmSync(condoWs, { recursive: true, force: true });
     }
     return { ok: true };
   } catch (err) {
@@ -383,17 +383,17 @@ export function pushGoalBranch(gitDir, branch) {
 
 /**
  * Merge a goal branch into the main branch.
- * @param {string} strandWs - Condo workspace root path
+ * @param {string} condoWs - Condo workspace root path
  * @param {string} branch - Branch name to merge
  * @returns {{ ok: boolean, merged?: boolean, conflict?: boolean, error?: string }}
  */
-export function mergeGoalBranch(strandWs, branch) {
+export function mergeGoalBranch(condoWs, branch) {
   try {
-    const mainBranch = getMainBranch(strandWs);
+    const mainBranch = getMainBranch(condoWs);
 
     // Merge from the main working tree (condo root)
     execSync(`git merge ${shellQuote(branch)} --no-ff -m ${shellQuote(`Merge ${branch} into ${mainBranch}`)}`, {
-      cwd: strandWs,
+      cwd: condoWs,
       stdio: 'pipe',
       env: {
         ...process.env,
@@ -416,7 +416,7 @@ export function mergeGoalBranch(strandWs, branch) {
     if (output.includes('CONFLICT') || output.includes('Automatic merge failed') || output.includes('Merge conflict')) {
       // Abort the failed merge
       try {
-        execSync('git merge --abort', { cwd: strandWs, stdio: 'pipe' });
+        execSync('git merge --abort', { cwd: condoWs, stdio: 'pipe' });
       } catch { /* best-effort */ }
       return { ok: false, conflict: true, error: output.trim() };
     }
@@ -426,18 +426,18 @@ export function mergeGoalBranch(strandWs, branch) {
 
 /**
  * Check the status of a goal branch relative to main.
- * @param {string} strandWs - Condo workspace root path
+ * @param {string} condoWs - Condo workspace root path
  * @param {string} branch - Branch name to check
  * @returns {{ ok: boolean, behindMain?: number, aheadOfMain?: number, conflictFiles?: string[], error?: string }}
  */
-export function checkBranchStatus(strandWs, branch) {
+export function checkBranchStatus(condoWs, branch) {
   try {
-    const mainBranch = getMainBranch(strandWs);
+    const mainBranch = getMainBranch(condoWs);
 
     // Get ahead/behind counts
     const counts = execSync(
       `git rev-list --left-right --count ${shellQuote(mainBranch)}...${shellQuote(branch)}`,
-      { cwd: strandWs, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] }
+      { cwd: condoWs, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] }
     ).trim();
     const [behind, ahead] = counts.split(/\s+/).map(Number);
 
@@ -448,7 +448,7 @@ export function checkBranchStatus(strandWs, branch) {
         // git merge-tree --write-tree exits non-zero if there are conflicts
         execSync(
           `git merge-tree --write-tree ${shellQuote(mainBranch)} ${shellQuote(branch)}`,
-          { cwd: strandWs, stdio: 'pipe' }
+          { cwd: condoWs, stdio: 'pipe' }
         );
       } catch (mergeErr) {
         // Parse conflict file names from output

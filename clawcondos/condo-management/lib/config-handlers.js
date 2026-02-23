@@ -322,17 +322,17 @@ export function createConfigHandlers(store, options = {}) {
         if (!condo) {
           return respond(false, null, 'Condo not found');
         }
-        const strandOverrides = condo.services || {};
+        const condoOverrides = condo.services || {};
 
         // Deep-merge: condo overrides on top of global defaults
         const merged = { ...globalServices };
-        for (const [name, overrideCfg] of Object.entries(strandOverrides)) {
+        for (const [name, overrideCfg] of Object.entries(condoOverrides)) {
           merged[name] = { ...(merged[name] || {}), ...overrideCfg };
         }
 
         respond(true, {
           services: maskServiceTokens(merged),
-          overrides: maskServiceTokens(strandOverrides),
+          overrides: maskServiceTokens(condoOverrides),
         });
       } else {
         respond(true, {
@@ -455,9 +455,9 @@ export function createConfigHandlers(store, options = {}) {
         // Check per-condo override first
         if (condoId) {
           const condo = data.condos.find(c => c.id === condoId);
-          const strandGh = condo?.services?.github;
-          if (strandGh?.agentToken) tokenToVerify = strandGh.agentToken;
-          else if (strandGh?.token) tokenToVerify = strandGh.token;
+          const condoGh = condo?.services?.github;
+          if (condoGh?.agentToken) tokenToVerify = condoGh.agentToken;
+          else if (condoGh?.token) tokenToVerify = condoGh.token;
         }
 
         // Fall back to global

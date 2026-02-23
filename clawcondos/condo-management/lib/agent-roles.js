@@ -137,7 +137,7 @@ export function getOrCreatePmSessionForGoal(store, goalId) {
  * Get or create a dedicated PM session for a condo.
  * Creates a deterministic session key `agent:<pmAgentId>:webchat:pm-condo-<condoId>`
  * and registers it in sessionCondoIndex so the before_agent_start hook
- * injects buildStrandContext() automatically.
+ * injects buildCondoContext() automatically.
  *
  * Uses `webchat` session type (not `subagent`) because the gateway auto-creates
  * webchat sessions on chat.send, whereas subagent sessions may require the

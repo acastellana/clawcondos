@@ -184,7 +184,7 @@ function getDefaultRoleDescription(role) {
  * @param {object} [options.roles] - Available roles with descriptions
  * @returns {string|null} Condo PM skill context or null if unavailable
  */
-export function getStrandPmSkillContext(options = {}) {
+export function getCondoPmSkillContext(options = {}) {
   const skillContent = loadSkillFile('pmCondo') || loadSkillFile('pm');
 
   const {
