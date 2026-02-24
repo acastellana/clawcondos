@@ -8,6 +8,73 @@ import { describe, it, expect } from 'vitest';
 import { rewriteConnectFrame, validateStaticPath, isDotfilePath, filterProxyHeaders, stripSensitiveHeaders } from '../lib/serve-helpers.js';
 
 describe('rewriteConnectFrame', () => {
+  it('should inject token auth into connect frame', () => {
+    const frame = { type: 'req', id: 'r1', method: 'connect', params: { minProtocol: 3, maxProtocol: 3 } };
+    const result = JSON.parse(rewriteConnectFrame(JSON.stringify(frame), 'secret-token'));
+    expect(result.params.auth).toEqual({ token: 'secret-token' });
+  });
+
+  it('should inject password auth when gatewayAuth is object with password', () => {
+    const frame = { type: 'req', id: 'r1', method: 'connect', params: { minProtocol: 3, maxProtocol: 3 } };
+    const result = JSON.parse(rewriteConnectFrame(JSON.stringify(frame), { password: 'secret-pw' }));
+    expect(result.params.auth).toEqual({ password: 'secret-pw' });
+  });
+
+  it('should set client.id and mode from env defaults', () => {
+    const frame = { type: 'req', id: 'r1', method: 'connect', params: { client: { displayName: 'MyUI' } } };
+    const result = JSON.parse(rewriteConnectFrame(JSON.stringify(frame), null));
+    expect(result.params.client.id).toBe('cli');
+    expect(result.params.client.mode).toBe('cli');
+    expect(result.params.client.displayName).toBe('MyUI');
+  });
+
+  it('should set default displayName to ClawCondos when not provided', () => {
+    const frame = { type: 'req', id: 'r1', method: 'connect', params: {} };
+    const result = JSON.parse(rewriteConnectFrame(JSON.stringify(frame), null));
+    expect(result.params.client.displayName).toBe('ClawCondos');
+  });
+
+  it('should enforce server-side token auth over existing client auth', () => {
+    const frame = { type: 'req', id: 'r1', method: 'connect', params: { auth: { password: 'existing' } } };
+    const result = JSON.parse(rewriteConnectFrame(JSON.stringify(frame), 'new-token'));
+    expect(result.params.auth).toEqual({ token: 'new-token' });
+  });
+
+  it('should enforce server-side password auth over existing client auth', () => {
+    const frame = { type: 'req', id: 'r1', method: 'connect', params: { auth: { token: 'some-token' } } };
+    const result = JSON.parse(rewriteConnectFrame(JSON.stringify(frame), { password: 'gateway-pw' }));
+    expect(result.params.auth).toEqual({ password: 'gateway-pw' });
+  });
+
+  it('should set empty auth when gatewayAuth is null and no existing auth', () => {
+    const frame = { type: 'req', id: 'r1', method: 'connect', params: {} };
+    const result = JSON.parse(rewriteConnectFrame(JSON.stringify(frame), null));
+    expect(result.params.auth).toEqual({});
+  });
+
+  it('should request operator.admin scope', () => {
+    const frame = { type: 'req', id: 'r1', method: 'connect', params: {} };
+    const result = JSON.parse(rewriteConnectFrame(JSON.stringify(frame), 'token'));
+    expect(result.params.scopes).toContain('operator.admin');
+  });
+
+  it('should pass through non-connect frames unchanged', () => {
+    const frame = { type: 'req', id: 'r2', method: 'chat.send', params: { message: 'hello' } };
+    const raw = JSON.stringify(frame);
+    expect(rewriteConnectFrame(raw, 'token')).toBe(raw);
+  });
+
+  it('should pass through invalid JSON unchanged', () => {
+    const raw = 'not json{{{';
+    expect(rewriteConnectFrame(raw, 'token')).toBe(raw);
+  });
+
+  it('should pass through event frames unchanged', () => {
+    const frame = { type: 'event', event: 'chat', payload: {} };
+    const raw = JSON.stringify(frame);
+    expect(rewriteConnectFrame(raw, 'token')).toBe(raw);
+  });
+});describe('rewriteConnectFrame', () => {
   // Device auth is preferred when ~/.openclaw/identity/{device,device-auth}.json exist.
   // When device auth is active: params.device = {id, signature, publicKey, signedAt, nonce}
   // and params.auth = { token: operatorToken }. Fallback: params.auth = {token|password}.

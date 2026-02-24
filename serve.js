@@ -1617,7 +1617,9 @@ server.on('upgrade', (req, socket, head) => {
             'goals.setSessionCondo',
             'goals.listSessionCondos',
             'goals.spawnTaskSession',
-            'condos.list'
+            'condos.list',
+            'status',
+            'chat.history'
           ]);
 
           if (frame?.type === 'req' && localRpcMethods.has(method)) {
