@@ -8,45 +8,28 @@ import { describe, it, expect } from 'vitest';
 import { rewriteConnectFrame, validateStaticPath, isDotfilePath, filterProxyHeaders, stripSensitiveHeaders } from '../lib/serve-helpers.js';
 
 describe('rewriteConnectFrame', () => {
-  // Note: device auth is injected when ~/.openclaw/identity/{device,device-auth}.json exist.
-  // Tests use toSatisfy() to accept either device auth (preferred) or token/password fallback.
+  // Device auth is preferred when ~/.openclaw/identity/{device,device-auth}.json exist.
+  // When device auth is active: params.device = {id, signature, publicKey, signedAt, nonce}
+  // and params.auth = { token: operatorToken }. Fallback: params.auth = {token|password}.
+  const hasDeviceAuth = (result) =>
+    result.params.device &&
+    typeof result.params.device.id === 'string' &&
+    typeof result.params.device.signature === 'string';
 
   it('should inject auth into connect frame (device auth or token fallback)', () => {
-    const frame = {
-      type: 'req',
-      id: 'r1',
-      method: 'connect',
-      params: { minProtocol: 3, maxProtocol: 3 }
-    };
+    const frame = { type: 'req', id: 'r1', method: 'connect', params: { minProtocol: 3, maxProtocol: 3 } };
     const result = JSON.parse(rewriteConnectFrame(JSON.stringify(frame), 'secret-token'));
-    // Device auth preferred when identity files exist; token used as fallback
-    expect(result.params.auth).toSatisfy((a) =>
-      ((('device' in a && typeof a.device.payload === 'string') || ('deviceToken' in a && typeof a.deviceToken === 'string')) || ('deviceToken' in a && typeof a.deviceToken === 'string')) ||
-      ('token' in a && a.token === 'secret-token')
-    );
+    expect(hasDeviceAuth(result) || result.params.auth?.token === 'secret-token').toBe(true);
   });
 
   it('should inject auth with password or device auth', () => {
-    const frame = {
-      type: 'req',
-      id: 'r1',
-      method: 'connect',
-      params: { minProtocol: 3, maxProtocol: 3 }
-    };
+    const frame = { type: 'req', id: 'r1', method: 'connect', params: { minProtocol: 3, maxProtocol: 3 } };
     const result = JSON.parse(rewriteConnectFrame(JSON.stringify(frame), { password: 'secret-pw' }));
-    expect(result.params.auth).toSatisfy((a) =>
-      (('device' in a && typeof a.device.payload === 'string') || ('deviceToken' in a && typeof a.deviceToken === 'string')) ||
-      ('password' in a && a.password === 'secret-pw')
-    );
+    expect(hasDeviceAuth(result) || result.params.auth?.password === 'secret-pw').toBe(true);
   });
 
   it('should set client.id and mode from env defaults', () => {
-    const frame = {
-      type: 'req',
-      id: 'r1',
-      method: 'connect',
-      params: { client: { displayName: 'MyUI' } }
-    };
+    const frame = { type: 'req', id: 'r1', method: 'connect', params: { client: { displayName: 'MyUI' } } };
     const result = JSON.parse(rewriteConnectFrame(JSON.stringify(frame), null));
     expect(result.params.client.id).toBe('cli');
     expect(result.params.client.mode).toBe('cli');
@@ -54,66 +37,36 @@ describe('rewriteConnectFrame', () => {
   });
 
   it('should set default displayName to ClawCondos when not provided', () => {
-    const frame = {
-      type: 'req',
-      id: 'r1',
-      method: 'connect',
-      params: {}
-    };
+    const frame = { type: 'req', id: 'r1', method: 'connect', params: {} };
     const result = JSON.parse(rewriteConnectFrame(JSON.stringify(frame), null));
     expect(result.params.client.displayName).toBe('ClawCondos');
   });
 
   it('should enforce server-side auth even when client has existing auth', () => {
-    const frame = {
-      type: 'req',
-      id: 'r1',
-      method: 'connect',
-      params: { auth: { password: 'existing' } }
-    };
-    // Server-side token overrides client auth (or device auth when identity files present)
+    const frame = { type: 'req', id: 'r1', method: 'connect', params: { auth: { password: 'existing' } } };
     const result = JSON.parse(rewriteConnectFrame(JSON.stringify(frame), 'new-token'));
-    expect(result.params.auth).toSatisfy((a) =>
-      (('device' in a && typeof a.device.payload === 'string') || ('deviceToken' in a && typeof a.deviceToken === 'string')) ||
-      ('token' in a && a.token === 'new-token')
-    );
+    // Device auth overrides existing; or new-token used as fallback
+    expect(hasDeviceAuth(result) || result.params.auth?.token === 'new-token').toBe(true);
+    // Must NOT keep the old client-provided auth
+    expect(result.params.auth?.password).not.toBe('existing');
   });
 
   it('should enforce server-side password auth over existing client auth', () => {
-    const frame = {
-      type: 'req',
-      id: 'r1',
-      method: 'connect',
-      params: { auth: { token: 'some-token' } }
-    };
+    const frame = { type: 'req', id: 'r1', method: 'connect', params: { auth: { token: 'some-token' } } };
     const result = JSON.parse(rewriteConnectFrame(JSON.stringify(frame), { password: 'gateway-pw' }));
-    expect(result.params.auth).toSatisfy((a) =>
-      (('device' in a && typeof a.device.payload === 'string') || ('deviceToken' in a && typeof a.deviceToken === 'string')) ||
-      ('password' in a && a.password === 'gateway-pw')
-    );
+    expect(hasDeviceAuth(result) || result.params.auth?.password === 'gateway-pw').toBe(true);
+    expect(result.params.auth?.token).not.toBe('some-token');
   });
 
   it('should set device auth or empty auth when gatewayAuth is null', () => {
-    const frame = {
-      type: 'req',
-      id: 'r1',
-      method: 'connect',
-      params: {}
-    };
+    const frame = { type: 'req', id: 'r1', method: 'connect', params: {} };
     const result = JSON.parse(rewriteConnectFrame(JSON.stringify(frame), null));
-    expect(result.params.auth).toSatisfy((a) =>
-      (('device' in a && typeof a.device.payload === 'string') || ('deviceToken' in a && typeof a.deviceToken === 'string')) ||
-      (Object.keys(a).length === 0)
-    );
+    // Either device auth or empty/operator-token auth
+    expect(hasDeviceAuth(result) || typeof result.params.auth === 'object').toBe(true);
   });
 
   it('should pass through non-connect frames unchanged', () => {
-    const frame = {
-      type: 'req',
-      id: 'r2',
-      method: 'chat.send',
-      params: { message: 'hello' }
-    };
+    const frame = { type: 'req', id: 'r2', method: 'chat.send', params: { message: 'hello' } };
     const raw = JSON.stringify(frame);
     expect(rewriteConnectFrame(raw, 'token')).toBe(raw);
   });
@@ -129,7 +82,6 @@ describe('rewriteConnectFrame', () => {
     expect(rewriteConnectFrame(raw, 'token')).toBe(raw);
   });
 });
-
 describe('validateStaticPath', () => {
   it('should return null for safe paths', () => {
     expect(validateStaticPath('styles/main.css')).toBeNull();
