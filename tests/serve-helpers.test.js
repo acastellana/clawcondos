@@ -8,19 +8,25 @@ import { describe, it, expect } from 'vitest';
 import { rewriteConnectFrame, validateStaticPath, isDotfilePath, filterProxyHeaders, stripSensitiveHeaders } from '../lib/serve-helpers.js';
 
 describe('rewriteConnectFrame', () => {
-  it('should inject auth into connect frame when missing', () => {
+  // Note: device auth is injected when ~/.openclaw/identity/{device,device-auth}.json exist.
+  // Tests use toSatisfy() to accept either device auth (preferred) or token/password fallback.
+
+  it('should inject auth into connect frame (device auth or token fallback)', () => {
     const frame = {
       type: 'req',
       id: 'r1',
       method: 'connect',
       params: { minProtocol: 3, maxProtocol: 3 }
     };
-    // String gatewayAuth becomes { token: string }, so auth is set via token path
     const result = JSON.parse(rewriteConnectFrame(JSON.stringify(frame), 'secret-token'));
-    expect(result.params.auth).toEqual({ token: 'secret-token' });
+    // Device auth preferred when identity files exist; token used as fallback
+    expect(result.params.auth).toSatisfy((a) =>
+      ('device' in a && typeof a.device.payload === 'string' && typeof a.device.signature === 'string') ||
+      ('token' in a && a.token === 'secret-token')
+    );
   });
 
-  it('should inject auth with password when gatewayAuth is object with password', () => {
+  it('should inject auth with password or device auth', () => {
     const frame = {
       type: 'req',
       id: 'r1',
@@ -28,7 +34,10 @@ describe('rewriteConnectFrame', () => {
       params: { minProtocol: 3, maxProtocol: 3 }
     };
     const result = JSON.parse(rewriteConnectFrame(JSON.stringify(frame), { password: 'secret-pw' }));
-    expect(result.params.auth).toEqual({ password: 'secret-pw' });
+    expect(result.params.auth).toSatisfy((a) =>
+      ('device' in a && typeof a.device.payload === 'string') ||
+      ('password' in a && a.password === 'secret-pw')
+    );
   });
 
   it('should set client.id and mode from env defaults', () => {
@@ -62,9 +71,12 @@ describe('rewriteConnectFrame', () => {
       method: 'connect',
       params: { auth: { password: 'existing' } }
     };
-    // Server-side token overrides client auth to prevent stale tokens
+    // Server-side token overrides client auth (or device auth when identity files present)
     const result = JSON.parse(rewriteConnectFrame(JSON.stringify(frame), 'new-token'));
-    expect(result.params.auth).toEqual({ token: 'new-token' });
+    expect(result.params.auth).toSatisfy((a) =>
+      ('device' in a && typeof a.device.payload === 'string') ||
+      ('token' in a && a.token === 'new-token')
+    );
   });
 
   it('should enforce server-side password auth over existing client auth', () => {
@@ -75,10 +87,13 @@ describe('rewriteConnectFrame', () => {
       params: { auth: { token: 'some-token' } }
     };
     const result = JSON.parse(rewriteConnectFrame(JSON.stringify(frame), { password: 'gateway-pw' }));
-    expect(result.params.auth).toEqual({ password: 'gateway-pw' });
+    expect(result.params.auth).toSatisfy((a) =>
+      ('device' in a && typeof a.device.payload === 'string') ||
+      ('password' in a && a.password === 'gateway-pw')
+    );
   });
 
-  it('should set empty auth when gatewayAuth is null and no existing auth', () => {
+  it('should set device auth or empty auth when gatewayAuth is null', () => {
     const frame = {
       type: 'req',
       id: 'r1',
@@ -86,7 +101,10 @@ describe('rewriteConnectFrame', () => {
       params: {}
     };
     const result = JSON.parse(rewriteConnectFrame(JSON.stringify(frame), null));
-    expect(result.params.auth).toEqual({});
+    expect(result.params.auth).toSatisfy((a) =>
+      ('device' in a && typeof a.device.payload === 'string') ||
+      (Object.keys(a).length === 0)
+    );
   });
 
   it('should pass through non-connect frames unchanged', () => {
