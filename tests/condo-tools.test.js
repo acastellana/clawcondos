@@ -285,13 +285,13 @@ describe('condo_spawn_task tool', () => {
     rmSync(TEST_DIR, { recursive: true, force: true });
   });
 
-  it('spawns a subagent session for a task', async () => {
+  it('spawns a task worker session for a task', async () => {
     const result = await execute('call1', {
       sessionKey: 'agent:main:telegram:123',
       goalId: 'goal_1',
       taskId: 'task_1',
     });
-    expect(result.content[0].text).toContain('subagent');
+    expect(result.content[0].text).toContain('Task session agent:main:webchat:task-');
     expect(result.content[0].text).toContain('Build API');
     expect(result.spawnRequest).toBeTruthy();
     expect(result.spawnRequest.goalId).toBe('goal_1');

@@ -50,7 +50,7 @@ describe('goals.spawnTaskSession', () => {
     });
     const r = getResult();
     expect(r.ok).toBe(true);
-    expect(r.payload.sessionKey).toMatch(/^agent:main:subagent:/);
+    expect(r.payload.sessionKey).toMatch(/^agent:main:webchat:task-/);
     expect(r.payload.taskContext).toContain('Build API');
     expect(r.payload.taskContext).toContain('Ship feature');
     expect(r.payload.agentId).toBe('main');
@@ -79,7 +79,7 @@ describe('goals.spawnTaskSession', () => {
       respond,
     });
     expect(getResult().payload.agentId).toBe('main');
-    expect(getResult().payload.sessionKey).toMatch(/^agent:main:subagent:/);
+    expect(getResult().payload.sessionKey).toMatch(/^agent:main:webchat:task-/);
   });
 
   it('defaults model to null', () => {

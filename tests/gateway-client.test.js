@@ -226,4 +226,128 @@ describe('createGatewayClient', () => {
     await client.connect();
     expect(capturedOpts.headers.Origin).toBe('http://127.0.0.1:18789');
   });
+
+  it('sets https Origin header for wss gateway URLs', async () => {
+    let capturedOpts;
+    class CapturingWS extends MockWebSocket {
+      constructor(url, opts) {
+        super(url, opts);
+        capturedOpts = opts;
+        setTimeout(() => {
+          this.emit('open');
+          setTimeout(() => {
+            this.emit('message', JSON.stringify({
+              type: 'event', event: 'connect.challenge', payload: {}
+            }));
+          }, 5);
+        }, 10);
+        const origSend = this.send.bind(this);
+        this.send = (data) => {
+          origSend(data);
+          const msg = typeof data === 'string' ? JSON.parse(data) : data;
+          if (msg.method === 'connect') {
+            setTimeout(() => {
+              this.emit('message', JSON.stringify({
+                type: 'res', id: msg.id, ok: true, payload: {}
+              }));
+            }, 5);
+          }
+        };
+      }
+    }
+
+    client = createGatewayClient({
+      getWsUrl: () => 'wss://gateway.example.com/ws',
+      getAuth: () => 'token',
+      logger,
+      WebSocketImpl: CapturingWS
+    });
+
+    await client.connect();
+    expect(capturedOpts.headers.Origin).toBe('https://gateway.example.com:443');
+  });
+
+  it('prefers token auth over password when both are available', async () => {
+    let wsInstance;
+    class TrackingWS extends MockWebSocket {
+      constructor(url, opts) {
+        super(url, opts);
+        wsInstance = this;
+        this.on('open', () => {
+          setTimeout(() => {
+            this.emit('message', JSON.stringify({
+              type: 'event', event: 'connect.challenge', payload: {}
+            }));
+          }, 0);
+        });
+        const origSend = this.send.bind(this);
+        this.send = (data) => {
+          origSend(data);
+          const msg = typeof data === 'string' ? JSON.parse(data) : data;
+          if (msg.method === 'connect') {
+            setTimeout(() => {
+              this.emit('message', JSON.stringify({
+                type: 'res', id: msg.id, ok: true, payload: {}
+              }));
+            }, 5);
+          }
+        };
+      }
+    }
+
+    client = createGatewayClient({
+      getWsUrl: () => 'ws://localhost:18789/ws',
+      getAuth: () => 'token-1',
+      getPassword: () => 'pw-1',
+      logger,
+      WebSocketImpl: TrackingWS
+    });
+
+    await client.connect();
+    const connectMsg = wsInstance.sent.find(m => m.method === 'connect');
+    expect(connectMsg.params.auth.token).toBe('token-1');
+    expect(connectMsg.params.auth.password).toBeUndefined();
+  });
+
+  it('uses password auth when token is not available', async () => {
+    let wsInstance;
+    class TrackingWS extends MockWebSocket {
+      constructor(url, opts) {
+        super(url, opts);
+        wsInstance = this;
+        this.on('open', () => {
+          setTimeout(() => {
+            this.emit('message', JSON.stringify({
+              type: 'event', event: 'connect.challenge', payload: {}
+            }));
+          }, 0);
+        });
+        const origSend = this.send.bind(this);
+        this.send = (data) => {
+          origSend(data);
+          const msg = typeof data === 'string' ? JSON.parse(data) : data;
+          if (msg.method === 'connect') {
+            setTimeout(() => {
+              this.emit('message', JSON.stringify({
+                type: 'res', id: msg.id, ok: true, payload: {}
+              }));
+            }, 5);
+          }
+        };
+      }
+    }
+
+    client = createGatewayClient({
+      getWsUrl: () => 'ws://localhost:18789/ws',
+      getAuth: () => '',
+      getPassword: () => 'pw-only',
+      logger,
+      WebSocketImpl: TrackingWS
+    });
+
+    await client.connect();
+    const connectMsg = wsInstance.sent.find(m => m.method === 'connect');
+    expect(connectMsg.params.auth.password).toBe('pw-only');
+    expect(connectMsg.params.auth.token).toBeUndefined();
+  });
 });

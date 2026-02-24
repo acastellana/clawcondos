@@ -20,6 +20,12 @@ describe('rewriteConnectFrame', () => {
     expect(result.params.auth).toEqual({ password: 'secret-pw' });
   });
 
+  it('should prefer token when gatewayAuth has both token and password', () => {
+    const frame = { type: 'req', id: 'r1', method: 'connect', params: { minProtocol: 3, maxProtocol: 3 } };
+    const result = JSON.parse(rewriteConnectFrame(JSON.stringify(frame), { token: 'secret-token', password: 'secret-pw' }));
+    expect(result.params.auth).toEqual({ token: 'secret-token' });
+  });
+
   it('should set client.id and mode from env defaults', () => {
     const frame = { type: 'req', id: 'r1', method: 'connect', params: { client: { displayName: 'MyUI' } } };
     const result = JSON.parse(rewriteConnectFrame(JSON.stringify(frame), null));
@@ -52,10 +58,23 @@ describe('rewriteConnectFrame', () => {
     expect(result.params.auth).toEqual({});
   });
 
+  it('should preserve existing auth when gatewayAuth is null', () => {
+    const frame = { type: 'req', id: 'r1', method: 'connect', params: { auth: { token: 'existing' } } };
+    const result = JSON.parse(rewriteConnectFrame(JSON.stringify(frame), null));
+    expect(result.params.auth).toEqual({ token: 'existing' });
+  });
+
   it('should request operator.admin scope', () => {
     const frame = { type: 'req', id: 'r1', method: 'connect', params: {} };
     const result = JSON.parse(rewriteConnectFrame(JSON.stringify(frame), 'token'));
     expect(result.params.scopes).toContain('operator.admin');
+  });
+
+  it('should not duplicate operator.admin scope', () => {
+    const frame = { type: 'req', id: 'r1', method: 'connect', params: { scopes: ['operator.admin'] } };
+    const result = JSON.parse(rewriteConnectFrame(JSON.stringify(frame), 'token'));
+    const adminScopes = result.params.scopes.filter(s => s === 'operator.admin');
+    expect(adminScopes).toHaveLength(1);
   });
 
   it('should pass through non-connect frames unchanged', () => {

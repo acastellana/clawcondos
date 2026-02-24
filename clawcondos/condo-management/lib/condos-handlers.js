@@ -238,23 +238,23 @@ export function createCondoHandlers(store, options = {}) {
           }
         }
 
-        // Cascade-delete all goals linked to this condo (and their task sessions)
-        const linkedGoalIds = data.goals
-          .filter(g => g.condoId === params.id)
-          .map(g => g.id);
-        for (const goalId of linkedGoalIds) {
-          const gIdx = data.goals.findIndex(g => g.id === goalId);
-          if (gIdx === -1) continue;
-          const goal = data.goals[gIdx];
-          // Clean up session index entries for this goal and its tasks
+        // Preserve linked goals but detach them from the deleted condo.
+        // Also clear stale session links because those sessions were terminated above.
+        const linkedGoals = data.goals.filter(g => g.condoId === params.id);
+        for (const goal of linkedGoals) {
           for (const [key, val] of Object.entries(data.sessionIndex || {})) {
-            if (val.goalId === goalId) delete data.sessionIndex[key];
+            if (val.goalId === goal.id) delete data.sessionIndex[key];
           }
-          // Remove worktree (workspace dir removal above handles this too, but be explicit)
-          if (wsOps && goal.worktree?.path && deletedCondo.workspace?.path) {
-            try { wsOps.removeGoalWorktree(deletedCondo.workspace.path, goalId, goal.worktree?.branch); } catch {}
+          for (const task of goal.tasks || []) {
+            if (task.sessionKey) task.sessionKey = null;
+            if (task.status === 'in-progress') task.status = 'pending';
           }
-          data.goals.splice(gIdx, 1);
+          goal.sessions = [];
+          goal.pmSessionKey = null;
+          goal.condoId = null;
+          goal.updatedAtMs = Date.now();
+          // Remove detached goal worktree metadata; parent condo workspace is gone.
+          goal.worktree = null;
         }
         // Clean up sessionCondoIndex entries pointing to this condo
         if (data.sessionCondoIndex) {

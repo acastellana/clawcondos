@@ -600,6 +600,42 @@ describe('CondoHandlers', () => {
       }
     });
 
+    it('clears linked goal session/task assignment after condo deletion', () => {
+      const condo = createCondo(handlers, { name: 'Detached' });
+      const goal = createGoal(goalHandlers, { title: 'With Session', condoId: condo.id });
+
+      // Simulate active goal/task session linkage in store state.
+      const data = store.load();
+      const targetGoal = data.goals.find(g => g.id === goal.id);
+      targetGoal.tasks.push({
+        id: 'task_1',
+        text: 'In-flight task',
+        description: '',
+        status: 'in-progress',
+        done: false,
+        priority: null,
+        dependsOn: [],
+        summary: '',
+        sessionKey: 'agent:main:webchat:task-abc',
+        createdAtMs: Date.now(),
+        updatedAtMs: Date.now(),
+      });
+      targetGoal.sessions = ['agent:main:webchat:task-abc'];
+      data.sessionIndex['agent:main:webchat:task-abc'] = { goalId: goal.id };
+      store.save(data);
+
+      handlers['condos.delete']({ params: { id: condo.id }, respond: makeResponder().respond });
+
+      const { respond, getResult } = makeResponder();
+      goalHandlers['goals.get']({ params: { id: goal.id }, respond });
+      const detachedGoal = getResult().payload.goal;
+      expect(detachedGoal.condoId).toBeNull();
+      expect(detachedGoal.sessions).toEqual([]);
+      expect(detachedGoal.tasks[0].sessionKey).toBeNull();
+      expect(detachedGoal.tasks[0].status).toBe('pending');
+      expect(store.load().sessionIndex['agent:main:webchat:task-abc']).toBeUndefined();
+    });
+
     it('does not affect goals linked to other condos', () => {
       const doomed = createCondo(handlers, { name: 'Doomed' });
       const safe = createCondo(handlers, { name: 'Safe' });

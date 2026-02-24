@@ -333,8 +333,9 @@ describe('buildCondoContext', () => {
 
   it('includes tool usage instructions', () => {
     const ctx = buildCondoContext(condo, goals);
-    expect(ctx).toContain('condo_create_goal');
-    expect(ctx).toContain('condo_add_task');
+    expect(ctx).toContain('condo_pm_chat');
+    expect(ctx).toContain('condo_pm_kickoff');
+    expect(ctx).toContain('condo_status');
     expect(ctx).toContain('goal_update');
   });
 

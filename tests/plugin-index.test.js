@@ -43,8 +43,8 @@ describe('Plugin index.js', () => {
   });
 
   describe('registration', () => {
-    it('registers all 26 gateway methods', () => {
-      const expected = [
+    it('registers core gateway methods (plus Helix extensions)', () => {
+      const coreExpected = [
         'goals.list', 'goals.create', 'goals.get', 'goals.update', 'goals.delete',
         'goals.addSession', 'goals.removeSession', 'goals.sessionLookup',
         'goals.setSessionCondo', 'goals.getSessionCondo', 'goals.listSessionCondos',
@@ -55,10 +55,12 @@ describe('Plugin index.js', () => {
         'goals.spawnTaskSession',
         'classification.stats', 'classification.learningReport', 'classification.applyLearning',
       ];
-      for (const name of expected) {
+      for (const name of coreExpected) {
         expect(api._methods).toHaveProperty(name);
       }
-      expect(Object.keys(api._methods)).toHaveLength(26);
+      // Helix port registers many additional methods; keep this as a lower bound
+      // to avoid brittle breakage as feature modules evolve.
+      expect(Object.keys(api._methods).length).toBeGreaterThanOrEqual(coreExpected.length);
     });
 
     it('registers before_agent_start and agent_end hooks', () => {
@@ -66,13 +68,17 @@ describe('Plugin index.js', () => {
       expect(api._hooks).toHaveProperty('agent_end');
     });
 
-    it('registers 5 tool factories', () => {
-      expect(api._toolFactories).toHaveLength(5);
+    it('registers core and Helix tool factories', () => {
+      expect(api._toolFactories.length).toBeGreaterThanOrEqual(5);
       expect(api._getToolFactory('goal_update')).toBeTypeOf('function');
       expect(api._getToolFactory('condo_bind')).toBeTypeOf('function');
       expect(api._getToolFactory('condo_create_goal')).toBeTypeOf('function');
       expect(api._getToolFactory('condo_add_task')).toBeTypeOf('function');
       expect(api._getToolFactory('condo_spawn_task')).toBeTypeOf('function');
+      expect(api._getToolFactory('condo_pm_chat')).toBeTypeOf('function');
+      expect(api._getToolFactory('condo_pm_kickoff')).toBeTypeOf('function');
+      expect(api._getToolFactory('condo_status')).toBeTypeOf('function');
+      expect(api._getToolFactory('condo_list')).toBeTypeOf('function');
     });
   });
 
