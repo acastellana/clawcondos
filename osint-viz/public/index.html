@@ -226,10 +226,10 @@
   /* content viewer (bottom pane — grows to fill, scrollable) */
   #case-file-viewer-pane { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
   #case-file-viewer-pane .viewer-empty { padding: 20px 12px; font-size: 10px; color: var(--muted); text-align: center; }
-  .viewer-header { padding: 5px 12px; background: var(--bg2); border-bottom: 1px solid var(--border); font-size: 9px; color: var(--muted); display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; gap: 8px; }
-  .viewer-header .vh-path { color: var(--blue); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
-  .viewer-header .vh-type { color: var(--muted); flex-shrink: 0; font-size: 9px; letter-spacing: 1px; text-transform: uppercase; }
-  .viewer-header .vh-size { color: var(--muted); flex-shrink: 0; }
+  .viewer-header { padding: 6px 12px; background: var(--bg2); border-bottom: 1px solid var(--border); flex-shrink: 0; display: flex; flex-direction: column; gap: 2px; }
+  .vh-row1 { display: flex; align-items: center; gap: 8px; }
+  .viewer-header .vh-path { color: var(--blue); font-size: 11px; font-family: var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+  .viewer-header .vh-meta { font-size: 9px; color: var(--muted); letter-spacing: 0.5px; text-transform: uppercase; }
   .viewer-body { flex: 1; overflow-y: auto; padding: 10px 12px; font-size: 11px; line-height: 1.65; font-family: var(--mono); }
   .viewer-body.is-md  { line-height: 1.75; white-space: normal; padding: 12px 18px; }
   .viewer-body.is-raw { white-space: pre-wrap; word-break: break-all; color: var(--green2); }
@@ -239,8 +239,7 @@
   #file-viewer { display: flex; flex-direction: column; height: 100%; overflow: hidden; }
   #file-viewer-header {
     padding: 6px 16px; background: var(--bg2); border-bottom: 1px solid var(--border);
-    font-size: 9px; color: var(--muted); display: flex; justify-content: space-between;
-    align-items: center; flex-shrink: 0; font-family: var(--mono); letter-spacing: 1px;
+    flex-shrink: 0; font-family: var(--mono); display: flex; flex-direction: column; gap: 2px;
   }
   #file-viewer-content { flex: 1; overflow-y: auto; padding: 14px 22px; font-family: var(--mono); font-size: 12px; line-height: 1.8; color: var(--text); }
   .viewer-dl-btn { background: none; border: 1px solid var(--border); border-radius: 3px; color: var(--muted); font-family: var(--mono); font-size: 9px; padding: 2px 7px; cursor: pointer; flex-shrink: 0; letter-spacing: 1px; }
@@ -428,7 +427,7 @@
   .file-tree        { font-size: 10px; padding: 2px 0; }
   .file-item        { padding: 2px 7px; gap: 5px; }
   .file-size        { font-size: 8px; }
-  .viewer-header    { padding: 3px 9px; font-size: 9px; }
+  .viewer-header    { padding: 4px 9px; }
   .viewer-body      { font-size: 10px; padding: 7px 9px; line-height: 1.55; }
   .case-meta-cell   { padding: 4px 6px; border-radius: 3px; }
   .case-meta-label  { font-size: 7px; letter-spacing: 1px; }
@@ -1392,9 +1391,11 @@ async function refreshCasePanel() {
       container.innerHTML = `
         <div id="file-viewer">
           <div id="file-viewer-header">
-            <span>report.md</span>
-            <span style="color:var(--muted)">${new Date(mtime).toLocaleTimeString()}</span>
-            <button class="viewer-dl-btn" onclick="dlFile(${JSON.stringify('report.md')},${JSON.stringify(content)})">⬇ DL</button>
+            <div class="vh-row1">
+              <span class="vh-path">report.md</span>
+              <button class="viewer-dl-btn" onclick="dlFile(${JSON.stringify('report.md')},${JSON.stringify(content)})">⬇ DL</button>
+            </div>
+            <span class="vh-meta">MARKDOWN · ${(content.length/1024).toFixed(1)}k · ${new Date(mtime).toLocaleTimeString()}</span>
           </div>
           <div id="file-viewer-content">${renderMarkdown(content)}</div>
         </div>`;
@@ -1575,10 +1576,11 @@ function showInViewer(filePath, content, context, mtime) {
   const size = content.length > 1024 ? (content.length/1024).toFixed(1)+'k' : content.length+'b';
   pane.innerHTML = `
     <div class="viewer-header">
-      <span class="vh-path">${escHtml(filePath)}</span>
-      <span class="vh-type">${escHtml(fileType(name))}</span>
-      <span class="vh-size">${size} · ${ts}</span>
-      <button class="viewer-dl-btn" onclick="dlFile(${JSON.stringify(name)},${JSON.stringify(content)})">⬇ DL</button>
+      <div class="vh-row1">
+        <span class="vh-path">${escHtml(filePath)}</span>
+        <button class="viewer-dl-btn" onclick="dlFile(${JSON.stringify(name)},${JSON.stringify(content)})">⬇ DL</button>
+      </div>
+      <span class="vh-meta">${escHtml(fileType(name))} · ${size} · ${ts}</span>
     </div>
     <div class="viewer-body ${cls}">${html}</div>`;
 }
@@ -1727,10 +1729,11 @@ async function loadCaseworkFile(sid, filePath, el) {
     const size = content.length > 1024 ? (content.length/1024).toFixed(1)+'k' : content.length+'b';
     if (vp) vp.innerHTML = `
       <div class="viewer-header">
-        <span class="vh-path">${escHtml(filePath)}</span>
-        <span class="vh-type">${escHtml(fileType(name))}</span>
-        <span class="vh-size">${size} · ${ts}</span>
-        <button class="viewer-dl-btn" onclick="dlFile(${JSON.stringify(name)},${JSON.stringify(content)})">⬇ DL</button>
+        <div class="vh-row1">
+          <span class="vh-path">${escHtml(filePath)}</span>
+          <button class="viewer-dl-btn" onclick="dlFile(${JSON.stringify(name)},${JSON.stringify(content)})">⬇ DL</button>
+        </div>
+        <span class="vh-meta">${escHtml(fileType(name))} · ${size} · ${ts}</span>
       </div>
       <div class="viewer-body ${cls}" style="flex:1;overflow-y:auto;">${html}</div>`;
     setHash('casework', { case: sid, file: filePath });
