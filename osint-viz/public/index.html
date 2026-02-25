@@ -686,19 +686,20 @@ async function restoreFromHash() {
   if (tab === 'chat') {
     const sid = params.get('session');
     if (sid) {
-      chatSessionId = sid;
-      chatIsFirst   = false;
+      chatSessionId   = sid;
+      chatIsFirst     = false;
+      lastReportMtime = '';
       updateSessionBadge();
-      // Switch to FILES panel and open the right file if specified
       const file = params.get('file');
       if (file) {
         const fileBtn = document.querySelector('[data-cpanel="files"]');
         if (fileBtn) { fileBtn.click(); }
         setTimeout(() => loadCaseFile(sid, file, null), 300);
-      } else {
-        refreshCasePanel();
-        startCasePoll();
       }
+      refreshCasePanel();
+      startCasePoll();
+      // Re-attach to a live session if the agent is still running
+      setTimeout(() => maybeReattachSession(sid), 200);
     }
   }
 
@@ -1736,6 +1737,78 @@ async function loadCaseworkFile(sid, filePath, el) {
   } catch(e) {
     if (vp) vp.innerHTML = `<div style="padding:20px;color:var(--red)">Error loading file</div>`;
   }
+}
+
+// Called on hash-restore: loads turn history into chat UI and re-attaches to live agent if running
+async function maybeReattachSession(sid) {
+  const msgs = document.getElementById('chat-messages');
+  if (!msgs) return;
+
+  // 1. Load case metadata + turn history
+  let meta = null;
+  try {
+    const mr = await fetch(`api/cases/${encodeURIComponent(sid)}`);
+    if (mr.ok) meta = await mr.json();
+  } catch {}
+
+  // 2. Rebuild chat history from turn log (user msgs + agent previews)
+  if (meta && meta.turns && meta.turns.length > 0) {
+    msgs.innerHTML = '';  // clear the default "give me a target" message
+    meta.turns.forEach(t => {
+      if (t.role === 'user') {
+        appendChatMsg('user', t.message || '(message)', null, null);
+      } else if (t.role === 'agent') {
+        const preview = t.messagePreview || '';
+        appendChatMsg('agent',
+          preview
+            ? preview + (preview.length >= 300 ? '\n\n*(full response in REPORT tab)*' : '')
+            : '*(response in REPORT tab)*',
+          null, null, t.durationMs);
+      }
+    });
+  }
+
+  // 3. Check live status
+  let statusData = null;
+  try {
+    const sr = await fetch(`api/chat/status/${encodeURIComponent(sid)}`);
+    if (sr.ok) statusData = await sr.json();
+  } catch {}
+
+  if (!statusData || statusData.status === 'not_found') return;
+
+  // 4. If done and last turn already in history — nothing more to do
+  if (statusData.status === 'done' || statusData.status === 'error') return;
+
+  // 5. Agent is still running — re-attach the polling loop
+  const tid = appendThinking(false);
+  document.getElementById('chat-send').disabled = true;
+
+  let finalData = null;
+  for (let attempt = 0; attempt < 300; attempt++) {
+    await new Promise(ok => setTimeout(ok, 2000));
+    let sd;
+    try {
+      const sr = await fetch(`api/chat/status/${encodeURIComponent(sid)}`);
+      sd = await sr.json();
+    } catch { continue; }
+    updateThinkingLive(tid, sd);
+    if (sd.status === 'done' || sd.status === 'error') { finalData = sd; break; }
+    if (sd.status === 'not_found' && attempt > 60) break;
+  }
+
+  removeThinking(tid);
+  document.getElementById('chat-send').disabled = false;
+  document.getElementById('chat-input').focus();
+
+  if (!finalData) {
+    appendChatMsg('agent', '⚠ Investigation timed out. Check the REPORT tab for partial findings.', null, null, null);
+  } else if (finalData.status === 'error') {
+    appendChatMsg('agent', `⚠ Agent failed: ${finalData.error || 'unknown'}`, null, null, null);
+  } else {
+    appendChatMsg('agent', finalData.response || '(Investigation complete — see REPORT tab)', null, null, finalData.durationMs);
+  }
+  refreshCasePanel();
 }
 
 async function openChatForCase(sid) {
