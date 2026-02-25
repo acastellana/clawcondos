@@ -1643,6 +1643,10 @@ async function loadCasework() {
   } catch(e) { list.innerHTML = `<div style="padding:10px;color:var(--muted);font-size:11px">Error: ${escHtml(e.message)}</div>`; }
 }
 
+let cwActivePanel = 'report';
+let cwActiveSid   = null;
+let cwCaseData    = null;
+
 async function openCaseDetail(sid, initialFile) {
   document.querySelectorAll('.case-list-item').forEach(el => el.classList.remove('active'));
   document.querySelectorAll('.case-list-item').forEach(el => {
@@ -1650,50 +1654,108 @@ async function openCaseDetail(sid, initialFile) {
   });
   setHash('casework', initialFile ? { case: sid, file: initialFile } : { case: sid });
 
-  // Override the cases-detail-panel to be a flex column with its own tree+viewer
+  cwActiveSid   = sid;
+  cwActivePanel = initialFile ? 'files' : 'report';
+
   const outerPanel = document.getElementById('cases-detail-panel');
   outerPanel.style.cssText = 'overflow:hidden;display:flex;flex-direction:column;padding:0;';
   outerPanel.innerHTML = '<div style="padding:20px;color:var(--muted);font-size:11px">Loading…</div>';
+
   try {
     const r = await fetch(`api/cases/${sid}`);
-    const data = await r.json();
-    const { target, startedAt, updatedAt, turns=[], files=[] } = data;
+    cwCaseData = await r.json();
+    const { target, startedAt, turns=[], files=[] } = cwCaseData;
+    const fc = countFiles(files);
 
-    // Build a header + file-tree + viewer layout
     outerPanel.innerHTML = `
-      <div style="padding:12px 16px;border-bottom:1px solid var(--border);flex-shrink:0">
-        <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:4px">${escHtml(target||sid)}</div>
-        <div style="display:flex;gap:10px;font-size:10px;color:var(--muted);flex-wrap:wrap">
-          <span>Started ${new Date(startedAt).toLocaleString()}</span>
-          <span>· ${turns.length} turns</span>
-          <span>· ${countFiles(files)} files</span>
-          <span style="margin-left:auto;color:var(--amber);cursor:pointer" onclick="openChatForCase('${escAttr(sid)}')">→ open in chat</span>
+      <div style="padding:10px 14px;border-bottom:1px solid var(--border);flex-shrink:0;display:flex;flex-direction:column;gap:3px">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:14px;font-weight:700;color:var(--text)">${escHtml(target||sid)}</span>
+          <span style="font-size:10px;color:var(--amber);cursor:pointer" onclick="openChatForCase('${escAttr(sid)}')">→ open in chat</span>
+        </div>
+        <div style="display:flex;gap:12px;font-size:10px;color:var(--muted)">
+          <span>${new Date(startedAt).toLocaleString()}</span>
+          <span>·</span>
+          <span>${turns.length} turn${turns.length!==1?'s':''}</span>
+          <span>·</span>
+          <span>${fc} file${fc!==1?'s':''}</span>
         </div>
       </div>
-      <div id="cw-tree-pane" style="flex-shrink:0;overflow-y:auto;max-height:45%;border-bottom:2px solid var(--border);padding:4px 0">
-        <div style="padding:4px 12px;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted)">FILES</div>
-        <div id="cw-file-tree">${renderCaseworkFileTree(files, sid)}</div>
-        <div style="padding:8px 12px;border-top:1px solid var(--border);margin-top:4px">
-          <div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:6px">TURN LOG</div>
-          ${turns.map(t => `
-            <div class="turn-log-entry">
-              <span class="turn-role ${t.role}">${t.role}</span>
-              <span class="turn-time">${new Date(t.timestamp).toLocaleTimeString()}</span>
-              <span class="turn-preview">${escHtml((t.messagePreview||t.message||'').slice(0,120))}</span>
-              ${t.durationMs ? `<span style="font-size:9px;color:var(--muted);flex-shrink:0">${(t.durationMs/1000).toFixed(1)}s</span>` : ''}
-            </div>`).join('')}
-        </div>
+      <div id="cw-tabs" style="display:flex;gap:1px;border-bottom:1px solid var(--border);background:var(--bg);flex-shrink:0">
+        <button class="case-ptab ${cwActivePanel==='report'?'active':''}" data-cwpanel="report" onclick="setCwPanel('report')">📋 REPORT</button>
+        <button class="case-ptab ${cwActivePanel==='files'?'active':''}"  data-cwpanel="files"  onclick="setCwPanel('files')">📂 FILES</button>
+        <button class="case-ptab ${cwActivePanel==='log'?'active':''}"    data-cwpanel="log"    onclick="setCwPanel('log')">📜 LOG</button>
       </div>
-      <div id="cw-viewer-pane" style="flex:1;overflow:hidden;display:flex;flex-direction:column;">
-        <div style="padding:20px;color:var(--muted);font-size:11px;text-align:center">← click a file to view</div>
-      </div>`;
+      <div id="cw-panel-content" style="flex:1;overflow:hidden;display:flex;flex-direction:column;"></div>`;
 
-    // Auto-open initialFile if provided
-    if (initialFile) {
-      loadCaseworkFile(sid, initialFile, null);
+    await renderCwPanel();
+
+    if (initialFile && cwActivePanel === 'files') {
+      setTimeout(() => loadCaseworkFile(sid, initialFile, null), 150);
     }
   } catch(e) {
     outerPanel.innerHTML = `<div style="padding:20px;color:var(--muted)">Error: ${escHtml(e.message)}</div>`;
+  }
+}
+
+async function setCwPanel(panel) {
+  cwActivePanel = panel;
+  document.querySelectorAll('#cw-tabs .case-ptab').forEach(b => {
+    b.classList.toggle('active', b.dataset.cwpanel === panel);
+  });
+  await renderCwPanel();
+}
+
+async function renderCwPanel() {
+  const content = document.getElementById('cw-panel-content');
+  if (!content || !cwActiveSid) return;
+  const { turns=[], files=[] } = cwCaseData || {};
+
+  if (cwActivePanel === 'report') {
+    content.innerHTML = '<div style="padding:14px;color:var(--muted);font-size:11px">Loading report…</div>';
+    try {
+      const r = await fetch(`api/cases/${cwActiveSid}/file?path=report.md`);
+      if (!r.ok) { content.innerHTML = '<div class="empty" style="padding:20px">No report yet</div>'; return; }
+      const { content: text, mtime } = await r.json();
+      const sz = (text.length/1024).toFixed(1);
+      content.innerHTML = `
+        <div id="cw-report-viewer" style="flex:1;overflow:hidden;display:flex;flex-direction:column;">
+          <div class="viewer-header">
+            <div class="vh-row1">
+              <span class="vh-path">report.md</span>
+              <button class="viewer-dl-btn" onclick="dlFile('report.md',${JSON.stringify(text)})">⬇ DL</button>
+            </div>
+            <span class="vh-meta">MARKDOWN · ${sz}k · ${new Date(mtime).toLocaleTimeString()}</span>
+          </div>
+          <div style="flex:1;overflow-y:auto;padding:14px 20px;font-family:var(--mono);font-size:12px;line-height:1.8;color:var(--text)">${renderMarkdown(text)}</div>
+        </div>`;
+    } catch { content.innerHTML = '<div class="empty" style="padding:20px">Failed to load report</div>'; }
+
+  } else if (cwActivePanel === 'files') {
+    content.style.cssText = 'flex:1;overflow:hidden;display:flex;flex-direction:column;';
+    if (!document.getElementById('cw-file-tree-pane')) {
+      content.innerHTML = `
+        <div id="cw-file-tree-pane" style="flex-shrink:0;overflow-y:auto;max-height:50%;border-bottom:1px solid var(--border);">
+          <div id="cw-file-tree">${renderCaseworkFileTree(files, cwActiveSid)}</div>
+        </div>
+        <div id="cw-viewer-pane" style="flex:1;overflow:hidden;display:flex;flex-direction:column;">
+          <div class="viewer-empty">← click a file to view</div>
+        </div>`;
+    }
+
+  } else if (cwActivePanel === 'log') {
+    content.innerHTML = `
+      <div style="flex:1;overflow-y:auto;padding:8px 0">
+        ${turns.length === 0
+          ? '<div class="empty" style="padding:20px">No turns yet</div>'
+          : turns.map(t => `
+            <div class="turn-log-entry">
+              <span class="turn-role ${t.role}">${t.role}</span>
+              <span class="turn-time">${new Date(t.timestamp).toLocaleTimeString()}</span>
+              <span class="turn-preview">${escHtml((t.messagePreview||t.message||'').slice(0,140))}</span>
+              ${t.durationMs ? `<span style="font-size:9px;color:var(--muted);flex-shrink:0">${(t.durationMs/1000).toFixed(1)}s</span>` : ''}
+            </div>`).join('')}
+      </div>`;
   }
 }
 

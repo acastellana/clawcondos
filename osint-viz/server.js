@@ -25,8 +25,16 @@ const AGENT_ENV = Object.assign({}, process.env, {
 const runningAgents = new Map();
 
 app.use(express.json({ limit: '2mb' }));
-app.use(BASE || '/', express.static(path.join(__dirname, 'public')));
-if (BASE) app.use('/', express.static(path.join(__dirname, 'public')));
+const staticOpts = {
+  setHeaders(res, filePath) {
+    // Never cache HTML — always serve fresh JS/CSS
+    if (filePath.endsWith('.html')) {
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+    }
+  }
+};
+app.use(BASE || '/', express.static(path.join(__dirname, 'public'), staticOpts));
+if (BASE) app.use('/', express.static(path.join(__dirname, 'public'), staticOpts));
 
 // ── Casework helpers ───────────────────────────────────────────
 function ensureDirs() {
