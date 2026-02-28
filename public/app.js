@@ -292,8 +292,8 @@
     }
 
     function isCondoExpanded(condoId) {
-      // Default: expanded unless explicitly set false
-      return state.expandedCondos[condoId] !== false;
+      // Default: collapsed unless explicitly set true
+      return state.expandedCondos[condoId] === true;
     }
 
     function toggleAgentExpanded(agentId) {

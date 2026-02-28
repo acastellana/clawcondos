@@ -1711,13 +1711,55 @@ server.on('upgrade', (req, socket, head) => {
                     if (method === 'goals.list') {
                       fallback = { goals };
                     } else {
-                      const condoMap = new Map();
-                      for (const g of goals) {
-                        const id = g?.condoId || 'default';
-                        if (!condoMap.has(id)) condoMap.set(id, { id, name: id, description: '', status: 'active' });
-                      }
-                      fallback = { condos: Array.from(condoMap.values()) };
+                      const condos = Array.isArray(goalsDb?.condos) ? goalsDb.condos.map(c => ({
+                        ...c,
+                        goalCount: goals.filter(g => g.condoId === c.id).length,
+                      })) : [];
+                      fallback = { condos };
                     }
+                  } else if (method === 'chat.history') {
+                    try {
+                      const sessionKey = frame.params?.sessionKey || '';
+                      const histLimit = Math.max(1, Number(frame.params?.limit || 50));
+                      let agentId = 'main';
+                      if (sessionKey.startsWith('agent:')) {
+                        const parts = sessionKey.split(':');
+                        if (parts.length >= 2) agentId = parts[1];
+                      }
+                      const ocDir = os.homedir() + '/.openclaw';
+                      const sessionsFile = join(ocDir, 'agents', agentId, 'sessions', 'sessions.json');
+                      const sessionsIndex = JSON.parse(readFileSync(sessionsFile, 'utf8'));
+                      const sessionEntry = sessionsIndex[sessionKey];
+                      if (sessionEntry?.sessionId) {
+                        const jsonlFile = join(ocDir, 'agents', agentId, 'sessions', sessionEntry.sessionId + '.jsonl');
+                        const lines = readFileSync(jsonlFile, 'utf8').split('\n').filter(l => l.trim());
+                        const messages = [];
+                        for (const line of lines) {
+                          try {
+                            const entry = JSON.parse(line);
+                            if (entry.type === 'message' && entry.message) {
+                              const { role } = entry.message;
+                              if (role === 'user' || role === 'assistant') {
+                                messages.push({
+                                  id: entry.id,
+                                  role,
+                                  content: entry.message.content,
+                                  timestamp: new Date(entry.timestamp).getTime(),
+                                  model: entry.message.model,
+                                });
+                              }
+                            }
+                          } catch {}
+                        }
+                        fallback = { messages: messages.slice(-histLimit) };
+                      } else {
+                        fallback = { messages: [] };
+                      }
+                    } catch {
+                      fallback = { messages: [] };
+                    }
+                  } else if (method === 'status') {
+                    fallback = { ok: true, status: 'running', activeSessions: 0, sessions: [] };
                   }
 
                   if (fallback && clientWs.readyState === WebSocket.OPEN) {
