@@ -1691,7 +1691,11 @@ server.on('upgrade', (req, socket, head) => {
                 for (const s of spawned) {
                   if (!s.sessionKey || !s.taskContext) continue;
                   try {
-                    await gatewayClient.rpcCall('chat.send', { sessionKey: s.sessionKey, message: s.taskContext });
+                    await gatewayClient.rpcCall('chat.send', {
+                      sessionKey: s.sessionKey,
+                      message: s.taskContext,
+                      idempotencyKey: `kickoff-${s.sessionKey}-${Date.now()}`,
+                    });
                     console.log(`[kickoff] chat.send OK for ${s.sessionKey}`);
                   } catch (err) {
                     console.error(`[kickoff] chat.send FAILED for ${s.sessionKey}: ${err?.message || err}`);
