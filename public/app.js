@@ -4833,6 +4833,16 @@ Response format:
       document.getElementById('createGoalTitle').value = '';
       document.getElementById('createGoalDeadline').value = '';
       document.getElementById('createGoalError').style.display = 'none';
+      // Show which condo the goal will be added to
+      const descEl = document.querySelector('#createGoalModal .modal-desc');
+      const condoId = state.newGoalCondoId || state.currentCondoId;
+      if (descEl && condoId) {
+        const condo = (state.condos || []).find(c => c.id === condoId);
+        const name = condo?.name || condoId.split(':').pop() || 'this condo';
+        descEl.textContent = `Add a new goal to ${name}.`;
+      } else if (descEl) {
+        descEl.textContent = 'Create a new goal. You can attach sessions and spawn agents inside it.';
+      }
       setTimeout(() => document.getElementById('createGoalTitle')?.focus(), 0);
     }
 

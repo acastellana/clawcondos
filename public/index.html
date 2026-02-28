@@ -174,8 +174,8 @@
        ═══════════════════════════════════════════════════════════════ -->
   <div class="modal-overlay hidden" id="createGoalModal">
     <div class="modal">
-      <h2 class="modal-title">New Condo</h2>
-      <p class="modal-desc">Create a new condo (goal). You can attach sessions and spawn agents inside it.</p>
+      <h2 class="modal-title">New Goal</h2>
+      <p class="modal-desc">Create a new goal. You can attach sessions and spawn agents inside it.</p>
       <div class="form-group">
         <label class="form-label">Title</label>
         <input type="text" class="form-input" id="createGoalTitle" placeholder="e.g., Rebrand Dashboard" 
@@ -526,6 +526,28 @@
         </div>
       </div>
       
+      <!-- Condo View -->
+      <div class="view" id="condoView">
+        <div class="overview-content" style="padding-bottom:24px;">
+          <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px;">
+            <h1 id="condoHeroTitle" style="margin:0; font-size:1.4rem; font-weight:700;">Condo</h1>
+            <button class="form-btn" onclick="state.newGoalCondoId = state.currentCondoId; showCreateGoalModal()" style="padding:4px 14px; font-size:0.85rem;">＋ New Goal</button>
+          </div>
+          <div style="display:flex; gap:16px; flex-wrap:wrap; margin-bottom:16px; font-size:0.85rem; color:var(--text-dim);">
+            <span>Active: <strong id="condoStatActive">0</strong></span>
+            <span>Total: <strong id="condoStatTotal">0</strong></span>
+            <span>Doing: <strong id="condoStatDoing">0</strong></span>
+            <span>Blocked: <strong id="condoStatBlocked">0</strong></span>
+            <span>Dropped: <strong id="condoStatDropped">0</strong></span>
+            <span>Focus: <em id="condoStatFocus">—</em></span>
+            <span>Updated: <em id="condoLastUpdated">—</em></span>
+          </div>
+          <div id="condoGoalGrid" class="condo-goal-grid" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(320px,1fr)); gap:12px; margin-bottom:24px;"></div>
+          <h2 style="font-size:1.1rem; font-weight:600; margin-bottom:8px;">Sessions</h2>
+          <div id="condoSessionsList"></div>
+        </div>
+      </div>
+
       <!-- Recurring View -->
       <div class="view" id="recurringView">
         <div class="overview-content" style="padding-bottom:24px;">
@@ -4277,7 +4299,9 @@ Response format:
         return;
       }
       try {
-        const data = await rpcCall('goals.create', { title, deadline: deadline || undefined });
+        const condoId = (state && state.newGoalCondoId) || (state && state.currentCondoId) || null;
+        if (state) state.newGoalCondoId = null;
+        const data = await rpcCall('goals.create', { title, deadline: deadline || undefined, condoId });
         hideCreateGoalModal();
         await loadGoals();
         if (data?.goal?.id) openGoal(data.goal.id);
