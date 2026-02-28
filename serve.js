@@ -1606,20 +1606,30 @@ server.on('upgrade', (req, socket, head) => {
             'agents.list',
             'chat.activeRuns',
             'goals.list',
+            'goals.get',
             'goals.create',
             'goals.update',
             'goals.delete',
             'goals.addSession',
             'goals.removeSession',
+            'goals.sessionLookup',
             'goals.addTask',
             'goals.updateTask',
             'goals.deleteTask',
             'goals.addFiles',
             'goals.removeFile',
             'goals.setSessionCondo',
+            'goals.getSessionCondo',
             'goals.listSessionCondos',
+            'goals.removeSessionCondo',
             'goals.spawnTaskSession',
+            'goals.updatePlan',
+            'goals.checkConflicts',
             'condos.list',
+            'condos.get',
+            'condos.create',
+            'condos.update',
+            'condos.delete',
             'status',
             'chat.history'
           ]);
@@ -1678,6 +1688,30 @@ server.on('upgrade', (req, socket, head) => {
                   result: local.ok ? (local.result || {}) : undefined,
                   error: local.ok ? undefined : (local.error || { message: 'Local goals RPC failed' })
                 }));
+
+                // Post-kickoff: start spawned sessions via gateway chat.send
+                // Handles both goals.kickoff (batch) and goals.spawnTaskSession (single)
+                if (local.ok) {
+                  const sessionsToStart = [];
+                  if (method === 'goals.kickoff' && Array.isArray(local.result?.spawnedSessions)) {
+                    sessionsToStart.push(...local.result.spawnedSessions);
+                  } else if (method === 'goals.spawnTaskSession' && local.result?.sessionKey && local.result?.taskContext) {
+                    sessionsToStart.push(local.result);
+                  }
+                  for (const s of sessionsToStart) {
+                    if (!s.sessionKey || !s.taskContext) continue;
+                    try {
+                      await gatewayClient.rpcCall('chat.send', {
+                        sessionKey: s.sessionKey,
+                        message: s.taskContext,
+                      });
+                      console.log(`[kickoff] chat.send OK for ${s.sessionKey}`);
+                    } catch (err) {
+                      console.error(`[kickoff] chat.send FAILED for ${s.sessionKey}: ${err?.message || err}`);
+                    }
+                  }
+                }
+
                 return;
               }
             }
