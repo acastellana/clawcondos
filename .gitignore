@@ -47,3 +47,4 @@ __pycache__/
 
 # Env files
 .env
+pair-device.mjs

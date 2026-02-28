@@ -23,6 +23,7 @@ import { createMemorySearch } from './lib/memory-search.js';
 import { createChatIndex } from './lib/chat-index.js';
 import { createGoalsStore } from './clawcondos/condo-management/lib/goals-store.js';
 import { createGoalHandlers } from './clawcondos/condo-management/lib/goals-handlers.js';
+import { createCondoHandlers } from './clawcondos/condo-management/lib/condos-handlers.js';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 
@@ -458,6 +459,7 @@ const GOALS_FILE = join(__dirname, 'clawcondos/condo-management/.data/goals.json
 const GOALS_DATA_DIR = join(__dirname, 'clawcondos/condo-management/.data');
 const goalsStore = createGoalsStore(GOALS_DATA_DIR);
 const goalHandlers = createGoalHandlers(goalsStore);
+const condoHandlers = createCondoHandlers(goalsStore);
 let lastGoalsMtime = 0;
 
 function broadcastGoalsChanged() {
@@ -475,7 +477,7 @@ function broadcastGoalsChanged() {
 }
 
 async function tryLocalGoalsRpc(method, params = {}) {
-  const handler = goalHandlers?.[method];
+  const handler = goalHandlers?.[method] || condoHandlers?.[method];
   if (!handler) return { handled: false };
   return await new Promise((resolve) => {
     try {
@@ -1664,8 +1666,8 @@ server.on('upgrade', (req, socket, head) => {
               } catch {}
             }
 
-            // Write-capable goals.* methods are served locally to avoid scope/auth edge-cases.
-            if (method.startsWith('goals.')) {
+            // Write-capable goals.*/condos.* methods are served locally to avoid scope/auth edge-cases.
+            if (method.startsWith('goals.') || method.startsWith('condos.')) {
               const local = await tryLocalGoalsRpc(method, frame.params || {});
               if (local.handled && clientWs.readyState === WebSocket.OPEN) {
                 clientWs.send(JSON.stringify({
@@ -1678,6 +1680,59 @@ server.on('upgrade', (req, socket, head) => {
                 }));
                 return;
               }
+            }
+
+            // chat.history + status are local-only (no gateway equivalent)
+            if (method === 'chat.history' || method === 'status') {
+              let fallback = null;
+              if (method === 'chat.history') {
+                try {
+                  const sessionKey = frame.params?.sessionKey || '';
+                  const histLimit = Math.max(1, Number(frame.params?.limit || 50));
+                  let agentId = 'main';
+                  if (sessionKey.startsWith('agent:')) {
+                    const parts = sessionKey.split(':');
+                    if (parts.length >= 2) agentId = parts[1];
+                  }
+                  const ocDir = os.homedir() + '/.openclaw';
+                  const sessionsFile = join(ocDir, 'agents', agentId, 'sessions', 'sessions.json');
+                  const sessionsIndex = JSON.parse(readFileSync(sessionsFile, 'utf8'));
+                  const sessionEntry = sessionsIndex[sessionKey];
+                  if (sessionEntry?.sessionId) {
+                    const jsonlFile = join(ocDir, 'agents', agentId, 'sessions', sessionEntry.sessionId + '.jsonl');
+                    const lines = readFileSync(jsonlFile, 'utf8').split('\n').filter(l => l.trim());
+                    const messages = [];
+                    for (const line of lines) {
+                      try {
+                        const entry = JSON.parse(line);
+                        if (entry.type === 'message' && entry.message) {
+                          const { role } = entry.message;
+                          if (role === 'user' || role === 'assistant') {
+                            messages.push({
+                              id: entry.id,
+                              role,
+                              content: entry.message.content,
+                              timestamp: new Date(entry.timestamp).getTime(),
+                              model: entry.message.model,
+                            });
+                          }
+                        }
+                      } catch {}
+                    }
+                    fallback = { messages: messages.slice(-histLimit) };
+                  } else {
+                    fallback = { messages: [] };
+                  }
+                } catch {
+                  fallback = { messages: [] };
+                }
+              } else {
+                fallback = { ok: true, status: 'running', activeSessions: 0, sessions: [] };
+              }
+              if (fallback && clientWs.readyState === WebSocket.OPEN) {
+                clientWs.send(JSON.stringify({ type: 'res', id: String(frame.id), method, ok: true, result: fallback }));
+              }
+              return;
             }
 
             try {
