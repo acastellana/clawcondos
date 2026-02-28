@@ -1174,7 +1174,8 @@ const server = createServer(async (req, res) => {
         } catch { resolve(); }
       });
 
-      if (!created?.id) {
+      const condoId = created?.condo?.id || created?.id;
+      if (!condoId) {
         checks.push({ name: 'condos.create', ok: false, error: 'No condo returned' });
         allOk = false;
       } else {
@@ -1185,9 +1186,9 @@ const server = createServer(async (req, res) => {
         await new Promise((resolve) => {
           try {
             condoHandlers['condos.get']({
-              params: { condoId: created.id },
+              params: { id: condoId },
               respond: (ok, payload) => {
-                found = ok && !!payload?.id;
+                found = ok && !!(payload?.condo?.id || payload?.id);
                 resolve();
               }
             });
@@ -1201,7 +1202,7 @@ const server = createServer(async (req, res) => {
         await new Promise((resolve) => {
           try {
             condoHandlers['condos.delete']({
-              params: { condoId: created.id },
+              params: { id: condoId },
               respond: (ok) => { deleted = ok; resolve(); }
             });
           } catch { resolve(); }
