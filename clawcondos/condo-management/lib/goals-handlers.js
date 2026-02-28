@@ -125,11 +125,15 @@ export function createGoalHandlers(store, options = {}) {
         if (typeof goal.title === 'string') goal.title = goal.title.trim();
         goal.updatedAtMs = Date.now();
 
-        // Sync completed/status
+        // Sync completed/status + completedAt
         if ('status' in params) {
           goal.completed = goal.status === 'done';
+          if (goal.completed && !goal.completedAt) goal.completedAt = new Date().toISOString();
+          if (!goal.completed) goal.completedAt = null;
         } else if ('completed' in params) {
           goal.status = goal.completed ? 'done' : 'active';
+          if (goal.completed && !goal.completedAt) goal.completedAt = new Date().toISOString();
+          if (!goal.completed) goal.completedAt = null;
         }
 
         saveData(data);
