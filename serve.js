@@ -460,6 +460,20 @@ const GOALS_DATA_DIR = join(__dirname, 'clawcondos/condo-management/.data');
 const goalsStore = createGoalsStore(GOALS_DATA_DIR);
 const goalHandlers = createGoalHandlers(goalsStore);
 const condoHandlers = createCondoHandlers(goalsStore);
+
+// Auto-generate localRpcMethods from handler keys + extra non-handler methods
+const localRpcMethods = new Set([
+  ...Object.keys(goalHandlers || {}),
+  ...Object.keys(condoHandlers || {}),
+  'goals.kickoff',
+  'goals.spawnTaskSession',
+  // Non-handler methods routed locally
+  'sessions.list',
+  'agents.list',
+  'chat.activeRuns',
+  'status',
+  'chat.history',
+]);
 let lastGoalsMtime = 0;
 
 function broadcastGoalsChanged() {
@@ -1137,6 +1151,73 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  // Health check endpoint with mini smoke test
+  if (pathname === '/healthz' && (req.method === 'GET' || req.method === 'HEAD')) {
+    const t0 = Date.now();
+    const checks = [];
+    let allOk = true;
+
+    try {
+      // Smoke test: create temp condo, verify it exists, delete it
+      const tempId = `healthz-${Date.now()}-${crypto.randomBytes(4).toString('hex')}`;
+      let created = null;
+
+      await new Promise((resolve) => {
+        try {
+          condoHandlers['condos.create']({
+            params: { name: tempId, description: 'healthz smoke test' },
+            respond: (ok, payload) => {
+              if (ok) created = payload;
+              resolve();
+            }
+          });
+        } catch { resolve(); }
+      });
+
+      if (!created?.id) {
+        checks.push({ name: 'condos.create', ok: false, error: 'No condo returned' });
+        allOk = false;
+      } else {
+        checks.push({ name: 'condos.create', ok: true });
+
+        // Verify it exists
+        let found = false;
+        await new Promise((resolve) => {
+          try {
+            condoHandlers['condos.get']({
+              params: { condoId: created.id },
+              respond: (ok, payload) => {
+                found = ok && !!payload?.id;
+                resolve();
+              }
+            });
+          } catch { resolve(); }
+        });
+        checks.push({ name: 'condos.get', ok: found });
+        if (!found) allOk = false;
+
+        // Delete it
+        let deleted = false;
+        await new Promise((resolve) => {
+          try {
+            condoHandlers['condos.delete']({
+              params: { condoId: created.id },
+              respond: (ok) => { deleted = ok; resolve(); }
+            });
+          } catch { resolve(); }
+        });
+        checks.push({ name: 'condos.delete', ok: deleted });
+        if (!deleted) allOk = false;
+      }
+    } catch (err) {
+      checks.push({ name: 'smoke_test', ok: false, error: err?.message || String(err) });
+      allOk = false;
+    }
+
+    json(res, allOk ? 200 : 500, { ok: allOk, checks, ms: Date.now() - t0 });
+    return;
+  }
+
   // API: /api/apps -> serve apps.json
   if (pathname === '/api/apps') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -1601,40 +1682,7 @@ server.on('upgrade', (req, socket, head) => {
 
           // connect handshake is handled by upstream gateway.
 
-          const localRpcMethods = new Set([
-            'sessions.list',
-            'agents.list',
-            'chat.activeRuns',
-            'goals.list',
-            'goals.get',
-            'goals.create',
-            'goals.update',
-            'goals.delete',
-            'goals.addSession',
-            'goals.removeSession',
-            'goals.sessionLookup',
-            'goals.addTask',
-            'goals.updateTask',
-            'goals.deleteTask',
-            'goals.addFiles',
-            'goals.removeFile',
-            'goals.setSessionCondo',
-            'goals.getSessionCondo',
-            'goals.listSessionCondos',
-            'goals.removeSessionCondo',
-            'goals.spawnTaskSession',
-            'goals.updatePlan',
-            'goals.checkConflicts',
-            'goals.kickoff',
-            'goals.spawnTaskSession',
-            'condos.list',
-            'condos.get',
-            'condos.create',
-            'condos.update',
-            'condos.delete',
-            'status',
-            'chat.history'
-          ]);
+          // localRpcMethods is auto-generated at startup from handler keys + extras
 
           if (frame?.type === 'req' && localRpcMethods.has(method)) {
             // Local/session cache fallbacks for scoped environments.
@@ -1690,15 +1738,16 @@ server.on('upgrade', (req, socket, head) => {
                 // Bridge: start each spawned session via chat.send
                 for (const s of spawned) {
                   if (!s.sessionKey || !s.taskContext) continue;
+                  const _kickoffStart = Date.now();
                   try {
                     await gatewayClient.rpcCall('chat.send', {
                       sessionKey: s.sessionKey,
                       message: s.taskContext,
                       idempotencyKey: `kickoff-${s.sessionKey}-${Date.now()}`,
                     });
-                    console.log(`[kickoff] chat.send OK for ${s.sessionKey}`);
+                    console.log(JSON.stringify({ event: 'kickoff.chat_send', sessionKey: s.sessionKey, ok: true, ms: Date.now() - _kickoffStart }));
                   } catch (err) {
-                    console.error(`[kickoff] chat.send FAILED for ${s.sessionKey}: ${err?.message || err}`);
+                    console.log(JSON.stringify({ event: 'kickoff.chat_send', sessionKey: s.sessionKey, ok: false, error: err?.message || String(err), ms: Date.now() - _kickoffStart }));
                   }
                 }
 
@@ -1736,14 +1785,15 @@ server.on('upgrade', (req, socket, head) => {
                   }
                   for (const s of sessionsToStart) {
                     if (!s.sessionKey || !s.taskContext) continue;
+                    const _kickoffStart = Date.now();
                     try {
                       await gatewayClient.rpcCall('chat.send', {
                         sessionKey: s.sessionKey,
                         message: s.taskContext,
                       });
-                      console.log(`[kickoff] chat.send OK for ${s.sessionKey}`);
+                      console.log(JSON.stringify({ event: 'kickoff.chat_send', sessionKey: s.sessionKey, ok: true, ms: Date.now() - _kickoffStart }));
                     } catch (err) {
-                      console.error(`[kickoff] chat.send FAILED for ${s.sessionKey}: ${err?.message || err}`);
+                      console.log(JSON.stringify({ event: 'kickoff.chat_send', sessionKey: s.sessionKey, ok: false, error: err?.message || String(err), ms: Date.now() - _kickoffStart }));
                     }
                   }
                 }
@@ -1943,6 +1993,63 @@ server.on('upgrade', (req, socket, head) => {
     socket.destroy();
   }
 });
+
+// ── Stale webchat task session cleanup ──
+function cleanupStaleSessions() {
+  const STALE_MS = 4 * 60 * 60 * 1000; // 4 hours
+  const now = Date.now();
+  let cleaned = 0;
+
+  try {
+    const agentsDir = join(os.homedir(), '.openclaw', 'agents');
+    if (!existsSync(agentsDir)) return;
+
+    const agentDirs = readdirSync(agentsDir, { withFileTypes: true })
+      .filter(d => d.isDirectory()).map(d => d.name);
+
+    for (const agentId of agentDirs) {
+      const sessionsFile = join(agentsDir, agentId, 'sessions', 'sessions.json');
+      if (!existsSync(sessionsFile)) continue;
+
+      let index;
+      try {
+        index = JSON.parse(readFileSync(sessionsFile, 'utf8'));
+      } catch {
+        continue;
+      }
+
+      let modified = false;
+      for (const [key, entry] of Object.entries(index)) {
+        if (!key.includes(':webchat:task-')) continue;
+        const updatedAt = entry?.updatedAt || entry?.createdAt || 0;
+        const age = now - updatedAt;
+        if (age > STALE_MS) {
+          delete index[key];
+          modified = true;
+          cleaned++;
+        }
+      }
+
+      if (modified) {
+        try {
+          writeFileSync(sessionsFile, JSON.stringify(index, null, 2));
+        } catch (err) {
+          console.error(`[stale-cleanup] Failed to write ${sessionsFile}: ${err.message}`);
+        }
+      }
+    }
+  } catch (err) {
+    console.error('[stale-cleanup] Error:', err.message);
+  }
+
+  if (cleaned > 0) {
+    console.log(JSON.stringify({ event: 'stale_session_cleanup', cleaned, ts: now }));
+  }
+}
+
+// Run cleanup on start + every hour
+cleanupStaleSessions();
+setInterval(cleanupStaleSessions, 60 * 60 * 1000);
 
 server.listen(PORT, () => {
   const apps = loadApps();
