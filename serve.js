@@ -1677,6 +1677,36 @@ server.on('upgrade', (req, socket, head) => {
             }
 
             // Write-capable goals.*/condos.* methods are served locally to avoid scope/auth edge-cases.
+            // goals.kickoff / goals.spawnTaskSession: forward to gateway + bridge chat.send for spawned sessions
+            if (method === 'goals.kickoff' || method === 'goals.spawnTaskSession') {
+              try {
+                const result = await gatewayClient.rpcCall(method, frame.params || {});
+                // Collect spawned sessions from either response shape
+                const spawned = result?.spawnedSessions
+                  || (result?.sessionKey && result?.taskContext ? [result] : []);
+
+                // Bridge: start each spawned session via chat.send
+                for (const s of spawned) {
+                  if (!s.sessionKey || !s.taskContext) continue;
+                  try {
+                    await gatewayClient.rpcCall('chat.send', { sessionKey: s.sessionKey, message: s.taskContext });
+                    console.log(`[kickoff] chat.send OK for ${s.sessionKey}`);
+                  } catch (err) {
+                    console.error(`[kickoff] chat.send FAILED for ${s.sessionKey}: ${err?.message || err}`);
+                  }
+                }
+
+                if (clientWs.readyState === WebSocket.OPEN) {
+                  clientWs.send(JSON.stringify({ type: 'res', id: String(frame.id), method, ok: true, result }));
+                }
+              } catch (err) {
+                if (clientWs.readyState === WebSocket.OPEN) {
+                  clientWs.send(JSON.stringify({ type: 'res', id: String(frame.id), method, ok: false, error: { message: err?.message || String(err) } }));
+                }
+              }
+              return;
+            }
+
             if (method.startsWith('goals.') || method.startsWith('condos.')) {
               const local = await tryLocalGoalsRpc(method, frame.params || {});
               if (local.handled && clientWs.readyState === WebSocket.OPEN) {
