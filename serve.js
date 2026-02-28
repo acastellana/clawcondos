@@ -1625,6 +1625,8 @@ server.on('upgrade', (req, socket, head) => {
             'goals.spawnTaskSession',
             'goals.updatePlan',
             'goals.checkConflicts',
+            'goals.kickoff',
+            'goals.spawnTaskSession',
             'condos.list',
             'condos.get',
             'condos.create',
