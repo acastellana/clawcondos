@@ -545,8 +545,8 @@
 
           <!-- Condo tabs -->
           <div class="goal-tabs" style="margin-bottom:16px;">
-            <div class="goal-tab active" id="condoTabGoals" onclick="setCondoTab('goals')">Goals</div>
-            <div class="goal-tab" id="condoTabRoles" onclick="setCondoTab('roles')">Roles</div>
+            <div class="goal-tab active" id="condoTabGoals" onclick="window.setCondoTab('goals')">Goals</div>
+            <div class="goal-tab" id="condoTabRoles" onclick="window.setCondoTab('roles')">Roles</div>
           </div>
 
           <!-- Goals pane -->
@@ -641,10 +641,10 @@
             </div>
 
             <div class="goal-tabs">
-              <div class="goal-tab active" id="goalTabTasks" onclick="setGoalTab('tasks')">Tasks</div>
-              <div class="goal-tab" id="goalTabFiles" onclick="setGoalTab('files')">Files</div>
-              <div class="goal-tab" id="goalTabPm" onclick="setGoalTab('pm')">PM Chat</div>
-              <div class="goal-tab" id="goalTabTeam" onclick="setGoalTab('team')">Team</div>
+              <div class="goal-tab active" id="goalTabTasks" onclick="window.setGoalTab('tasks')">Tasks</div>
+              <div class="goal-tab" id="goalTabFiles" onclick="window.setGoalTab('files')">Files</div>
+              <div class="goal-tab" id="goalTabPm" onclick="window.setGoalTab('pm')">PM Chat</div>
+              <div class="goal-tab" id="goalTabTeam" onclick="window.setGoalTab('team')">Team</div>
             </div>
 
             <div class="goal-pane" id="goalPane"></div>
@@ -3098,7 +3098,7 @@
 
     // ── Goal tab switching ──
 
-    function setGoalTab(which) {
+    window.setGoalTab = function(which) {
       state.goalTab = which;
       ['tasks', 'files', 'pm', 'team'].forEach(function(t) {
         var el = document.getElementById('goalTab' + t.charAt(0).toUpperCase() + t.slice(1));
@@ -8051,7 +8051,7 @@ Response format:
     // CONDO TABS — Roles
     // ═══════════════════════════════════════════════════════════════
 
-    function setCondoTab(which) {
+    window.setCondoTab = function(which) {
       state.condoTab = which;
       ['goals', 'roles'].forEach(t => {
         const el = document.getElementById(`condoTab${t.charAt(0).toUpperCase() + t.slice(1)}`);
