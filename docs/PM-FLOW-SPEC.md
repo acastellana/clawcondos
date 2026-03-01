@@ -413,3 +413,139 @@ In normal flow, path 1 fires and `return`s before path 2. But if the gateway rou
 - ~~Is sendToSession reliable?~~ → **Best-effort only, non-critical**
 - ~~Does cascade run for condo PM?~~ → **No, and that's fine — PM uses tools**
 - ~~Does isPmSession catch condo PM sessions?~~ → **Yes** (`:webchat:pm-` prefix matches)
+
+---
+
+## Additional Issues Found (Round 3 Review)
+
+### 🔴 Bug: `renderGoalView` overrides `goalChatSessionKey` from `goal.sessions[]`
+
+**Current code:**
+```js
+var sess = Array.isArray(goal.sessions) ? goal.sessions : [];
+var latestKey = getLatestGoalSessionKey(goal); // null if no worker sessions
+if (!state.goalChatSessionKey || !sess.includes(state.goalChatSessionKey)) {
+  state.goalChatSessionKey = latestKey; // Sets to NULL if no workers
+}
+```
+
+The condo PM session (`condo.pmCondoSessionKey`) is NOT in `goal.sessions[]`. So every time `renderGoalView` runs, it resets `goalChatSessionKey` to null (no sessions) or a worker session key — never the PM session. goalChatPanel always shows the kickoff overlay.
+
+**Fix:** Prefer PM session key over worker sessions in `renderGoalView`:
+```js
+var condo = (state.condos || []).find(function(c) { return c.id === goal.condoId; });
+var pmKey = condo && condo.pmCondoSessionKey || null;
+state.goalChatSessionKey = pmKey || latestKey;
+```
+
+If `pmCondoSessionKey` is undefined (condo hasn't had PM interaction yet), fall back to latest worker session (existing behavior). PM session will be set after first `pm.condoChat` call on goal creation.
+
+---
+
+### 🔴 Pre-existing Bug: `condo_pm_chat` executor field name mismatch
+
+`createCondoPmChatExecutor` reads:
+```js
+pmSession = chatResult.sessionKey || chatResult.pmSessionKey;
+```
+
+But `pm.condoChat` returns `{ enrichedMessage, pmSession, history, condoId }`. The field is `pmSession`, not `sessionKey` or `pmSessionKey`.
+
+**Result:** Bob's `condo_pm_chat` tool ALWAYS fails with "could not obtain PM session key." The tool has never worked.
+
+**Fix:** Change to `chatResult.pmSession`.
+
+This is a critical bug to fix as part of this work — it's what allows Bob to relay PM Q&A in Telegram.
+
+---
+
+### 🔴 `sendGoalMessage` sends raw message — PM gets no context
+
+Current `sendGoalMessage()`:
+```js
+await rpcCall('chat.send', { sessionKey: state.goalChatSessionKey, message: text });
+```
+
+Direct `chat.send` with raw text. The PM receives the bare message with no condo context, no focus goal, no skill instructions. PM responses will be generic.
+
+**Fix:** Replace with 3-step flow:
+```js
+const pmResult = await rpcCall('pm.condoChat', {
+  condoId: currentCondoId,       // from state.condos lookup
+  message: text,
+  focusGoalId: state.currentGoalOpenId,
+});
+await rpcCall('chat.send', { sessionKey: pmResult.pmSession, message: pmResult.enrichedMessage });
+// pm.condoSaveResponse is called when PM responds (WebSocket final event)
+```
+
+---
+
+### 🔴 Context headers visible in goalChatPanel
+
+`renderGoalChat` calls `chat.history` and renders ALL messages including the full context-enriched user messages sent to the PM:
+
+```
+[SESSION IDENTITY] You are the PM for condo "X"...
+## Condo PM Session Context
+...
+[CURRENT FOCUS] Goal: "Build Dashboard"...
+User Message:
+I want it to show investor data
+```
+
+User would see this full block for every user turn. Very ugly.
+
+**Fix:** In `renderGoalChat`, extract only the content after `User Message:\n` for user messages:
+
+```js
+function extractPmUserContent(text) {
+  const marker = 'User Message:\n';
+  const idx = text.indexOf(marker);
+  if (idx !== -1) return text.substring(idx + marker.length).trim();
+  // Hide system-only messages (NEW_GOAL trigger, WORKER UPDATE)
+  if (text.startsWith('[NEW_GOAL]') || text.startsWith('[WORKER UPDATE]')) return null;
+  return text;
+}
+```
+
+Apply this to all user-role messages when `state.goalChatSessionKey === condo.pmCondoSessionKey`.
+
+---
+
+### 🟡 goalChatPanel has no streaming or typing indicator
+
+`handleAgentEvent` routes streaming content and typing indicators to `#chatMessages` (chatView) only — checks `state.currentSession?.key === sessionKey`. The PM session is never `state.currentSession`.
+
+**Result:** User sends message → sees nothing → PM finishes → `renderGoalChat()` fires (on `runState === 'final'`) → full history re-renders. Functional but no live feedback.
+
+**Minimum fix:** Show a simple "PM is thinking..." placeholder in `#goal_chatMessages` on lifecycle start for `state.goalChatSessionKey`. Clear on final. One `if` block in `handleAgentEvent`.
+
+---
+
+### 🟡 `condos.list` spreads full condo object — `pmCondoSessionKey` is returned
+
+**Confirmed good:** `condos.list` does `{ ...c, goalCount }`. `pmCondoSessionKey` is included if set. `state.condos` will have it after `loadCondos()`.
+
+**Caveat:** `pmCondoSessionKey` is only set on the condo after first `pm.condoChat` call (via `getOrCreatePmSessionForCondo`). New condos won't have it. `renderGoalView` fix above handles this with a fallback.
+
+---
+
+### Updated Implementation Order
+
+0. **Create `docs/SKILL-PM-STRAND.md`** — PM behavior instructions (MUST BE FIRST)
+1. **Fix `condo_pm_chat` executor** — `chatResult.pmSession` (pre-existing bug; enables Telegram relay)
+2. **Backend — `pm.condoChat` add `focusGoalId`**
+3. **Backend — `goal-update-tool.js` PM notification**
+4. **Backend — `getCondoPmSkillContext` kickoff instructions**
+5. **Frontend — `renderGoalView`** — set `goalChatSessionKey` from `condo.pmCondoSessionKey`
+6. **Frontend — `sendGoalMessage`** — 3-step PM flow with `focusGoalId`
+7. **Frontend — `renderGoalChat`** — extract `User Message:` content, hide system triggers
+8. **Frontend — `handleAgentEvent`** — add "PM is thinking..." indicator for PM session
+9. **Frontend — `openGoal()`** — after render, if no PM session yet, send NEW_GOAL trigger
+10. **Frontend — goal creation** — send NEW_GOAL trigger after `goals.create`
+11. **Frontend — remove kickoff overlay**, add "▶ Start" button in Tasks tab
+12. **Frontend — goalChatPanel header** — PM focus pill
+13. **Frontend — `pm.condoSaveResponse`** — call on PM session `runState === 'final'`
+14. **Cleanup** — revert this week's patches, delete `public/` files
+15. **Test** — `npm test` must pass, full manual smoke test
