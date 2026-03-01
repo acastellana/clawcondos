@@ -6,13 +6,14 @@
 
 ---
 
-## Overview
+## Design Goals
 
-ClawCondos operates with three agent levels:
-
-1. **Bob** (main agent) — cross-cutting assistant. Available in Telegram and anywhere. Creates condos/goals, gives briefings, relays PM Q&A inline in Telegram.
-2. **Condo PM** — one PM per condo. Plans goals, asks clarifying Q&A, kicks off workers, monitors execution. Lives in ClawCondos middle column.
-3. **Workers** — one session per task. Execute and report. No UI chat needed.
+1. Creating a goal immediately starts a PM Q&A — no empty state, no manual setup
+2. PM is a real agent (Sonnet), not a UI widget
+3. PM decides to kick off workers — user just says "go" or clicks Start
+4. PM monitors workers autonomously, user only watches
+5. Same PM session is accessible from Telegram (via Bob) and from ClawCondos
+6. One PM per condo — manages all goals within it
 
 ---
 
@@ -23,284 +24,312 @@ ClawCondos operates with three agent levels:
 | Session key format | Role | Created by |
 |---|---|---|
 | `agent:main:telegram:group:...:topic:...` | Bob (Telegram) | OpenClaw gateway |
-| `agent:main:webchat:pm-<condoId>` | Condo PM | `getOrCreatePmSessionForCondo` |
-| `agent:main:webchat:task-<suffix>` | Worker | `internalKickoff` via plugin |
+| `agent:main:webchat:pm-condo-<condoId>` | Condo PM | `getOrCreatePmSessionForCondo` |
+| `agent:main:webchat:task-<suffix>` | Worker | `internalKickoff` via `goals.kickoff` |
 
-**One PM session per condo.** PM session key stored in `condo.pmSessionKey` (already exists in model).  
+**One PM session per condo.** Key stored at `condo.pmCondoSessionKey` (field already exists in model).  
 **Workers** stored in `goal.tasks[n].sessionKey` (already exists).  
-**`goal.pmSessionKey` is deprecated** — PM is at condo level, not goal level.
+**`goal.pmSessionKey`** — no longer used for new goals; existing per-goal PM sessions still work but are not created for new goals.
+
+### Context injection
+
+`before_agent_start` plugin hook:
+- Detects `isPmSession(sessionKey)` → returns early, injects nothing
+- PM sessions get ALL their context via enriched messages from `pm.condoChat`
+- This is correct: `agent:main:webchat:pm-condo-<id>` contains `:webchat:pm-` → `isPmSession` returns true ✅
+
+`agent_end` plugin hook:
+- Condo PM sessions are in `sessionCondoIndex` → hook updates condo timestamp → returns
+- Per-goal cascade (`cascadeState`) does NOT fire for condo PM sessions — this is intentional
+- PM uses explicit tools (`condo_pm_kickoff`) not free-text plans
 
 ---
 
-## Entry Points
+## UI Layout
 
-### Entry 1: ClawCondos UI (new goal via form)
+ClawCondos layout: **sidebar** (left) + **main area** (right, switches views).
 
-```
-User fills goal form → goals.create RPC
-  → UI opens goal detail view (Tasks tab default)
-  → UI calls pm.condoChat(condoId, message="[NEW_GOAL] title: '...' description: '...'", focusGoalId=goalId)
-  → PM receives context, starts Q&A in middle column
-  → Middle column becomes active with PM's first question
-```
+The main area can be:
+- `chatView` — regular chat with selected session (Bob / any session)
+- `goalView` — two panels: `goalChatPanel` (left) + `goalRightPanel` (right)
+- `overviewView`, etc.
 
-### Entry 2: Telegram (via Bob)
+**The PM chat lives in `goalChatPanel`** — no new column needed.
 
-```
-Albert: "Create a goal for X in [condo]"
-  → Bob calls condo_create_goal tool
-  → Bob calls pm.condoChat (internal) with NEW_GOAL trigger + goalId focus
-  → pm.condoChat returns enrichedMessage + pmSessionKey
-  → Bob calls chat.send to pmSessionKey with enrichedMessage
-  → PM agent responds
-  → Bob reads PM's response (via sessions.history or event)
-  → Bob relays PM's first question back to Albert in Telegram
-  → Albert replies in Telegram
-  → Bob relays answer to PM via pm.condoChat
-  → Loop until Albert says "kick it off"
-  → Bob sends "kick it off" to pm.condoChat
-  → PM uses condo_pm_kickoff tool
-```
+When a goal is open in goalView:
+- `goalChatPanel` (left) = PM chat, wired to `condo.pmCondoSessionKey`, with goal focus context
+- `goalRightPanel` (right) = goal detail: definition, Tasks tab, Files tab
 
-Bob manages the relay loop. Albert never needs to open ClawCondos for the Q&A phase if he prefers Telegram.
+When no goal is open:
+- PM is accessible by clicking the PM session in the sidebar (regular chatView)
+- Or by opening any goal
 
 ---
 
-## Middle Column Chat
+## The 3-Step PM Chat Flow
 
-**What it is:** Direct chat with the condo PM session.
+Every message sent to the PM (from UI or from Bob) follows this pattern:
 
-**Context rule:**
-- No goal selected → `pm.condoChat(condoId, message)` — condo-level context
-- Goal open in detail view → `pm.condoChat(condoId, message, focusGoalId=goalId)` — condo context + "currently focused on goal X"
-
-**Focus goal injection** (added to enrichedMessage when focusGoalId is set):
 ```
-[CURRENT FOCUS] Goal: "<title>" (ID: <goalId>)
-Status: <status> | Tasks: <N> | Created: <date>
-Task list:
-- [pending] Task A
-- [in-progress] Task B (worker: agent:main:webchat:task-xyz)
+Step 1: pm.condoChat({ condoId, message, focusGoalId? })
+        → returns { enrichedMessage, pmSession: condo.pmCondoSessionKey, history }
+
+Step 2: chat.send({ sessionKey: pmSession, message: enrichedMessage })
+        → PM agent runs, sends response via WebSocket event
+
+Step 3 (on PM response event): pm.condoSaveResponse({ condoId, content: pmResponse })
+        → saves PM response to condo.pmChatHistory for fast retrieval
 ```
 
-This means `pm.condoChat` needs a `focusGoalId` optional param. The backend enriches the message with goal state when it's provided.
+**Step 3 is mandatory.** Without it, `pm.condoGetHistory` returns stale data.
 
-**RPC flow for middle column send:**
-1. Frontend calls `pm.condoChat({ condoId, message, focusGoalId? })`
-2. Backend returns `{ enrichedMessage, pmSession, history }`
-3. Frontend calls `chat.send({ sessionKey: pmSession, message: enrichedMessage })`
-4. PM agent responds via WebSocket event → frontend renders in middle column
-
-**RPC flow for middle column load:**
-1. Frontend calls `pm.condoGetHistory({ condoId })` on condo open
-2. Renders history in middle column
+Frontend must detect when a WebSocket `chat` event arrives for `pmCondoSessionKey` with `role=assistant` → immediately call `pm.condoSaveResponse`.
 
 ---
 
-## Goal Detail View
+## goalChatPanel Wiring
 
-**Tabs:** Tasks | Files  
-**No PM Chat tab.** PM lives in the middle column.
+Currently `goalChatPanel` uses `state.goalChatSessionKey` to identify which session to render and listen to.
 
-**Tasks tab shows:**
-- Each task: text, status, assigned worker session key, last `goal_update` summary, last active timestamp
-- No spawn button needed for normal flow (PM kicks off). Keep a manual "Spawn" escape hatch for power users.
+**Change:** when a goal is opened (`openGoal(goalId)`):
+1. Get or create condo PM session: `pm.condoChat({ condoId, message: '' })` — or just `getOrCreatePmSessionForCondo` equivalent via RPC
+2. Set `state.goalChatSessionKey = condo.pmCondoSessionKey`
+3. Load PM history: `pm.condoGetHistory({ condoId })` → render in `goal_chatMessages`
+4. Set `state.goalFocusId = goalId` (new state field) for focus context
 
-**Files tab:** unchanged.
+On send (composer in goalChatPanel):
+- Calls 3-step flow with `focusGoalId = state.goalFocusId`
 
-**Kick Off button:** Removed from goal detail overlay.  
-**Replaced by:** Natural language in middle column — "kick it off" → PM uses `condo_pm_kickoff` tool.
-
-If user needs a UI shortcut: a "▶ Start" button in the Tasks tab that sends `"Please kick off goal [title] now."` to `pm.condoChat` with `focusGoalId` set. PM decides.
+On WebSocket event for `state.goalChatSessionKey`:
+- Render in `goal_chatMessages` as before
+- If event is `role=assistant` → call `pm.condoSaveResponse`
 
 ---
 
-## Goal Creation Flow (detail)
+## Goal Creation → PM Q&A Trigger
 
-### New goal → PM Q&A trigger
+### Via UI form
 
 After `goals.create` succeeds:
 
 ```js
-// Frontend sends NEW_GOAL trigger to PM
-await rpcCall('pm.condoChat', {
+const triggerMsg = `[NEW_GOAL] Goal created: "${goal.title}".` +
+  (goal.notes ? ` Description: "${goal.notes}".` : ' No description yet.') +
+  ` Please start by asking me 1-2 clarifying questions to define this goal properly.`;
+
+// Step 1
+const pmResult = await rpcCall('pm.condoChat', {
   condoId: goal.condoId,
-  message: `[NEW_GOAL] Goal created: "${goal.title}". ${goal.notes ? 'Description: "' + goal.notes + '".' : 'No description yet.'}`,
+  message: triggerMsg,
   focusGoalId: goal.id,
 });
-// Then: call chat.send to pmSession with enrichedMessage
-// Middle column shows PM's first Q&A question
+
+// Step 2
+await rpcCall('chat.send', {
+  sessionKey: pmResult.pmSession,
+  message: pmResult.enrichedMessage,
+});
+
+// Step 3 happens automatically when PM responds via WebSocket
+
+// Open goal view — goalChatPanel will show PM's first question
+openGoal(goal.id);
 ```
 
-PM receives enriched context and is instructed (via PM skill context) to:
-- If no description/tasks → ask 1-2 clarifying questions at a time (max 5-7 total)
-- If description + tasks exist → confirm readiness and wait
-- Do NOT create tasks yet
-- Wait for "kick it off" signal
+If goal already has notes AND tasks on creation → send "confirm readiness" trigger instead of Q&A trigger.
 
-### "Kick it off" signal
+### Via Telegram (Bob)
 
-User types "kick it off" (or any equivalent) in middle column → PM detects intent → calls `condo_pm_kickoff` tool with `goalId` → workers spawn.
+Bob creates goal via `condo_create_goal` tool → then uses `condo_pm_chat` tool to notify PM:
 
-The PM skill context should include explicit instructions to recognize kick-off intent ("kick it off", "start", "go ahead", "let's go") and respond by calling `condo_pm_kickoff`.
+```
+condo_pm_chat({
+  condoId: <id>,
+  message: "[NEW_GOAL] Goal created: '<title>'. <desc>. Please begin defining it."
+})
+```
+
+Bob then tells Albert: *"Goal created and PM session is ready. Continue in ClawCondos PM chat, or tell me your requirements and I'll pass them on."*
+
+Bob does NOT run a full relay loop. If Albert asks Bob questions about the goal, Bob uses `condo_pm_chat` tool to query/update the PM. But primary Q&A happens in ClawCondos.
 
 ---
 
-## Worker Monitoring
+## Focus Goal Context in pm.condoChat
 
-### PM notification on goal_update
+When `focusGoalId` is provided, `pm.condoChat` injects a focus block into `enrichedMessage`:
 
-When a worker calls `goal_update` tool, the plugin hook (in `goal-update-tool.js`) should:
-
-1. Update task status as today
-2. **Notify the condo PM:** append a system event to `condo.pmChatHistory` and call `sendToSession(condo.pmSessionKey, notificationMessage)` if available
-
-Notification message format:
 ```
-[WORKER UPDATE] Goal: "<title>" | Task: "<task text>" (ID: <taskId>)
-Status: <new status> | Worker: <sessionKey>
-Summary: <summary from goal_update>
-Next: <nextTask if set>
+[CURRENT FOCUS] Goal: "<title>" (ID: <goalId>)
+Status: <status> | Tasks: <N>
+Task list:
+  - [pending] Task A
+  - [in-progress] Task B → worker: agent:main:webchat:task-xyz
+  - [done] Task C
 ```
 
-PM receives this as a user message and can:
-- Acknowledge silently (if progress is normal)
-- Intervene (re-send task context, spawn replacement worker)
-- Report to user ("Task X is done, moving to Y")
+This block is prepended after the SESSION IDENTITY line in enrichedMessage.
 
-### Stale worker detection
-
-Existing stale session cleanup in `serve.js` already runs. PM should also be notified when a worker session goes stale (no heartbeat for >15 min on an in-progress task). Add a check to the existing cleanup loop.
+**Backend change:** add `focusGoalId` optional param to `pm.condoChat` handler. Build focus block from `data.goals.find(g => g.id === focusGoalId)`.
 
 ---
 
-## Backend changes required
+## Kickoff UX
 
-### 1. `pm.condoChat` — add `focusGoalId` param
+**No "Kick Off" overlay.** Removed from goalChatPanel.
+
+**"▶ Start" button** in `goalRightPanel` Tasks tab header:
+- Visible when: goal has tasks but no worker sessions yet
+- Click → sends message to PM: `"Please kick off this goal now."` via 3-step flow with `focusGoalId`
+- PM receives it, calls `condo_pm_kickoff` tool → workers spawn
+- Button hides once workers are active
+
+**Natural language also works:** typing "kick it off" in goalChatPanel → PM recognizes it → calls tool.
+
+The PM skill context (`getCondoPmSkillContext`) must include:
+
+```
+When the user asks you to "kick it off", "start", "go ahead", "begin", or similar:
+- Call the condo_pm_kickoff tool with the goalId currently in focus.
+- Confirm to the user which workers you are spawning and for which tasks.
+```
+
+---
+
+## Worker Monitoring (PM notification)
+
+When a worker calls `goal_update` tool, the plugin should notify the condo PM:
 
 ```js
-// New param: focusGoalId (optional)
+// In goal-update-tool.js, after saving task status:
+const condo = data.condos.find(c => c.id === goal.condoId);
+if (condo?.pmCondoSessionKey && sendToSession) {
+  const notif = `[WORKER UPDATE] Goal: "${goal.title}" | Task: "${task.text}" (${taskId})\n` +
+    `Status: ${newStatus} | Summary: ${summary || 'none'}`;
+  sendToSession(condo.pmCondoSessionKey, notif);
+}
+```
+
+**Important:** `api.sendToSession` may not be available in all gateway versions. This is best-effort. If unavailable, a warning is logged and PM is not notified. PM can still check status by looking at goal context in its next enriched message.
+
+Stale worker detection: existing cleanup loop in `serve.js` handles stale `webchat:task-*` sessions. PM gets notified implicitly on next user interaction (task shows as stale in focus block).
+
+---
+
+## goalRightPanel Changes
+
+**Keep:**
+- Goal definition (editable)
+- Tasks tab: task list with status, worker session key, last summary
+- Files tab: unchanged
+
+**Remove:**
+- Kick Off overlay (`#goalKickoffOverlay`, `#goalKickoffText`)
+- PM Chat tab (it was in stale `public/` files only, never in source)
+
+**Add:**
+- "▶ Start" button in Tasks tab header (see Kickoff UX above)
+- Focus pill in goalChatPanel header: `● PM — <condoName>` with goal title when focused
+
+---
+
+## pm.condoChat Backend Changes
+
+Add `focusGoalId` optional param:
+
+```js
 const { condoId, message, focusGoalId } = params || {};
 
-// When focusGoalId is set, inject goal context into enrichedMessage:
+// After building base enrichedMessage, if focusGoalId:
 if (focusGoalId) {
-  const goal = data.goals.find(g => g.id === focusGoalId);
+  const goal = data.goals.find(g => g.id === focusGoalId && g.condoId === condoId);
   if (goal) {
-    const focusBlock = buildFocusGoalBlock(goal); // new helper
-    // prepend to enrichedMessage after SESSION IDENTITY block
+    const tasks = (goal.tasks || []).map(t =>
+      `  - [${t.status || 'pending'}] ${t.text}${t.sessionKey ? ' → worker: ' + t.sessionKey : ''}`
+    ).join('\n');
+    const focusBlock = [
+      `[CURRENT FOCUS] Goal: "${goal.title}" (ID: ${goal.id})`,
+      `Status: ${goal.status || 'active'} | Tasks: ${(goal.tasks || []).length}`,
+      tasks ? `Task list:\n${tasks}` : 'No tasks yet.',
+    ].join('\n');
+    // Prepend focus block immediately after SESSION IDENTITY line
+    enrichedMessage = enrichedMessage.replace(
+      '[SESSION IDENTITY]',
+      focusBlock + '\n\n[SESSION IDENTITY]'
+    );
   }
 }
 ```
 
-### 2. `goal-update-tool.js` — notify condo PM
+---
 
-After saving task status update, call `sendToSession` on the condo PM session:
+## goal-update-tool.js Changes
+
+After saving task status update, attempt PM notification (best-effort):
 
 ```js
-const condo = data.condos.find(c => c.id === goal.condoId);
-if (condo?.pmSessionKey && sendToSession) {
-  sendToSession(condo.pmSessionKey, workerUpdateMessage);
+try {
+  const condo = data.condos?.find(c => c.id === goal.condoId);
+  if (condo?.pmCondoSessionKey && typeof sendToSession === 'function') {
+    const notif = buildWorkerUpdateNotification(goal, task, params);
+    sendToSession(condo.pmCondoSessionKey, notif);
+  }
+} catch (e) {
+  // silent — PM notification is non-critical
 }
 ```
 
-### 3. No other backend changes needed
-
-`pm.condoGetHistory`, `getOrCreatePmSessionForCondo`, `condo_pm_kickoff` tool, `goals.kickoff`, `goals.create` — all exist and work.
-
 ---
 
-## Frontend changes required
+## Cleanup / Revert
 
-### 1. Middle column wired to `pm.condoChat`
-
-Replace current middle column chat logic:
-- On condo open: call `pm.condoGetHistory({ condoId })`, render in middle column
-- On send: call `pm.condoChat({ condoId, message, focusGoalId: state.currentGoalOpenId || null })`, get back `{ enrichedMessage, pmSession }`, then `chat.send({ sessionKey: pmSession, message: enrichedMessage })`
-- WebSocket events from pmSession render as PM responses in middle column
-
-### 2. Goal detail — remove PM Chat tab, Kick Off overlay
-
-- Remove tab: PM Chat (and all `startPmQA`, `kickOffGoal` logic added this week)
-- Remove: kickoff overlay from goal detail
-- Keep: Tasks tab, Files tab
-- Add: optional "▶ Start" button in Tasks tab header (sends kick-off message to PM)
-
-### 3. Goal creation → trigger PM Q&A
-
-After `goals.create` success, before opening goal detail:
-```js
-await rpcCall('pm.condoChat', { condoId, message: newGoalTrigger, focusGoalId: goalId });
-// then chat.send to pmSession
-// then open goal detail (Tasks tab)
-// middle column shows PM's first question
-```
-
-### 4. Add `focusGoalId` context indicator in middle column header
-
-When a goal is open, show a small pill in the middle column header: `● Focused: <goal title>` so user knows the PM is contextualised to that goal.
-
-### 5. Delete `public/index.html` and `public/app.js`
-
-These are stale built files. Source of truth is `index.html`. Delete and remove any references in `serve.js`.
-
----
-
-## Revert / cleanup from this week's patches
-
-| Change | Action |
+| Item | Action |
 |---|---|
-| `startPmQA()` function | Remove entirely |
-| `setGoalChatLocked()` changes | Revert to original |
-| `kickOffGoal()` PM session reuse logic | Remove (kickoff via PM chat instead) |
-| `goalKickoffOverlay` / `goalKickoffText` | Remove from HTML |
-| PM Chat tab in goal detail | Remove (was never in source anyway) |
-| `public/app.js`, `public/index.html` | Delete |
+| `startPmQA()` function in index.html | Remove |
+| `kickOffGoal()` PM session reuse logic | Revert to original OR remove entirely (kickoff via PM) |
+| `setGoalChatLocked()` changes | Revert — overlay removal handles this |
+| `#goalKickoffOverlay`, `#goalKickoffText` | Remove from HTML |
+| `public/app.js` | Delete — stale built file |
+| `public/index.html` | Delete — stale built file |
+| References to `public/` in serve.js (if any) | Remove |
 
 ---
 
-## PM Skill Context (what the PM agent is told)
+## What is NOT Changing
 
-The `getCondoPmSkillContext` function (already exists in `skill-injector.js`) provides PM role instructions. It needs to be updated/confirmed to include:
-
-```
-You are the PM for condo "<name>". Your responsibilities:
-1. When a new goal is created: ask 1-2 clarifying questions at a time to define it (max 5-7 total). Do not create tasks yet.
-2. When the user says to kick it off (or similar): call condo_pm_kickoff with the goalId to spawn workers.
-3. When workers report: acknowledge, monitor, intervene if blocked.
-4. When focused on a specific goal: treat that goal as the current context for all messages.
-5. Keep responses concise. You are a PM, not a chatbot.
-```
-
----
-
-## What is NOT changing
-
-- Backend plugin structure — no refactor needed
-- `goals.create`, `goals.list`, `goals.update` — unchanged
-- Worker session format (`agent:main:webchat:task-*`) — unchanged
-- `goals.spawnTaskSession` — unchanged (used by `condo_pm_kickoff`)
-- Task detail, file tracking — unchanged
-- Condo sidebar, condo list — unchanged
-- Test suite — all 532 tests must still pass after changes
+- Backend plugin structure
+- `goals.create`, `goals.list`, `goals.update`, `goals.delete`
+- `goals.kickoff`, `goals.spawnTaskSession`
+- `pm.chat` (per-goal PM — still registered, still works for backwards compat)
+- `pm.saveResponse`, `pm.getHistory` (per-goal)
+- Worker session format
+- Sidebar session list rendering
+- Condo creation/management
+- Test suite — all 532 tests must pass
 
 ---
 
-## Implementation order
+## Implementation Order
 
-1. **Backend:** Add `focusGoalId` to `pm.condoChat` + goal focus block builder
-2. **Backend:** Add PM notification in `goal-update-tool.js`
-3. **Frontend:** Wire middle column to `pm.condoChat` / `pm.condoGetHistory`
-4. **Frontend:** Goal creation → PM Q&A trigger
-5. **Frontend:** Remove kickoff overlay, PM Chat tab from goal detail, add Start button
-6. **Frontend:** Focus goal pill in middle column header
-7. **Cleanup:** Revert this week's patches, delete `public/` files
-8. **Test:** `npm test` must pass; manual smoke test of full flow
+1. **Backend — `pm.condoChat` `focusGoalId`:** Add param, build focus block, inject into enrichedMessage. Unit test.
+2. **Backend — `goal-update-tool.js` PM notification:** Add best-effort `sendToSession` call. Guard carefully.
+3. **Backend — `getCondoPmSkillContext`:** Add kickoff recognition instructions.
+4. **Frontend — `openGoal()`:** Set `state.goalChatSessionKey` to `pmCondoSessionKey`, load PM history via `pm.condoGetHistory`.
+5. **Frontend — goalChatPanel send:** Wire composer to 3-step pm.condoChat flow with `focusGoalId`.
+6. **Frontend — WebSocket event handler:** Detect PM session events → call `pm.condoSaveResponse`.
+7. **Frontend — goal creation:** After `goals.create`, send NEW_GOAL trigger to PM, then `openGoal()`.
+8. **Frontend — goalRightPanel:** Remove kickoff overlay, add "▶ Start" button in Tasks tab.
+9. **Frontend — goalChatPanel header:** Add PM focus pill.
+10. **Cleanup:** Remove `startPmQA`, revert `kickOffGoal`/`setGoalChatLocked`, delete `public/` files.
+11. **Test:** `npm test` must pass. Manual smoke: create goal → PM asks questions → say "start" → workers spawn → goal_update → PM gets notified.
 
 ---
 
-## Open questions (resolved)
+## Open Questions (resolved)
 
-- ~~Per-goal PM or per-condo PM?~~ → **Per-condo PM**
-- ~~Where does Q&A happen in Telegram?~~ → **Bob relays inline, PM session is always the source**
-- ~~What does middle column do?~~ → **PM chat, context-aware to focused goal**
-- ~~Where is Kick Off?~~ → **Natural language to PM, or "Start" button sends message to PM**
+- ~~Per-goal or per-condo PM?~~ → **Per-condo** (`condo.pmCondoSessionKey`)
+- ~~Three-column layout or existing?~~ → **Existing goalView layout** (`goalChatPanel` = PM chat)
+- ~~Where does Bob do Q&A relay?~~ → **Bob creates + notifies PM, primary Q&A in ClawCondos**
+- ~~Is sendToSession reliable?~~ → **Best-effort only, non-critical**
+- ~~Does cascade run for condo PM?~~ → **No, and that's fine — PM uses tools**
+- ~~Does isPmSession catch condo PM sessions?~~ → **Yes** (`:webchat:pm-` prefix matches)
