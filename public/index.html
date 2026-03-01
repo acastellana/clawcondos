@@ -545,8 +545,8 @@
 
           <!-- Condo tabs -->
           <div class="goal-tabs" style="margin-bottom:16px;">
-            <div class="goal-tab active" id="condoTabGoals" onclick="window.setCondoTab('goals')">Goals</div>
-            <div class="goal-tab" id="condoTabRoles" onclick="window.setCondoTab('roles')">Roles</div>
+            <div class="goal-tab active" id="condoTabGoals" data-condotab="goals">Goals</div>
+            <div class="goal-tab" id="condoTabRoles" data-condotab="roles">Roles</div>
           </div>
 
           <!-- Goals pane -->
@@ -641,10 +641,10 @@
             </div>
 
             <div class="goal-tabs">
-              <div class="goal-tab active" id="goalTabTasks" onclick="window.setGoalTab('tasks')">Tasks</div>
-              <div class="goal-tab" id="goalTabFiles" onclick="window.setGoalTab('files')">Files</div>
-              <div class="goal-tab" id="goalTabPm" onclick="window.setGoalTab('pm')">PM Chat</div>
-              <div class="goal-tab" id="goalTabTeam" onclick="window.setGoalTab('team')">Team</div>
+              <div class="goal-tab active" id="goalTabTasks" data-tab="tasks">Tasks</div>
+              <div class="goal-tab" id="goalTabFiles" data-tab="files">Files</div>
+              <div class="goal-tab" id="goalTabPm" data-tab="pm">PM Chat</div>
+              <div class="goal-tab" id="goalTabTeam" data-tab="team">Team</div>
             </div>
 
             <div class="goal-pane" id="goalPane"></div>
@@ -3098,7 +3098,7 @@
 
     // ── Goal tab switching ──
 
-    window.setGoalTab = function(which) {
+    function setGoalTab(which) {
       state.goalTab = which;
       ['tasks', 'files', 'pm', 'team'].forEach(function(t) {
         var el = document.getElementById('goalTab' + t.charAt(0).toUpperCase() + t.slice(1));
@@ -3114,14 +3114,12 @@
       if (!goal) { pane.innerHTML = ''; return; }
 
       if (state.goalTab === 'pm') {
-        if (typeof renderGoalPmPane === 'function') renderGoalPmPane();
-        else pane.innerHTML = '<div class="empty-state">PM Chat not available.</div>';
+        renderGoalPmPane();
         return;
       }
 
       if (state.goalTab === 'team') {
-        if (typeof renderGoalTeamPane === 'function') renderGoalTeamPane();
-        else pane.innerHTML = '<div class="empty-state">Team tab not available.</div>';
+        renderGoalTeamPane();
         return;
       }
 
@@ -7842,6 +7840,14 @@ Response format:
           refresh();
         }
       }, 30000);
+
+      // Wire goal tab clicks
+      document.addEventListener('click', function(e) {
+        var gt = e.target.closest('[data-tab]');
+        if (gt) { setGoalTab(gt.dataset.tab); return; }
+        var ct = e.target.closest('[data-condotab]');
+        if (ct) { setCondoTab(ct.dataset.condotab); return; }
+      });
     }
 
     // ─── PM Chat / Team / Roles tabs (ported from Helix) ───
@@ -8051,7 +8057,7 @@ Response format:
     // CONDO TABS — Roles
     // ═══════════════════════════════════════════════════════════════
 
-    window.setCondoTab = function(which) {
+    function setCondoTab(which) {
       state.condoTab = which;
       ['goals', 'roles'].forEach(t => {
         const el = document.getElementById(`condoTab${t.charAt(0).toUpperCase() + t.slice(1)}`);
