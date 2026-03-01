@@ -57,19 +57,50 @@ export default function register(api) {
     api.logger.info(`clawcondos-goals: workspaces enabled at ${workspacesDir}`);
   }
 
-  // Shared RPC helper — calls gateway methods with proper fallback chain
+  // ── Local method registry ──
+  // The plugin API does not expose api.callMethod, so plugin-registered methods
+  // cannot be called via gateway RPC. We keep a local map of our own registered
+  // handlers so gatewayRpcCall can dispatch to them directly.
+  const localMethodRegistry = new Map();
+
+  // Wrap api.registerGatewayMethod to also record in local registry
+  const _registerGatewayMethod = api.registerGatewayMethod.bind(api);
+  api.registerGatewayMethod = (method, handler) => {
+    localMethodRegistry.set(method, handler);
+    return _registerGatewayMethod(method, handler);
+  };
+
+  // Shared RPC helper — calls gateway methods with proper fallback chain:
+  // 1. api.callMethod (if gateway ever exposes it)
+  // 2. Local registry (for plugin's own methods)
+  // 3. Fail with clear error (for core methods like chat.send)
   async function gatewayRpcCall(method, params) {
     if (api.callMethod) return api.callMethod(method, params);
-    return new Promise((resolve, reject) => {
-      const respond = (ok, data, err) => ok ? resolve(data) : reject(new Error(err?.message || err || 'RPC failed'));
-      api.handleMessage?.({ type: 'req', method, params, respond }) || reject(new Error('No RPC mechanism available'));
-    });
+
+    // Try local method registry (for our own registered methods)
+    const localHandler = localMethodRegistry.get(method);
+    if (localHandler) {
+      return new Promise((resolve, reject) => {
+        const respond = (ok, data, err) => ok ? resolve(data) : reject(new Error(err?.message || err || 'RPC failed'));
+        try {
+          const result = localHandler({ params, respond });
+          // Handle async handlers
+          if (result && typeof result.catch === 'function') {
+            result.catch(reject);
+          }
+        } catch (err) {
+          reject(err);
+        }
+      });
+    }
+
+    // Core gateway methods (chat.send, chat.history, etc.) are not available
+    throw new Error(`No RPC mechanism for "${method}" — gateway does not expose api.callMethod to plugins`);
   }
 
   /**
-   * Start spawned sessions by calling chat.send directly.
-   * Used for auto-kickoffs (task completion cascade, retry, phase cascade).
-   * Manual kickoff via goals.kickoff RPC does NOT use this — frontend handles it.
+   * Start spawned sessions. Attempts chat.send (works when gateway exposes callMethod
+   * or UI is connected). When unavailable, marks sessions as requiring agent-side spawn.
    * @param {Array} spawnedSessions - Sessions from internalKickoff()
    * @returns {Promise<void>}
    */
@@ -84,7 +115,7 @@ export default function register(api) {
         s.headlessStarted = true;
         api.logger.info(`clawcondos-goals: backend chat.send OK for ${s.sessionKey}`);
       } catch (err) {
-        api.logger.error(`clawcondos-goals: backend chat.send FAILED for ${s.sessionKey}: ${err.message}`);
+        api.logger.warn(`clawcondos-goals: chat.send unavailable for ${s.sessionKey} — requires agent-side spawn`);
         s.headlessStarted = false;
       }
     }
@@ -1112,14 +1143,9 @@ export default function register(api) {
           pmGoal.updatedAtMs = Date.now();
 
           try {
-            // Fetch PM response from chat history
-            const historyResult = await gatewayRpcCall('chat.history', {
-              sessionKey,
-              limit: 10,
-            });
-
-            // Extract last assistant message
-            const messages = historyResult?.messages || historyResult || [];
+            // Extract PM response from hook event messages (avoids chat.history RPC
+            // which requires api.callMethod that plugins don't have)
+            const messages = event.messages || [];
             let pmContent = null;
             for (let i = messages.length - 1; i >= 0; i--) {
               const msg = messages[i];
@@ -1709,17 +1735,29 @@ export default function register(api) {
         async execute(toolCallId, params) {
           const result = await condoSpawnTaskExecute(toolCallId, { ...params, sessionKey: ctx.sessionKey });
 
-          // Start agent directly
+          // Try headless start, fall back to agent-side spawn instructions
           if (result.taskContext && result.spawnRequest?.sessionKey) {
+            let headlessOk = false;
             try {
               await gatewayRpcCall('chat.send', {
                 sessionKey: result.spawnRequest.sessionKey,
                 message: result.taskContext,
               });
+              headlessOk = true;
               result.headlessStarted = true;
             } catch (err) {
               api.logger.error(`clawcondos-goals: condo_spawn_task chat.send failed: ${err.message}`);
               result.headlessStarted = false;
+              // Return spawn instructions for agent-side execution
+              result.requiresAgentSpawn = true;
+              result.spawnInstructions = [{
+                taskId: params.taskId,
+                taskText: result.spawnRequest.taskText || params.taskId,
+                sessionKey: result.spawnRequest.sessionKey,
+                agentId: result.spawnRequest.agentId || 'main',
+                model: result.spawnRequest.model || null,
+                taskContext: result.taskContext,
+              }];
             }
 
             broadcastPlanUpdate({
@@ -1731,7 +1769,7 @@ export default function register(api) {
                 taskText: result.spawnRequest.taskText || params.taskId,
                 sessionKey: result.spawnRequest.sessionKey,
                 taskContext: result.taskContext,
-                headlessStarted: result.headlessStarted,
+                headlessStarted: headlessOk,
               }],
             });
           }

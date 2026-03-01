@@ -533,17 +533,51 @@ export function createCondoPmKickoffExecutor(store, { gatewayRpcCall, internalKi
     if (pendingTasks.length > 0) {
       try {
         const kickoffResult = await internalKickoff(goalId);
-        if (kickoffResult.spawnedSessions?.length > 0) {
-          await startSpawnedSessions(kickoffResult.spawnedSessions);
+        const spawned = kickoffResult.spawnedSessions || [];
+
+        if (spawned.length > 0) {
+          // Try headless start via chat.send (works when UI is connected)
+          let headlessOk = false;
+          try {
+            await startSpawnedSessions(spawned);
+            headlessOk = spawned.some(s => s.headlessStarted);
+          } catch {
+            // Expected to fail when no RPC mechanism — fall through to agent-side spawning
+          }
+
           broadcastPlanUpdate({
             event: 'goal.kickoff',
             goalId,
-            spawnedCount: kickoffResult.spawnedSessions.length,
-            spawnedSessions: kickoffResult.spawnedSessions,
+            spawnedCount: spawned.length,
+            spawnedSessions: spawned,
           });
+
+          // If headless start failed, return spawn instructions for the agent to execute
+          if (!headlessOk) {
+            const spawnInstructions = spawned.map(s => ({
+              taskId: s.taskId,
+              taskText: s.taskText,
+              sessionKey: s.sessionKey,
+              agentId: s.agentId,
+              model: s.model || null,
+              taskContext: s.taskContext,
+            }));
+
+            const summary = spawned.map(s => `- ${s.taskText} (agent: ${s.agentId})`).join('\n');
+            return {
+              content: [{ type: 'text', text:
+                `Goal "${goal.title}" prepared ${spawned.length} task(s) but headless session start is unavailable. ` +
+                `**You must spawn these workers using \`sessions_spawn\`** for each task:\n\n${summary}\n\n` +
+                `The task contexts are in the \`spawnInstructions\` field. For each entry, call:\n` +
+                `\`sessions_spawn({ task: <taskContext>, model: <model> })\``
+              }],
+              spawnInstructions,
+              requiresAgentSpawn: true,
+            };
+          }
         }
 
-        const spawnedCount = kickoffResult.spawnedSessions?.length || 0;
+        const spawnedCount = spawned.length;
         return {
           content: [{ type: 'text', text: `Kickoff complete: spawned ${spawnedCount} worker session(s) for goal "${goal.title}". Use \`condo_status\` to monitor progress.` }],
           spawnedCount,
@@ -553,15 +587,11 @@ export function createCondoPmKickoffExecutor(store, { gatewayRpcCall, internalKi
       }
     }
 
-    // Goal has no tasks — trigger PM goal cascade to create tasks first
-    try {
-      await gatewayRpcCall('pm.goalCascade', { goalId, mode: 'full' });
-      return {
-        content: [{ type: 'text', text: `Goal "${goal.title}" has no tasks yet. Triggered PM goal cascade to plan tasks and auto-spawn workers. Use \`condo_status\` to monitor progress.` }],
-        cascadeStarted: true,
-      };
-    } catch (err) {
-      return { content: [{ type: 'text', text: `Error: goal cascade failed: ${err.message}` }] };
-    }
+    // Goal has no tasks — return instruction for agent to use PM chat
+    return {
+      content: [{ type: 'text', text:
+        `Goal "${goal.title}" has no tasks yet. Use \`condo_pm_chat\` to ask the PM to plan tasks, then kick off again.`
+      }],
+    };
   };
 }

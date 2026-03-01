@@ -433,8 +433,10 @@
             </div>
             <div class="goal-chat-body">
               <div id="goalKickoffOverlay" style="display:none; padding:18px 14px; border-bottom:1px solid rgba(255,255,255,0.06);">
-                <div style="font-weight:600; margin-bottom:6px;">This goal hasn't started yet</div>
-                <div style="color: var(--text-dim); font-size:0.9rem; margin-bottom:12px;">Kick off to create the first session and begin execution.</div>
+                <div id="goalKickoffText">
+                  <div style="font-weight:600; margin-bottom:6px;">This goal hasn't started yet</div>
+                  <div style="color: var(--text-dim); font-size:0.9rem; margin-bottom:12px;">Kick off to create the first session and begin execution.</div>
+                </div>
                 <button class="ghost-btn" style="border-color: rgba(96,165,250,.55);" onclick="kickOffGoal()">Kick Off Goal</button>
               </div>
               <div class="chat-messages" id="goal_chatMessages"></div>
@@ -2645,9 +2647,20 @@
 
     function setGoalChatLocked(locked) {
       var overlay = document.getElementById('goalKickoffOverlay');
+      var kickoffText = document.getElementById('goalKickoffText');
       var composer = document.getElementById('composerMountGoal');
-      if (overlay) overlay.style.display = locked ? 'block' : 'none';
+
+      var goal = state.goals.find(function(g) { return g.id === state.currentGoalOpenId; });
+      var isDone = goal && goal.status === 'done';
+
+      // Always show overlay for non-done goals (Kick Off button stays visible)
+      // Hide entirely when goal is done
+      if (overlay) overlay.style.display = isDone ? 'none' : 'block';
+      // Show explanatory text only when locked (no session)
+      if (kickoffText) kickoffText.style.display = locked ? 'block' : 'none';
+      // Show composer when there's a session
       if (composer) composer.style.display = locked ? 'none' : 'block';
+
       var btns = [document.getElementById('goalOpenBtn')].filter(Boolean);
       for (var i = 0; i < btns.length; i++) {
         btns[i].disabled = !!locked;
@@ -2817,6 +2830,49 @@
         renderGoalView();
       } catch (err) {
         showToast('Kick-off failed: ' + err.message, 'error');
+      }
+    }
+
+    // ── PM Q&A: auto-start conversational goal definition ──
+
+    async function startPmQA(goalId, goal) {
+      // Skip if goal already has sessions (not brand new)
+      var sess = Array.isArray(goal.sessions) ? goal.sessions : [];
+      if (sess.length > 0) return;
+
+      try {
+        var condoId = goal.condoId || null;
+        var result = await rpcCall('sessions.create', {
+          agentId: 'main',
+          channelId: 'main',
+          model: 'anthropic/claude-sonnet-4-6',
+          meta: { title: (goal.title || 'Goal') + ' \u2014 PM' }
+        });
+        var sessionKey = result && result.sessionKey;
+        if (!sessionKey) return;
+
+        await rpcCall('goals.addSession', { goalId: goalId, sessionKey: sessionKey });
+        if (condoId) {
+          await rpcCall('goals.setSessionCondo', { sessionKey: sessionKey, condoId: condoId });
+        }
+
+        // Build the Q&A system prompt
+        var desc = ((goal.notes || goal.description) || '').trim();
+        var hasTasks = Array.isArray(goal.tasks) && goal.tasks.length > 0;
+        var prompt = '[SYSTEM] New goal created: "' + (goal.title || '') + '". ' +
+          'Description: "' + (desc || 'none') + '". ' +
+          'Your role: ask the user targeted clarifying questions (max 5-7 total) to properly define this goal \u2014 scope, success criteria, constraints, deadlines, dependencies. ' +
+          'Ask 1-2 questions at a time. Do not generate tasks yet. Wait for the user to click Kick Off when satisfied.';
+        if (desc && hasTasks) {
+          prompt += ' The goal already has a description and tasks, so just confirm it looks ready and wait.';
+        }
+
+        await rpcCall('chat.send', { sessionKey: sessionKey, message: prompt });
+        state.goalChatSessionKey = sessionKey;
+        await loadGoals();
+        renderGoalView();
+      } catch (err) {
+        console.warn('[ClawCondos] PM Q&A start failed:', err.message || err);
       }
     }
 
@@ -4035,7 +4091,11 @@ Response format:
         const data = await rpcCall('goals.create', { title, deadline: deadline || undefined });
         hideCreateGoalModal();
         await loadGoals();
-        if (data?.goal?.id) openGoal(data.goal.id);
+        if (data?.goal?.id) {
+          openGoal(data.goal.id);
+          // Auto-start PM Q&A session for the new goal
+          startPmQA(data.goal.id, data.goal);
+        }
       } catch (e) {
         errEl.textContent = 'Failed to create goal';
         errEl.style.display = 'block';
