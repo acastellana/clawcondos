@@ -3100,10 +3100,10 @@
 
     function setGoalTab(which) {
       state.goalTab = which;
-      var tabTasks = document.getElementById('goalTabTasks');
-      var tabFiles = document.getElementById('goalTabFiles');
-      if (tabTasks) tabTasks.classList.toggle('active', which === 'tasks');
-      if (tabFiles) tabFiles.classList.toggle('active', which === 'files');
+      ['tasks', 'files', 'pm', 'team'].forEach(function(t) {
+        var el = document.getElementById('goalTab' + t.charAt(0).toUpperCase() + t.slice(1));
+        if (el) el.classList.toggle('active', t === which);
+      });
       renderGoalPane();
     }
 
@@ -3112,6 +3112,18 @@
       if (!pane) return;
       var goal = state.goals.find(function(g) { return g.id === state.currentGoalOpenId; });
       if (!goal) { pane.innerHTML = ''; return; }
+
+      if (state.goalTab === 'pm') {
+        if (typeof renderGoalPmPane === 'function') renderGoalPmPane();
+        else pane.innerHTML = '<div class="empty-state">PM Chat not available.</div>';
+        return;
+      }
+
+      if (state.goalTab === 'team') {
+        if (typeof renderGoalTeamPane === 'function') renderGoalTeamPane();
+        else pane.innerHTML = '<div class="empty-state">Team tab not available.</div>';
+        return;
+      }
 
       if (state.goalTab === 'files') {
         // Tracked files — all values escaped via escapeHtml()
