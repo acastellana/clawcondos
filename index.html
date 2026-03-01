@@ -432,13 +432,6 @@
               </div>
             </div>
             <div class="goal-chat-body">
-              <div id="goalKickoffOverlay" style="display:none; padding:18px 14px; border-bottom:1px solid rgba(255,255,255,0.06);">
-                <div id="goalKickoffText">
-                  <div style="font-weight:600; margin-bottom:6px;">This goal hasn't started yet</div>
-                  <div style="color: var(--text-dim); font-size:0.9rem; margin-bottom:12px;">Kick off to create the first session and begin execution.</div>
-                </div>
-                <button class="ghost-btn" style="border-color: rgba(96,165,250,.55);" onclick="kickOffGoal()">Kick Off Goal</button>
-              </div>
               <div class="chat-messages" id="goal_chatMessages"></div>
             </div>
             <div id="composerMountGoal"></div>
@@ -1431,11 +1424,29 @@
         if (state.sessionAgentStatus[sessionKey] !== 'thinking') {
           setSessionStatus(sessionKey, 'thinking');
         }
+        // PM thinking indicator in goalChatPanel
+        if (state.goalChatSessionKey === sessionKey) {
+          var goalChatContainer = document.getElementById('goal_chatMessages');
+          if (goalChatContainer) {
+            var existing = document.getElementById('pm-thinking');
+            if (!existing) {
+              var el = document.createElement('div');
+              el.id = 'pm-thinking';
+              el.className = 'message assistant';
+              el.innerHTML = '<div class="message-content" style="color:var(--text-dim)">PM is thinking\u2026</div>';
+              goalChatContainer.appendChild(el);
+              goalChatContainer.scrollTop = goalChatContainer.scrollHeight;
+            }
+          }
+        }
       }
-      
+
       // Hide typing indicator when agent ends
       if (stream === 'lifecycle' && eventData?.phase === 'end') {
         hideTypingIndicator(runId);
+        // Also remove PM thinking indicator
+        var pmThinkingEnd = document.getElementById('pm-thinking');
+        if (pmThinkingEnd) pmThinkingEnd.remove();
       }
       
       // Show tool calls via compact activity indicator
@@ -1743,6 +1754,17 @@
       // Refresh goal chat if it's showing this session
       if (state.goalChatSessionKey === sessionKey && (runState === 'final' || runState === 'error')) {
         renderGoalChat();
+        // Remove PM thinking indicator
+        var pmThinking = document.getElementById('pm-thinking');
+        if (pmThinking) pmThinking.remove();
+        // Save PM response to condo history (Step 3 of 3-step flow)
+        if (runState === 'final' && message && message.content) {
+          var pmText = extractText(message.content);
+          var pmGoal = state.goals.find(function(g) { return g.id === state.currentGoalOpenId; });
+          if (pmText && pmGoal && pmGoal.condoId) {
+            rpcCall('pm.condoSaveResponse', { condoId: pmGoal.condoId, content: pmText }).catch(function() {});
+          }
+        }
       }
     }
     
@@ -2646,16 +2668,7 @@
     }
 
     function setGoalChatLocked(locked) {
-      var overlay = document.getElementById('goalKickoffOverlay');
-      var kickoffText = document.getElementById('goalKickoffText');
       var composer = document.getElementById('composerMountGoal');
-
-      var goal = state.goals.find(function(g) { return g.id === state.currentGoalOpenId; });
-      var isDone = goal && goal.status === 'done';
-
-      // Show overlay only when locked (no session yet); hide when session exists or goal is done
-      if (overlay) overlay.style.display = (locked && !isDone) ? 'block' : 'none';
-      if (kickoffText) kickoffText.style.display = locked ? 'block' : 'none';
       if (composer) composer.style.display = locked ? 'none' : 'block';
 
       var btns = [document.getElementById('goalOpenBtn')].filter(Boolean);
@@ -2697,6 +2710,14 @@
       if (!el) return;
       var key = state.goalChatSessionKey;
       if (!key) { el.textContent = 'No session yet'; return; }
+      // Show PM focus pill if this is the PM session
+      var goal = state.goals.find(function(g) { return g.id === state.currentGoalOpenId; });
+      var condo = goal && goal.condoId ? (state.condos || []).find(function(c) { return c.id === goal.condoId; }) : null;
+      if (condo && condo.pmCondoSessionKey && key === condo.pmCondoSessionKey) {
+        var goalTitle = (goal.title || '').length > 30 ? goal.title.substring(0, 30) + '\u2026' : (goal.title || '');
+        el.textContent = '\u25cf PM' + (goalTitle ? ' \u00b7 ' + goalTitle : '');
+        return;
+      }
       var s = (state.sessions || []).find(function(x) { return x.key === key; });
       el.textContent = s ? getSessionName(s) + ' \u00b7 ' + getSessionMeta(s) : key;
     }
@@ -2721,14 +2742,28 @@
       }
     }
 
+    function extractPmUserContent(text) {
+      if (!text) return '';
+      var marker = 'User Message:\n';
+      var idx = text.indexOf(marker);
+      if (idx !== -1) return text.substring(idx + marker.length).trim();
+      if (text.startsWith('[NEW_GOAL]') || text.startsWith('[WORKER UPDATE]') || text.startsWith('[SESSION IDENTITY]') || text.startsWith('[CURRENT FOCUS]')) return null;
+      return text;
+    }
+
     async function renderGoalChat() {
       var container = document.getElementById('goal_chatMessages');
       if (!container) return;
       var sessionKey = state.goalChatSessionKey;
       if (!sessionKey) {
-        container.innerHTML = '<div class="empty-state" style="padding:24px;">No session selected. Kick off or attach a session to start chatting.</div>';
+        container.innerHTML = '<div class="empty-state" style="padding:24px;">No session selected.</div>';
         return;
       }
+      // Determine if current session is the PM session
+      var goal = state.goals.find(function(g) { return g.id === state.currentGoalOpenId; });
+      var condo = goal && goal.condoId ? (state.condos || []).find(function(c) { return c.id === goal.condoId; }) : null;
+      var isPmSession = condo && condo.pmCondoSessionKey && sessionKey === condo.pmCondoSessionKey;
+
       container.innerHTML = '<div class="message system">Loading...</div>';
       try {
         var result = await rpcCall('chat.history', { sessionKey: sessionKey, limit: 100 });
@@ -2737,6 +2772,13 @@
           // All user-generated content is escaped via formatMessage/escapeHtml
           container.innerHTML = messages.map(function(m) {
             var text = extractText(m.content);
+            if (!text) return '';
+            // For PM sessions, extract user content and hide system triggers
+            if (isPmSession && m.role === 'user') {
+              var cleaned = extractPmUserContent(text);
+              if (cleaned === null) return '';
+              text = cleaned;
+            }
             if (!text) return '';
             var timeHtml = m.timestamp ? '<div class="message-time">' + formatMessageTime(new Date(m.timestamp)) + '</div>' : '';
             if (m.role === 'user') {
@@ -2783,8 +2825,20 @@
       var text = input.value.trim();
       if (!text || !state.goalChatSessionKey) return;
       input.value = '';
+      var goal = state.goals.find(function(g) { return g.id === state.currentGoalOpenId; });
+      if (!goal || !goal.condoId) return;
       try {
-        await rpcCall('chat.send', { sessionKey: state.goalChatSessionKey, message: text });
+        var pmResult = await rpcCall('pm.condoChat', {
+          condoId: goal.condoId,
+          message: text,
+          focusGoalId: goal.id,
+        });
+        if (pmResult && pmResult.pmSession) {
+          await rpcCall('chat.send', { sessionKey: pmResult.pmSession, message: pmResult.enrichedMessage });
+          if (pmResult.pmSession !== state.goalChatSessionKey) {
+            state.goalChatSessionKey = pmResult.pmSession;
+          }
+        }
         await renderGoalChat();
       } catch (err) {
         showToast('Send failed: ' + err.message, 'error');
@@ -2797,87 +2851,27 @@
       }
     }
 
-    async function kickOffGoal() {
-      var goalId = state.currentGoalOpenId;
-      var goal = state.goals.find(function(g) { return g.id === goalId; });
-      if (!goal) return;
+    // ── PM-driven goal kickoff via Start button ──
+
+    async function startGoalViaPm() {
+      var goal = state.goals.find(function(g) { return g.id === state.currentGoalOpenId; });
+      if (!goal || !goal.condoId) return;
       try {
-        // Reuse existing PM Q&A session if one exists (avoid orphaning it)
-        var existingSessionKey = (Array.isArray(goal.sessions) && goal.sessions.length > 0) ? goal.sessions[0] : null;
-        var sessionKey;
-        if (existingSessionKey) {
-          sessionKey = existingSessionKey;
-        } else {
-          var condoId = goal.condoId || null;
-          var result = await rpcCall('sessions.create', {
-            agentId: 'main',
-            channelId: 'main',
-            meta: { title: goal.title || 'Goal session' }
-          });
-          sessionKey = result && result.sessionKey;
-          if (!sessionKey) { showToast('Failed to create session', 'error'); return; }
-          await rpcCall('goals.addSession', { goalId: goalId, sessionKey: sessionKey });
-          if (condoId) {
-            await rpcCall('goals.setSessionCondo', { sessionKey: sessionKey, condoId: condoId });
+        var pmResult = await rpcCall('pm.condoChat', {
+          condoId: goal.condoId,
+          message: 'Please kick off this goal now.',
+          focusGoalId: goal.id,
+        });
+        if (pmResult && pmResult.pmSession) {
+          await rpcCall('chat.send', { sessionKey: pmResult.pmSession, message: pmResult.enrichedMessage });
+          if (pmResult.pmSession !== state.goalChatSessionKey) {
+            state.goalChatSessionKey = pmResult.pmSession;
           }
         }
-        // Send goal context as kick-off message
-        var msg = 'Goal: ' + (goal.title || '') + '\n';
-        if (goal.notes) msg += '\n' + goal.notes;
-        var tasks = Array.isArray(goal.tasks) ? goal.tasks : [];
-        if (tasks.length) {
-          msg += '\n\nTasks:\n' + tasks.map(function(t) { return '- ' + (t.text || ''); }).join('\n');
-        }
-        await rpcCall('chat.send', { sessionKey: sessionKey, message: msg });
-        state.goalChatSessionKey = sessionKey;
-        await loadGoals();
-        renderGoalView();
+        showToast('Kickoff requested \u2014 PM is on it', 'success');
+        await renderGoalChat();
       } catch (err) {
-        showToast('Kick-off failed: ' + err.message, 'error');
-      }
-    }
-
-    // ── PM Q&A: auto-start conversational goal definition ──
-
-    async function startPmQA(goalId, goal) {
-      // Skip if goal already has sessions (not brand new)
-      var sess = Array.isArray(goal.sessions) ? goal.sessions : [];
-      if (sess.length > 0) return;
-
-      try {
-        var condoId = goal.condoId || null;
-        var result = await rpcCall('sessions.create', {
-          agentId: 'main',
-          channelId: 'main',
-          model: 'anthropic/claude-sonnet-4-6',
-          meta: { title: (goal.title || 'Goal') + ' \u2014 PM' }
-        });
-        var sessionKey = result && result.sessionKey;
-        if (!sessionKey) return;
-
-        await rpcCall('goals.addSession', { goalId: goalId, sessionKey: sessionKey });
-        if (condoId) {
-          await rpcCall('goals.setSessionCondo', { sessionKey: sessionKey, condoId: condoId });
-        }
-
-        // Build a clean trigger message (visible in chat as a user message)
-        var desc = ((goal.notes || goal.description) || '').trim();
-        var hasTasks = Array.isArray(goal.tasks) && goal.tasks.length > 0;
-        var prompt;
-        if (desc && hasTasks) {
-          prompt = 'You are the PM for this goal: "' + (goal.title || '') + '". It already has a description and tasks \u2014 please confirm it looks ready to kick off.';
-        } else {
-          prompt = 'You are the PM for this goal. Goal title: "' + (goal.title || '') + '".';
-          if (desc) prompt += ' Description: "' + desc + '".';
-          prompt += ' Please start by asking me 1\u20132 clarifying questions to define this goal properly (scope, success criteria, constraints, deadline). Ask one set at a time. I will click Kick Off when I am ready to start.';
-        }
-
-        await rpcCall('chat.send', { sessionKey: sessionKey, message: prompt });
-        state.goalChatSessionKey = sessionKey;
-        await loadGoals();
-        renderGoalView();
-      } catch (err) {
-        console.warn('[ClawCondos] PM Q&A start failed:', err.message || err);
+        showToast('Start failed: ' + err.message, 'error');
       }
     }
 
@@ -2960,8 +2954,14 @@
           pane.innerHTML = '<div class="empty-state">No tasks yet.</div>' +
             '<div class="goal-task-compose"><input class="chat-input" id="goalNewTaskInput" placeholder="Add a task\u2026" style="flex:1;" onkeypress="if(event.key===\'Enter\')addGoalTask()"><button class="ghost-btn" onclick="addGoalTask()">Add</button></div>';
         } else {
+          // Show Start button when tasks exist but no workers spawned yet
+          var hasWorkers = tasks.some(function(t) { return !!t.sessionKey; });
+          var hasPending = tasks.some(function(t) { return !t.done && (t.status || 'pending') !== 'done'; });
+          var startBtnHtml = (!hasWorkers && hasPending && goal.condoId)
+            ? '<div style="margin-bottom:10px;"><button class="ghost-btn" style="border-color:rgba(96,165,250,.55);" onclick="startGoalViaPm()">\u25b6 Start</button></div>'
+            : '';
           // All values escaped via escapeHtml() — safe against XSS
-          pane.innerHTML = tasks.map(function(t, idx) {
+          pane.innerHTML = startBtnHtml + tasks.map(function(t, idx) {
             var id = escapeHtml(t.id || String(idx));
             var taskStatus = t.status || (t.done ? 'done' : 'pending');
             var isDone = t.done || taskStatus === 'done';
@@ -3027,11 +3027,12 @@
       var defEdit = document.getElementById('goalDefEdit');
       if (defEdit) defEdit.style.display = 'none';
 
-      // Goal chat: select latest session
-      var sess = Array.isArray(goal.sessions) ? goal.sessions : [];
+      // Goal chat: prefer condo PM session, fall back to latest worker session
+      var condo = (state.condos || []).find(function(c) { return c.id === goal.condoId; });
+      var pmKey = (condo && condo.pmCondoSessionKey) || null;
       var latestKey = getLatestGoalSessionKey(goal);
-      if (!state.goalChatSessionKey || !sess.includes(state.goalChatSessionKey)) {
-        state.goalChatSessionKey = latestKey;
+      if (!state.goalChatSessionKey || state.goalChatSessionKey !== pmKey) {
+        state.goalChatSessionKey = pmKey || latestKey;
       }
       setGoalChatLocked(!state.goalChatSessionKey);
 
@@ -4097,9 +4098,25 @@ Response format:
         hideCreateGoalModal();
         await loadGoals();
         if (data?.goal?.id) {
+          // Send NEW_GOAL trigger to PM via 3-step flow
+          if (data.goal.condoId) {
+            try {
+              var triggerMsg = '[NEW_GOAL] Goal created: "' + (data.goal.title || '') + '". ' +
+                (data.goal.notes ? 'Description: "' + data.goal.notes + '".' : 'No description yet.') +
+                ' Please start by asking me 1-2 clarifying questions to help define this goal.';
+              var pmResult = await rpcCall('pm.condoChat', {
+                condoId: data.goal.condoId,
+                message: triggerMsg,
+                focusGoalId: data.goal.id,
+              });
+              if (pmResult && pmResult.pmSession) {
+                await rpcCall('chat.send', { sessionKey: pmResult.pmSession, message: pmResult.enrichedMessage });
+              }
+            } catch (e) {
+              console.warn('[ClawCondos] PM trigger failed:', e.message);
+            }
+          }
           openGoal(data.goal.id);
-          // Auto-start PM Q&A session for the new goal
-          startPmQA(data.goal.id, data.goal);
         }
       } catch (e) {
         errEl.textContent = 'Failed to create goal';
