@@ -549,3 +549,76 @@ Apply this to all user-role messages when `state.goalChatSessionKey === condo.pm
 13. **Frontend — `pm.condoSaveResponse`** — call on PM session `runState === 'final'`
 14. **Cleanup** — revert this week's patches, delete `public/` files
 15. **Test** — `npm test` must pass, full manual smoke test
+
+---
+
+## Additional Issues Found (Round 4 — Final Review)
+
+### 🔴 `pm.condoSaveResponse` never called from frontend
+
+The 3-step flow requires the frontend to call `pm.condoSaveResponse` after PM responds. Currently there is no call to it anywhere in `index.html`. Without it, `condo.pmChatHistory` stays empty (only user messages are saved by `pm.condoChat`; PM responses are never saved).
+
+**Fix:** In the WebSocket message handler, when `runState === 'final'` AND `sessionKey === state.goalChatSessionKey`:
+```js
+// After renderGoalChat():
+if (state.goalChatSessionKey === sessionKey && message?.content) {
+  const pmText = extractText(message.content);
+  const goal = state.goals.find(g => g.id === state.currentGoalOpenId);
+  if (pmText && goal?.condoId) {
+    rpcCall('pm.condoSaveResponse', { condoId: goal.condoId, content: pmText }).catch(() => {});
+  }
+}
+```
+
+---
+
+### 🟡 Tasks tab: per-task spawn buttons already exist — keep them
+
+Each task already has a `▶` spawn button (`openSpawnTaskModal`) for manual one-by-one spawning. The "▶ Start" button at the Tasks tab header level is a NEW ADDITION that sends the PM a kickoff message — "Please kick off this goal now." PM then calls `condo_pm_kickoff` for all pending tasks at once.
+
+Both coexist: PM Start = full kickoff, individual ▶ = manual override per task.
+
+Tasks tab already shows: status dot, task text, session indicator (in tooltip), spawn/delete buttons. Minor enhancement: show `t.summary` inline (currently tooltip-only) so monitoring is visible.
+
+---
+
+### 🟡 `pm.condoSaveResponse` returns `hasPlan` — do NOT auto-create goals
+
+`pm.condoSaveResponse` returns `{ hasPlan }` (via `detectCondoPlan`). The `condo_pm_chat` executor (used by Bob's tool) automatically calls `pm.condoCreateGoals` if `hasPlan` is true — this parses free-text plans and creates goals from them.
+
+In the PM Q&A flow, the PM uses `condo_add_task` / `condo_create_goal` tools directly — NOT free-text plans. So `hasPlan` detection may falsely trigger goal creation if the PM writes structured text. 
+
+**Frontend path:** the `pm.condoSaveResponse` call from the frontend should ignore the `hasPlan` result entirely — don't call `pm.condoCreateGoals`. The PM uses tools, not text parsing.
+
+**Bob's `condo_pm_chat` tool:** this executor already calls `pm.condoCreateGoals` on plan detection. This is the Bob-initiated condo-level chat flow (different from goal Q&A). Acceptable for that path but note the risk of duplicate goal creation if Bob uses `condo_pm_chat` on a goal-focused conversation.
+
+---
+
+### ✅ Tasks tab has access to condoId — `▶ Start` button is straightforward
+
+`renderGoalPane` has access to `goal` object which includes `goal.condoId`. The "▶ Start" button click handler:
+```js
+async function startGoalViapm() {
+  var goal = state.goals.find(g => g.id === state.currentGoalOpenId);
+  if (!goal) return;
+  var pmResult = await rpcCall('pm.condoChat', {
+    condoId: goal.condoId,
+    message: 'Please kick off this goal now.',
+    focusGoalId: goal.id,
+  });
+  await rpcCall('chat.send', { sessionKey: pmResult.pmSession, message: pmResult.enrichedMessage });
+  // PM will respond and call condo_pm_kickoff — renderGoalChat fires on final
+}
+```
+
+---
+
+## Spec Complete — No Further Issues Found
+
+All known issues documented. Implementation ready to execute.
+
+**Total changes required:**
+- 1 new file: `docs/SKILL-PM-STRAND.md`
+- 2 backend files: `pm-handlers.js` (focusGoalId), `goal-update-tool.js` (PM notify), `skill-injector.js` (kickoff instructions), `condo-tools.js` (pmSession field fix)
+- 1 frontend file: `index.html` (renderGoalView, sendGoalMessage, renderGoalChat, handleAgentEvent, goal creation trigger, Start button, pm.condoSaveResponse call, kickoff overlay removal)
+- 1 cleanup: delete `public/app.js`, `public/index.html`, revert this week's patches
