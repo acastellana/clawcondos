@@ -542,9 +542,26 @@
             <span>Focus: <em id="condoStatFocus">—</em></span>
             <span>Updated: <em id="condoLastUpdated">—</em></span>
           </div>
-          <div id="condoGoalGrid" class="condo-goal-grid" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(320px,1fr)); gap:12px; margin-bottom:24px;"></div>
-          <h2 style="font-size:1.1rem; font-weight:600; margin-bottom:8px;">Sessions</h2>
-          <div id="condoSessionsList"></div>
+
+          <!-- Condo tabs -->
+          <div class="goal-tabs" style="margin-bottom:16px;">
+            <div class="goal-tab active" id="condoTabGoals" onclick="setCondoTab('goals')">Goals</div>
+            <div class="goal-tab" id="condoTabRoles" onclick="setCondoTab('roles')">Roles</div>
+          </div>
+
+          <!-- Goals pane -->
+          <div id="condoPaneGoals">
+            <div id="condoGoalGrid" class="condo-goal-grid" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(320px,1fr)); gap:12px; margin-bottom:24px;"></div>
+            <h2 style="font-size:1.1rem; font-weight:600; margin-bottom:8px;">Sessions</h2>
+            <div id="condoSessionsList"></div>
+          </div>
+
+          <!-- Roles pane -->
+          <div id="condoPaneRoles" style="display:none;">
+            <div id="condoRolesContent" style="max-width:720px;">
+              <div class="empty-state">Loading roles…</div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -626,6 +643,8 @@
             <div class="goal-tabs">
               <div class="goal-tab active" id="goalTabTasks" onclick="setGoalTab('tasks')">Tasks</div>
               <div class="goal-tab" id="goalTabFiles" onclick="setGoalTab('files')">Files</div>
+              <div class="goal-tab" id="goalTabPm" onclick="setGoalTab('pm')">PM Chat</div>
+              <div class="goal-tab" id="goalTabTeam" onclick="setGoalTab('team')">Team</div>
             </div>
 
             <div class="goal-pane" id="goalPane"></div>

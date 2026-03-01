@@ -3195,11 +3195,16 @@
 
     function setGoalTab(which, opts = {}) {
       state.goalTab = which;
-      const t1 = document.getElementById('goalTabTasks');
-      const t2 = document.getElementById('goalTabFiles');
-      if (t1) t1.classList.toggle('active', which === 'tasks');
-      if (t2) t2.classList.toggle('active', which === 'files');
-      if (!opts.skipRender) renderGoalPane();
+      ['tasks', 'files', 'pm', 'team'].forEach(t => {
+        const el = document.getElementById(`goalTab${t.charAt(0).toUpperCase() + t.slice(1)}`);
+        if (el) el.classList.toggle('active', t === which);
+      });
+      if (!opts.skipRender) {
+        renderGoalPane();
+        // Eagerly load data for tabs that need async fetch
+        if (which === 'pm') loadGoalPmHistory();
+        if (which === 'team') loadGoalTeamMessages();
+      }
     }
 
     function renderGoalPane() {
@@ -3212,6 +3217,16 @@
 
       if ((state.goalTab || 'tasks') === 'files') {
         renderGoalFilesPane();
+        return;
+      }
+
+      if ((state.goalTab || 'tasks') === 'pm') {
+        renderGoalPmPane();
+        return;
+      }
+
+      if ((state.goalTab || 'tasks') === 'team') {
+        renderGoalTeamPane();
         return;
       }
 
@@ -3276,6 +3291,304 @@
           <button class="ghost-btn" onclick="addGoalTaskFromGoalPane()">Add</button>
         </div>
       `;
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // GOAL PM TAB
+    // ═══════════════════════════════════════════════════════════════
+
+    function renderGoalPmPane() {
+      const pane = document.getElementById('goalPane');
+      if (!pane) return;
+      const goal = state.goals.find(g => g.id === state.currentGoalOpenId);
+      if (!goal) return;
+
+      const history = state.pmHistory?.[goal.id] || [];
+      const loading = state.pmLoading?.[goal.id];
+
+      const msgs = history.map(m => {
+        const isUser = m.role === 'user';
+        const cls = isUser ? 'message user' : 'message assistant';
+        return `<div class="${cls}"><div class="message-content">${escapeHtml(m.content || '')}</div></div>`;
+      }).join('');
+
+      pane.innerHTML = `
+        <div style="display:flex; flex-direction:column; gap:10px; height:100%; min-height:300px;">
+          <div id="goalPmMessages" class="chat-messages" style="flex:1; min-height:150px; max-height:320px; overflow-y:auto; background:rgba(15,20,40,.4); border:1px solid var(--border-color); border-radius:8px; padding:10px;">
+            ${msgs || '<div class="empty-state" style="padding:10px; font-size:0.85rem;">No PM conversation yet. Ask a question to start.</div>'}
+            ${loading ? '<div class="message thinking-indicator"><div class="thinking-dots"><span>·</span><span>·</span><span>·</span></div></div>' : ''}
+          </div>
+          <div style="display:flex; gap:8px;">
+            <input class="form-input" id="goalPmInput" placeholder="Ask PM a question…" style="flex:1;"
+              onkeypress="if(event.key==='Enter')sendGoalPmMessage()">
+            <button class="ghost-btn" onclick="sendGoalPmMessage()" ${loading ? 'disabled' : ''}>Send</button>
+            <button class="ghost-btn" onclick="loadGoalPmHistory()" title="Refresh history">↻</button>
+          </div>
+        </div>
+      `;
+    }
+
+    async function loadGoalPmHistory() {
+      const goalId = state.currentGoalOpenId;
+      if (!goalId) return;
+      const goal = state.goals.find(g => g.id === goalId);
+      if (!goal) return;
+      try {
+        const result = await rpcCall('pm.getHistory', { goalId, condoId: goal.condoId });
+        if (result?.history) {
+          if (!state.pmHistory) state.pmHistory = {};
+          state.pmHistory[goalId] = result.history;
+          if (state.goalTab === 'pm') renderGoalPane();
+        }
+      } catch (e) {
+        console.warn('[PM] loadGoalPmHistory error', e?.message);
+      }
+    }
+
+    async function sendGoalPmMessage() {
+      const goalId = state.currentGoalOpenId;
+      if (!goalId) return;
+      const goal = state.goals.find(g => g.id === goalId);
+      if (!goal) return;
+      const input = document.getElementById('goalPmInput');
+      if (!input) return;
+      const message = input.value.trim();
+      if (!message) return;
+
+      input.value = '';
+      if (!state.pmHistory) state.pmHistory = {};
+      if (!state.pmHistory[goalId]) state.pmHistory[goalId] = [];
+      state.pmHistory[goalId].push({ role: 'user', content: message });
+      if (!state.pmLoading) state.pmLoading = {};
+      state.pmLoading[goalId] = true;
+      if (state.goalTab === 'pm') renderGoalPane();
+
+      try {
+        // pm.chat prepares the enriched message and returns the pm session key
+        const prepResult = await rpcCall('pm.chat', {
+          condoId: goal.condoId,
+          goalId,
+          message,
+        });
+
+        if (!prepResult?.pmSession || !prepResult?.enrichedMessage) {
+          throw new Error(prepResult?.error || 'pm.chat did not return session/message');
+        }
+
+        // Send via chat.send to the PM session
+        const pmSession = prepResult.pmSession;
+        const idempotencyKey = `pm-${goalId}-${Date.now()}`;
+        await rpcCall('chat.send', {
+          sessionKey: pmSession,
+          message: prepResult.enrichedMessage,
+          idempotencyKey,
+        });
+
+        // Poll for response via chat.history
+        let attempts = 0;
+        const maxAttempts = 30;
+        const pollInterval = 2000;
+        const lastUserMsgTime = Date.now();
+
+        const poll = async () => {
+          attempts++;
+          try {
+            const h = await rpcCall('chat.history', { sessionKey: pmSession, limit: 30 }, 10000);
+            const messages = h?.messages || h?.history || [];
+            // Find the most recent assistant message after our send
+            const assistantMsgs = messages.filter(m => m.role === 'assistant' || m.type === 'assistant');
+            const last = assistantMsgs[assistantMsgs.length - 1];
+            if (last) {
+              const content = last.content || last.text || '';
+              if (content) {
+                // Save via pm.saveResponse
+                await rpcCall('pm.saveResponse', { goalId, response: content });
+                state.pmHistory[goalId].push({ role: 'assistant', content });
+                state.pmLoading[goalId] = false;
+                if (state.goalTab === 'pm' && state.currentGoalOpenId === goalId) renderGoalPane();
+                return;
+              }
+            }
+          } catch (e) {
+            console.warn('[PM] poll error', e?.message);
+          }
+          if (attempts < maxAttempts) {
+            setTimeout(poll, pollInterval);
+          } else {
+            state.pmLoading[goalId] = false;
+            if (state.goalTab === 'pm' && state.currentGoalOpenId === goalId) renderGoalPane();
+          }
+        };
+        setTimeout(poll, pollInterval);
+      } catch (err) {
+        showToast('PM chat error: ' + (err?.message || err), 'error');
+        state.pmLoading[goalId] = false;
+        if (state.goalTab === 'pm') renderGoalPane();
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // GOAL TEAM TAB
+    // ═══════════════════════════════════════════════════════════════
+
+    function renderGoalTeamPane() {
+      const pane = document.getElementById('goalPane');
+      if (!pane) return;
+      const goal = state.goals.find(g => g.id === state.currentGoalOpenId);
+      if (!goal) return;
+
+      const messages = state.teamMessages?.[goal.id] || [];
+      const loading = state.teamLoading?.[goal.id];
+
+      const msgs = messages.map(m => {
+        const isUser = !m.role || m.role === 'user';
+        const cls = isUser ? 'message user' : 'message assistant';
+        const who = escapeHtml(m.agentId || m.from || (isUser ? 'user' : 'agent'));
+        const taskLabel = m.taskText ? ` · <em style="font-size:10px;">${escapeHtml(m.taskText)}</em>` : '';
+        const content = escapeHtml(m.content || m.text || '');
+        return `<div class="${cls}"><div class="message-content"><strong>${who}</strong>${taskLabel}<br>${content}</div></div>`;
+      }).join('');
+
+      pane.innerHTML = `
+        <div style="display:flex; flex-direction:column; gap:10px; height:100%; min-height:300px;">
+          <div id="goalTeamMessages" class="chat-messages" style="flex:1; min-height:150px; max-height:320px; overflow-y:auto; background:rgba(15,20,40,.4); border:1px solid var(--border-color); border-radius:8px; padding:10px;">
+            ${msgs || '<div class="empty-state" style="padding:10px; font-size:0.85rem;">No team messages yet.</div>'}
+            ${loading ? '<div class="empty-state" style="font-size:0.8rem;">Loading…</div>' : ''}
+          </div>
+          <div style="display:flex; gap:8px;">
+            <input class="form-input" id="goalTeamInput" placeholder="Broadcast to all task sessions…" style="flex:1;"
+              onkeypress="if(event.key==='Enter')sendGoalTeamMessage()">
+            <button class="ghost-btn" onclick="sendGoalTeamMessage()">Broadcast</button>
+            <button class="ghost-btn" onclick="loadGoalTeamMessages()" title="Refresh">↻</button>
+          </div>
+        </div>
+      `;
+    }
+
+    async function loadGoalTeamMessages() {
+      const goalId = state.currentGoalOpenId;
+      if (!goalId) return;
+      if (!state.teamLoading) state.teamLoading = {};
+      state.teamLoading[goalId] = true;
+      if (state.goalTab === 'team') renderGoalPane();
+      try {
+        const result = await rpcCall('team.getMessages', { goalId, limit: 50 });
+        if (!state.teamMessages) state.teamMessages = {};
+        state.teamMessages[goalId] = result?.messages || [];
+      } catch (e) {
+        console.warn('[Team] loadGoalTeamMessages error', e?.message);
+      } finally {
+        state.teamLoading[goalId] = false;
+        if (state.goalTab === 'team' && state.currentGoalOpenId === goalId) renderGoalPane();
+      }
+    }
+
+    async function sendGoalTeamMessage() {
+      const goalId = state.currentGoalOpenId;
+      const input = document.getElementById('goalTeamInput');
+      if (!goalId || !input) return;
+      const message = input.value.trim();
+      if (!message) return;
+      input.value = '';
+      try {
+        await rpcCall('team.send', { goalId, message });
+        showToast('Broadcast sent', 'success', 2000);
+        await loadGoalTeamMessages();
+      } catch (e) {
+        showToast('Team send error: ' + (e?.message || e), 'error');
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // CONDO TABS — Roles
+    // ═══════════════════════════════════════════════════════════════
+
+    function setCondoTab(which) {
+      state.condoTab = which;
+      ['goals', 'roles'].forEach(t => {
+        const el = document.getElementById(`condoTab${t.charAt(0).toUpperCase() + t.slice(1)}`);
+        if (el) el.classList.toggle('active', t === which);
+        const pane = document.getElementById(`condoPane${t.charAt(0).toUpperCase() + t.slice(1)}`);
+        if (pane) pane.style.display = t === which ? '' : 'none';
+      });
+      if (which === 'roles') loadCondoRoles();
+    }
+
+    async function loadCondoRoles() {
+      const el = document.getElementById('condoRolesContent');
+      if (!el) return;
+      el.innerHTML = '<div class="empty-state">Loading…</div>';
+      try {
+        const result = await rpcCall('roles.list', { includeUnassigned: true });
+        const agents = result?.agents || [];
+        const roleDescs = result?.roleDescriptions || {};
+
+        if (!agents.length) {
+          el.innerHTML = '<div class="empty-state">No roles configured yet.</div>';
+          return;
+        }
+
+        const rows = agents.map(a => {
+          const roles = (a.roles || []).join(', ') || '—';
+          const label = escapeHtml(a.label || a.agentId || '');
+          const agentId = escapeHtml(a.agentId || '');
+          return `
+            <tr>
+              <td style="padding:8px 12px; font-size:0.85rem; font-family:monospace;">${agentId}</td>
+              <td style="padding:8px 12px; font-size:0.85rem;">${label}</td>
+              <td style="padding:8px 12px; font-size:0.85rem;">${escapeHtml(roles)}</td>
+              <td style="padding:8px 12px;">
+                <button class="ghost-btn" style="font-size:0.75rem; padding:2px 8px;" onclick="promptAssignRole('${agentId}')">Assign Role</button>
+              </td>
+            </tr>
+          `;
+        }).join('');
+
+        el.innerHTML = `
+          <table style="width:100%; border-collapse:collapse; font-size:0.85rem;">
+            <thead>
+              <tr style="border-bottom:1px solid var(--border-color); color:var(--text-dim); font-size:0.8rem;">
+                <th style="padding:8px 12px; text-align:left; font-weight:600;">Agent ID</th>
+                <th style="padding:8px 12px; text-align:left; font-weight:600;">Label</th>
+                <th style="padding:8px 12px; text-align:left; font-weight:600;">Roles</th>
+                <th style="padding:8px 12px; text-align:left; font-weight:600;">Action</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+          <div style="margin-top:12px; display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+            <input class="form-input" id="roleAgentInput" placeholder="Agent ID" style="width:200px;">
+            <input class="form-input" id="roleNameInput" placeholder="Role (e.g. codex, backend)" style="width:180px;">
+            <button class="ghost-btn" onclick="assignCondoRole()">Assign</button>
+            <button class="ghost-btn" onclick="loadCondoRoles()" title="Refresh">↻</button>
+          </div>
+        `;
+      } catch (e) {
+        if (el) el.innerHTML = `<div class="empty-state" style="color:var(--red);">Failed to load roles: ${escapeHtml(e?.message || 'error')}</div>`;
+      }
+    }
+
+    function promptAssignRole(agentId) {
+      const input = document.getElementById('roleAgentInput');
+      if (input) input.value = agentId;
+      const roleInput = document.getElementById('roleNameInput');
+      if (roleInput) roleInput.focus();
+    }
+
+    async function assignCondoRole() {
+      const agentId = document.getElementById('roleAgentInput')?.value?.trim();
+      const role = document.getElementById('roleNameInput')?.value?.trim();
+      if (!agentId || !role) {
+        showToast('Agent ID and role are required', 'warning');
+        return;
+      }
+      try {
+        await rpcCall('roles.assign', { agentId, role });
+        showToast(`Assigned ${role} → ${agentId}`, 'success');
+        await loadCondoRoles();
+      } catch (e) {
+        showToast('Assign role error: ' + (e?.message || e), 'error');
+      }
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -7045,6 +7358,8 @@ Response format:
       state.currentCondoId = condoId;
       state.currentSession = null;
       state.currentGoalId = 'all';
+      // Reset condo tab to goals when opening a new condo
+      state.condoTab = 'goals';
       localStorage.removeItem('sharp_current_session');
 
       setView('condoView');
@@ -7197,6 +7512,9 @@ Response format:
           `;
         }).join('') : `<div class="empty-state">No sessions in this condo.</div>`;
       }
+
+      // Apply tab state (default to goals)
+      setCondoTab(state.condoTab || 'goals');
     }
 
     function buildSessionBreadcrumbs(session) {
