@@ -6,6 +6,48 @@
 
 ---
 
+## ⚠️ Prerequisites (must exist before implementation)
+
+### `docs/SKILL-PM-STRAND.md` — MISSING, must be created
+
+`getCondoPmSkillContext` appends this file to every PM message. Without it, the PM agent receives only a dynamic header (condo name + goals list) but **zero role instructions** — no Q&A behavior, no kickoff recognition, no monitoring guidance. The PM is just the raw main agent.
+
+This file must be created as the **first step** of implementation. It defines the PM's entire behavior. Contents:
+
+```markdown
+# Condo PM Role
+
+You are a Project Manager for this condo. Your responsibilities depend on the current phase:
+
+## Phase 1: Goal Definition (Q&A)
+When a new goal is created or you receive a [NEW_GOAL] trigger:
+- Ask 1-2 clarifying questions at a time (scope, success criteria, constraints, deadline, dependencies)
+- Do NOT create tasks yet
+- Continue Q&A until the user signals readiness ("kick it off", "start", "go ahead", "let's go", "begin")
+
+## Phase 2: Kickoff
+When the user signals readiness:
+1. Confirm the goal is sufficiently defined
+2. Create tasks using `condo_add_task` for each work item
+3. Call `condo_pm_kickoff` with `{ condoId, goalId }` to spawn workers
+4. If kickoff returns `requiresAgentSpawn: true`: iterate `spawnInstructions` and call `sessions_spawn` for each task with the provided `taskContext`
+5. Confirm to the user which workers were spawned
+
+## Phase 3: Monitoring
+When you receive a [WORKER UPDATE] notification:
+- Acknowledge if progress is normal
+- Intervene if a worker is blocked: re-send task context or escalate to user
+- Report completion when all tasks are done
+
+## Rules
+- Always know which goal is in focus ([CURRENT FOCUS] block in your messages)
+- Keep responses concise — you are a PM, not a chatbot
+- Never plan tasks for goals you haven't been asked about
+- When blocked on a decision, ask the user one specific question
+```
+
+---
+
 ## Design Goals
 
 1. Creating a goal immediately starts a PM Q&A — no empty state, no manual setup
@@ -63,6 +105,14 @@ When a goal is open in goalView:
 When no goal is open:
 - PM is accessible by clicking the PM session in the sidebar (regular chatView)
 - Or by opening any goal
+
+---
+
+## How `chat.send` Creates Sessions
+
+**webchat sessions are auto-created by the gateway on first `chat.send`.** Confirmed in `task-spawn.js`: "Uses `webchat` session type so chat.send auto-creates the session on the gateway."
+
+This means: no separate `sessions.create` call is needed before using the PM session. Calling `chat.send({ sessionKey: 'agent:main:webchat:pm-condo-X', message: ... })` will create and start the session if it doesn't exist yet.
 
 ---
 
@@ -186,6 +236,21 @@ This block is prepended after the SESSION IDENTITY line in enrichedMessage.
 
 **Natural language also works:** typing "kick it off" in goalChatPanel → PM recognizes it → calls tool.
 
+### Kickoff fallback: `requiresAgentSpawn`
+
+`condo_pm_kickoff` calls `startSpawnedSessions` internally (backend `chat.send` per worker). This often fails because `api.callMethod` is not available to plugins. When it fails, the tool returns:
+
+```json
+{
+  "requiresAgentSpawn": true,
+  "spawnInstructions": [{ "taskId", "taskText", "sessionKey", "taskContext", "agentId" }, ...]
+}
+```
+
+**PM must handle this.** The SKILL-PM-STRAND.md instructs the PM to: if `requiresAgentSpawn` is true, call `sessions_spawn` for each entry in `spawnInstructions` using `taskContext` as the task. This is the normal path in practice.
+
+The `▶ Start` button and the PM skill context must account for this — PM does the actual spawning as a follow-up tool call.
+
 The PM skill context (`getCondoPmSkillContext`) must include:
 
 ```
@@ -281,6 +346,20 @@ try {
 
 ---
 
+## goals.kickoff Double-Send Risk
+
+serve.js has TWO code paths that send `chat.send` to workers after kickoff:
+1. Line ~1731: Special-case gateway route for `goals.kickoff` — calls gateway RPC then bridges `chat.send`
+2. Line ~1779: General local goals RPC path — if `goals.kickoff` ever reaches here, also sends `chat.send`
+
+In normal flow, path 1 fires and `return`s before path 2. But if the gateway route for `goals.kickoff` is somehow unavailable and it falls through to the local handler, both paths could fire and workers would receive duplicate first messages.
+
+**Mitigation:** The PM-driven kickoff uses `condo_pm_kickoff` tool (which uses `internalKickoff` then `startSpawnedSessions`), not the serve.js bridge path. If `requiresAgentSpawn: true`, the PM calls `sessions_spawn` directly — bypassing the bridge entirely. So in practice, the double-send risk is low for PM-driven kickoffs.
+
+**Document this in serve.js** with a comment to prevent future confusion.
+
+---
+
 ## Cleanup / Revert
 
 | Item | Action |
@@ -311,6 +390,7 @@ try {
 
 ## Implementation Order
 
+0. **Create `docs/SKILL-PM-STRAND.md`** — PM role instructions (Q&A, kickoff, monitoring, `requiresAgentSpawn` handling). **Must be done first.** Everything else is wiring; without this the PM has no behavior.
 1. **Backend — `pm.condoChat` `focusGoalId`:** Add param, build focus block, inject into enrichedMessage. Unit test.
 2. **Backend — `goal-update-tool.js` PM notification:** Add best-effort `sendToSession` call. Guard carefully.
 3. **Backend — `getCondoPmSkillContext`:** Add kickoff recognition instructions.
