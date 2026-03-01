@@ -2653,12 +2653,9 @@
       var goal = state.goals.find(function(g) { return g.id === state.currentGoalOpenId; });
       var isDone = goal && goal.status === 'done';
 
-      // Always show overlay for non-done goals (Kick Off button stays visible)
-      // Hide entirely when goal is done
-      if (overlay) overlay.style.display = isDone ? 'none' : 'block';
-      // Show explanatory text only when locked (no session)
+      // Show overlay only when locked (no session yet); hide when session exists or goal is done
+      if (overlay) overlay.style.display = (locked && !isDone) ? 'block' : 'none';
       if (kickoffText) kickoffText.style.display = locked ? 'block' : 'none';
-      // Show composer when there's a session
       if (composer) composer.style.display = locked ? 'none' : 'block';
 
       var btns = [document.getElementById('goalOpenBtn')].filter(Boolean);
@@ -2805,19 +2802,26 @@
       var goal = state.goals.find(function(g) { return g.id === goalId; });
       if (!goal) return;
       try {
-        var condoId = goal.condoId || null;
-        var result = await rpcCall('sessions.create', {
-          agentId: 'main',
-          channelId: 'main',
-          meta: { title: goal.title || 'Goal session' }
-        });
-        var sessionKey = result && result.sessionKey;
-        if (!sessionKey) { showToast('Failed to create session', 'error'); return; }
-        await rpcCall('goals.addSession', { goalId: goalId, sessionKey: sessionKey });
-        if (condoId) {
-          await rpcCall('goals.setSessionCondo', { sessionKey: sessionKey, condoId: condoId });
+        // Reuse existing PM Q&A session if one exists (avoid orphaning it)
+        var existingSessionKey = (Array.isArray(goal.sessions) && goal.sessions.length > 0) ? goal.sessions[0] : null;
+        var sessionKey;
+        if (existingSessionKey) {
+          sessionKey = existingSessionKey;
+        } else {
+          var condoId = goal.condoId || null;
+          var result = await rpcCall('sessions.create', {
+            agentId: 'main',
+            channelId: 'main',
+            meta: { title: goal.title || 'Goal session' }
+          });
+          sessionKey = result && result.sessionKey;
+          if (!sessionKey) { showToast('Failed to create session', 'error'); return; }
+          await rpcCall('goals.addSession', { goalId: goalId, sessionKey: sessionKey });
+          if (condoId) {
+            await rpcCall('goals.setSessionCondo', { sessionKey: sessionKey, condoId: condoId });
+          }
         }
-        // Send goal context as first message
+        // Send goal context as kick-off message
         var msg = 'Goal: ' + (goal.title || '') + '\n';
         if (goal.notes) msg += '\n' + goal.notes;
         var tasks = Array.isArray(goal.tasks) ? goal.tasks : [];
@@ -2856,15 +2860,16 @@
           await rpcCall('goals.setSessionCondo', { sessionKey: sessionKey, condoId: condoId });
         }
 
-        // Build the Q&A system prompt
+        // Build a clean trigger message (visible in chat as a user message)
         var desc = ((goal.notes || goal.description) || '').trim();
         var hasTasks = Array.isArray(goal.tasks) && goal.tasks.length > 0;
-        var prompt = '[SYSTEM] New goal created: "' + (goal.title || '') + '". ' +
-          'Description: "' + (desc || 'none') + '". ' +
-          'Your role: ask the user targeted clarifying questions (max 5-7 total) to properly define this goal \u2014 scope, success criteria, constraints, deadlines, dependencies. ' +
-          'Ask 1-2 questions at a time. Do not generate tasks yet. Wait for the user to click Kick Off when satisfied.';
+        var prompt;
         if (desc && hasTasks) {
-          prompt += ' The goal already has a description and tasks, so just confirm it looks ready and wait.';
+          prompt = 'You are the PM for this goal: "' + (goal.title || '') + '". It already has a description and tasks \u2014 please confirm it looks ready to kick off.';
+        } else {
+          prompt = 'You are the PM for this goal. Goal title: "' + (goal.title || '') + '".';
+          if (desc) prompt += ' Description: "' + desc + '".';
+          prompt += ' Please start by asking me 1\u20132 clarifying questions to define this goal properly (scope, success criteria, constraints, deadline). Ask one set at a time. I will click Kick Off when I am ready to start.';
         }
 
         await rpcCall('chat.send', { sessionKey: sessionKey, message: prompt });
