@@ -1,6 +1,6 @@
 import { readPlanFile, createEmptyPlan, computePlanStatus } from './plan-manager.js';
 
-export function createGoalUpdateExecutor(store) {
+export function createGoalUpdateExecutor(store, options = {}) {
   const error = (text) => ({ content: [{ type: 'text', text: `Error: ${text}` }] });
 
   return async function execute(toolCallId, params) {
@@ -266,6 +266,22 @@ export function createGoalUpdateExecutor(store) {
 
     goal.updatedAtMs = Date.now();
     store.save(data);
+
+    // Best-effort PM notification on task status updates
+    if (hasTaskUpdate) {
+      try {
+        const condo = data.condos?.find(c => c.id === goal.condoId);
+        const { sendToSession } = options;
+        if (condo?.pmCondoSessionKey && typeof sendToSession === 'function') {
+          const task = (goal.tasks || []).find(t => t.id === taskId);
+          const notif = `[WORKER UPDATE] Goal: "${goal.title}" | Task: "${task?.text || taskId}" (${taskId})\n` +
+            `Status: ${status} | Summary: ${summary || 'none'}`;
+          sendToSession(condo.pmCondoSessionKey, notif);
+        }
+      } catch {
+        // silent — PM notification is non-critical
+      }
+    }
 
     const remaining = (goal.tasks || []).filter(t => !t.done).length;
     const countSuffix = remaining > 0

@@ -719,14 +719,10 @@ export function createPmHandlers(store, options = {}) {
    * Response: { enrichedMessage, pmSession, history, condoId }
    */
   handlers['pm.condoChat'] = async ({ params, respond }) => {
-    const { condoId, message } = params || {};
+    const { condoId, message, focusGoalId } = params || {};
 
     if (!condoId) {
       return respond(false, null, 'condoId is required');
-    }
-
-    if (!message || typeof message !== 'string' || !message.trim()) {
-      return respond(false, null, 'message is required');
     }
 
     try {
@@ -737,10 +733,12 @@ export function createPmHandlers(store, options = {}) {
         return respond(false, null, `Condo ${condoId} not found`);
       }
 
-      // Save user message to condo history
-      const userMessage = message.trim();
-      addToCondoHistory(condo, 'user', userMessage);
-      store.save(data);
+      // Save user message to condo history (skip if empty — used for PM session init)
+      const userMessage = (message && typeof message === 'string') ? message.trim() : '';
+      if (userMessage) {
+        addToCondoHistory(condo, 'user', userMessage);
+        store.save(data);
+      }
 
       // Get/create condo PM session (registers in sessionCondoIndex)
       const { pmSessionKey } = getOrCreatePmSessionForCondo(store, condoId);
@@ -797,10 +795,30 @@ export function createPmHandlers(store, options = {}) {
         'User Message:',
       ].filter(line => line != null).join('\n');
 
-      const enrichedMessage = `${contextPrefix}\n${userMessage}`;
+      // Inject focus goal block if focusGoalId is provided
+      let focusBlock = '';
+      if (focusGoalId) {
+        const focusGoal = data.goals.find(g => g.id === focusGoalId && g.condoId === condoId);
+        if (focusGoal) {
+          const tasks = (focusGoal.tasks || []).map(t =>
+            `  - [${t.status || 'pending'}] ${t.text}${t.sessionKey ? ' \u2192 worker: ' + t.sessionKey : ''}`
+          ).join('\n');
+          focusBlock = [
+            '',
+            `[CURRENT FOCUS] Goal: "${focusGoal.title}" (ID: ${focusGoal.id})`,
+            `Status: ${focusGoal.status || 'active'} | Tasks: ${(focusGoal.tasks || []).length}`,
+            tasks ? `Task list:\n${tasks}` : 'No tasks yet.',
+            '',
+          ].join('\n');
+        }
+      }
+
+      const enrichedMessage = focusBlock
+        ? contextPrefix.replace('[SESSION IDENTITY]', focusBlock + '\n[SESSION IDENTITY]') + '\n' + userMessage
+        : `${contextPrefix}\n${userMessage}`;
 
       if (logger) {
-        logger.info(`pm.condoChat: prepared message for ${pmSessionKey}, condo "${condo.name}"`);
+        logger.info(`pm.condoChat: prepared message for ${pmSessionKey}, condo "${condo.name}"${focusGoalId ? ` (focus: ${focusGoalId})` : ''}`);
       }
 
       const history = getCondoPmHistory(condo).slice(-20);

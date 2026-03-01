@@ -403,7 +403,7 @@ export function createCondoPmChatExecutor(store, { gatewayRpcCall, logger }) {
     let pmSession, enrichedMessage;
     try {
       const chatResult = await gatewayRpcCall('pm.condoChat', { condoId, message: message.trim() });
-      pmSession = chatResult.sessionKey || chatResult.pmSessionKey;
+      pmSession = chatResult.pmSession || chatResult.sessionKey || chatResult.pmSessionKey;
       enrichedMessage = chatResult.enrichedMessage || chatResult.message || message.trim();
     } catch (err) {
       return { content: [{ type: 'text', text: `Error: failed to prepare PM chat: ${err.message}` }] };

@@ -1500,7 +1500,7 @@ export default function register(api) {
   }, { name: 'after_rpc' });
 
   // Tool: goal_update for agents to report task status
-  const goalUpdateExecute = createGoalUpdateExecutor(store);
+  const goalUpdateExecute = createGoalUpdateExecutor(store, { sendToSession });
 
   api.registerTool(
     (ctx) => {
