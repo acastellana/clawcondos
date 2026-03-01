@@ -8112,6 +8112,38 @@ Response format:
           </table>
           <div style="margin-top:12px; display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
             <input class="form-input" id="roleAgentInput" placeholder="Agent ID" style="width:200px;">
+            <input class="form-input" id="roleNameInput" placeholder="Role (e.g. codex, backend)" style="width:180px;">
+            <button class="ghost-btn" onclick="assignCondoRole()">Assign</button>
+            <button class="ghost-btn" onclick="loadCondoRoles()" title="Refresh">↻</button>
+          </div>
+        `;
+      } catch (e) {
+        if (el) el.innerHTML = `<div class="empty-state" style="color:var(--red);">Failed to load roles: ${escapeHtml(e?.message || 'error')}</div>`;
+      }
+    }
+
+    function promptAssignRole(agentId) {
+      const input = document.getElementById('roleAgentInput');
+      if (input) input.value = agentId;
+      const roleInput = document.getElementById('roleNameInput');
+      if (roleInput) roleInput.focus();
+    }
+
+    async function assignCondoRole() {
+      const agentId = document.getElementById('roleAgentInput')?.value?.trim();
+      const role = document.getElementById('roleNameInput')?.value?.trim();
+      if (!agentId || !role) {
+        showToast('Agent ID and role are required', 'warning');
+        return;
+      }
+      try {
+        await rpcCall('roles.assign', { agentId, role });
+        showToast(`Assigned ${role} → ${agentId}`, 'success');
+        await loadCondoRoles();
+      } catch (e) {
+        showToast('Assign role error: ' + (e?.message || e), 'error');
+      }
+    }
 
 
     init();
