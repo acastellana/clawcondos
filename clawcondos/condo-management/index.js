@@ -1682,9 +1682,15 @@ export default function register(api) {
   api.registerTool(
     (ctx) => {
       if (!ctx.sessionKey) return null;
-      if (isPmSession(ctx.sessionKey)) return null; // PMs plan, don't create
+      // Allow PM sessions to add tasks directly (PM flow: Q&A -> add tasks -> kickoff)
       const data = store.load();
-      if (!data.sessionCondoIndex[ctx.sessionKey]) return null;
+      const isPm = isPmSession(ctx.sessionKey);
+      let pmCondoId = null;
+      if (isPm) {
+        const match = ctx.sessionKey && ctx.sessionKey.match(/:webchat:pm-condo-(.+)$/);
+        if (match) pmCondoId = match[1];
+        if (!pmCondoId) return null;
+      } else if (!data.sessionCondoIndex[ctx.sessionKey]) return null;
 
       return {
         name: 'condo_add_task',
@@ -1867,9 +1873,14 @@ export default function register(api) {
   api.registerTool(
     (ctx) => {
       if (!ctx.sessionKey) return null;
-      if (isPmSession(ctx.sessionKey)) return null;
-      const data = store.load();
-      if (!data.sessionCondoIndex[ctx.sessionKey]) return null;
+      // Allow PM sessions to kick off goals directly
+      const data2 = store.load();
+      const isPmKickoff = isPmSession(ctx.sessionKey);
+      if (!isPmKickoff && !data2.sessionCondoIndex[ctx.sessionKey]) return null;
+      if (isPmKickoff) {
+        const matchK = ctx.sessionKey && ctx.sessionKey.match(/:webchat:pm-condo-(.+)$/);
+        if (!matchK) return null;
+      }
 
       return {
         name: 'condo_pm_kickoff',

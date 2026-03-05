@@ -150,7 +150,12 @@ export function createCondoAddTaskExecutor(store) {
     }
 
     const data = store.load();
-    const condoId = data.sessionCondoIndex[sessionKey];
+    // PM sessions embed condoId in key: agent:main:webchat:pm-condo-{condoId}
+    let condoId = data.sessionCondoIndex[sessionKey];
+    if (!condoId && sessionKey && sessionKey.includes(':webchat:pm-condo-')) {
+      const match = sessionKey.match(/:webchat:pm-condo-(.+)$/);
+      if (match) condoId = match[1];
+    }
     if (!condoId) {
       return { content: [{ type: 'text', text: 'Error: session is not bound to a condo.' }] };
     }
