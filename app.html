@@ -310,7 +310,15 @@
           window.location.href = '/';
           return;
         }
-        document.getElementById('appFrame').src = frameUrl;
+
+        // Apps that require crossOriginIsolated (e.g. WebVM/CheerpX) can't run in iframes.
+        // Redirect directly to the app route so it runs as top-level document.
+        if (app.openInNewTab) {
+          window.location.assign(frameUrl);
+          return;
+        } else {
+          document.getElementById('appFrame').src = frameUrl;
+        }
         sessionKey = `agent:app-assistant:app:${app.id}`;
         
         loadHistory();
@@ -435,20 +443,33 @@ Stack: ${lastErrorDetails.app?.stack || 'Unknown'}
 
 ${lastErrorDetails.request ? `--- Request ---
 URL: ${lastErrorDetails.request.url}
-Method: ${lastErrorDetails.request.method}` : ''}
-
+Method: ${lastErrorDetails.request.method}
+` : ''}
 ${lastErrorDetails.response ? `--- Response ---
 Status: ${lastErrorDetails.response.status} ${lastErrorDetails.response.statusText}
-Headers: ${JSON.stringify(lastErrorDetails.response.headers, null, 2)}
+Headers:
+${JSON.stringify(lastErrorDetails.response.headers, null, 2)}
 
 Body:
-${lastErrorDetails.response.body}` : ''}
+${lastErrorDetails.response.body}
+` : ''}
+${lastErrorDetails.iframe ? `--- Iframe Error ---
+URL: ${lastErrorDetails.iframe.url || 'N/A'}
+Title: ${lastErrorDetails.iframe.title || '(none)'}
+Detection: ${lastErrorDetails.iframe.detectionReason || 'unknown'}
+${lastErrorDetails.iframe.jsErrors?.length ? `\nJS Errors:\n${lastErrorDetails.iframe.jsErrors.map((e,i) => `  [${i+1}] ${e.message}\n      Source: ${e.source || 'unknown'}:${e.line || '?'}:${e.col || '?'}\n      Stack: ${e.stack || '(none)'}`).join('\n')}` : ''}
+Body Preview:
+${lastErrorDetails.iframe.bodyPreview || '(empty)'}
 
+Full HTML (truncated):
+${lastErrorDetails.iframe.fullHtml || '(not captured)'}
+` : ''}
 ${lastErrorDetails.error ? `--- Error ---
 Type: ${lastErrorDetails.error.type}
 Message: ${lastErrorDetails.error.message}
-Stack: ${lastErrorDetails.error.stack}` : ''}
-
+Stack Trace:
+${lastErrorDetails.error.stack || '(no stack)'}
+` : ''}
 --- Environment ---
 UserAgent: ${lastErrorDetails.userAgent}
 Window URL: ${window.location.href}
@@ -465,55 +486,65 @@ Window URL: ${window.location.href}
       }
     }
     
-    function handleFrameLoad() {
-      // Try to detect if the iframe loaded an error page
+    function captureIframeError(reason, extra) {
       const frame = document.getElementById('appFrame');
+      let iframeInfo = { url: frame?.src || 'N/A', title: '', bodyPreview: '', fullHtml: '', consoleErrors: [] };
       try {
-        // Same-origin check - try to access frame content
         const doc = frame.contentDocument || frame.contentWindow?.document;
         if (doc) {
-          const title = doc.title || '';
-          const body = doc.body?.textContent || '';
-          
-          // Check for common error patterns
-          const errorPatterns = [
-            /404|not found/i,
-            /500|internal server error/i,
-            /503|service unavailable/i,
-            /502|bad gateway/i,
-            /error|exception|traceback/i,
-            /unhandled|uncaught/i
-          ];
-          
-          const hasError = errorPatterns.some(p => p.test(title) || p.test(body.slice(0, 500)));
-          
-          if (hasError) {
-            // Capture iframe error content
-            lastErrorDetails = {
-              timestamp: new Date().toISOString(),
-              app: {
-                id: app?.id,
-                name: app?.name,
-                port: app?.port,
-                path: app?.path,
-                stack: app?.stack || 'Unknown'
-              },
-              iframe: {
-                url: frame.src,
-                title: title,
-                bodyPreview: body.slice(0, 5000),
-                fullHtml: doc.documentElement?.outerHTML?.slice(0, 15000)
-              },
-              userAgent: navigator.userAgent
-            };
-            document.getElementById('copyErrorBtn').classList.add('visible');
-            document.getElementById('appStatus').className = 'status-dot offline';
-            document.getElementById('appStatusText').textContent = 'error';
-          }
+          iframeInfo.title = doc.title || '';
+          iframeInfo.bodyPreview = (doc.body?.innerText || doc.body?.textContent || '').slice(0, 8000);
+          iframeInfo.fullHtml = doc.documentElement?.outerHTML?.slice(0, 20000) || '';
         }
-      } catch (e) {
-        // Cross-origin - can't access content, that's fine
-      }
+      } catch(e) { iframeInfo.note = 'cross-origin, content not accessible'; }
+      lastErrorDetails = {
+        timestamp: new Date().toISOString(),
+        app: { id: app?.id, name: app?.name, port: app?.port, path: app?.path, stack: app?.stack || 'Unknown' },
+        iframe: { ...iframeInfo, detectionReason: reason, ...extra },
+        userAgent: navigator.userAgent
+      };
+      document.getElementById('copyErrorBtn').classList.add('visible');
+      document.getElementById('appStatus').className = 'status-dot offline';
+      document.getElementById('appStatusText').textContent = 'error';
+    }
+
+    function handleFrameLoad() {
+      const frame = document.getElementById('appFrame');
+      try {
+        const doc = frame.contentDocument || frame.contentWindow?.document;
+        if (!doc) return;
+        const title = doc.title || '';
+        const body = doc.body?.innerText || doc.body?.textContent || '';
+
+        const errorPatterns = [
+          /404|not found/i,
+          /500|internal server error/i,
+          /503|service unavailable/i,
+          /502|bad gateway/i,
+          /\buncaught\b|\bunhandled\b/i,
+        ];
+        // Check title + full body text (not just first 500 chars)
+        if (errorPatterns.some(p => p.test(title) || p.test(body))) {
+          captureIframeError('body-pattern-match', { matchedTitle: title });
+        }
+
+        // Attach JS error listener to same-origin iframe window
+        try {
+          const iframeWin = frame.contentWindow;
+          if (iframeWin && !iframeWin.__clawErrorListenerAttached) {
+            iframeWin.__clawErrorListenerAttached = true;
+            const jsErrors = [];
+            iframeWin.addEventListener('error', ev => {
+              jsErrors.push({ message: ev.message, source: ev.filename, line: ev.lineno, col: ev.colno, stack: ev.error?.stack });
+              captureIframeError('js-runtime-error', { jsErrors: [...jsErrors] });
+            });
+            iframeWin.addEventListener('unhandledrejection', ev => {
+              jsErrors.push({ message: String(ev.reason), stack: ev.reason?.stack });
+              captureIframeError('unhandled-promise-rejection', { jsErrors: [...jsErrors] });
+            });
+          }
+        } catch(e) { /* cross-origin */ }
+      } catch(e) { /* cross-origin */ }
     }
     
     function handleFrameError(event) {

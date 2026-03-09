@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Agent UX V6 · Minimal Live</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Recursive:slnt,wght@-10..0,400..700&family=Newsreader:opsz,wght@6..72,500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0c0f14;
+      --panel: #11151d;
+      --line: #232a36;
+      --text: #edf2fb;
+      --muted: #94a0b8;
+      --processing: #59b8ff;
+      --waiting: #f6bf5f;
+      --healthy: #52d39d;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: radial-gradient(900px circle at 100% -20%, #1b274655, transparent 55%), var(--bg);
+      color: var(--text);
+      font-family: "Recursive", ui-sans-serif, system-ui;
+      padding: 24px;
+    }
+    .app { max-width: 1120px; margin: 0 auto; display: grid; gap: 12px; }
+    .top {
+      display: flex; justify-content: space-between; align-items: baseline;
+      padding: 14px 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel);
+    }
+    h1 { margin: 0; font-family: "Newsreader", serif; font-size: 30px; font-weight: 500; }
+    .tiny { color: var(--muted); font-size: 12px; }
+
+    .kpis { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 10px; }
+    .k { border: 1px solid var(--line); border-radius: 10px; background: var(--panel); padding: 10px 12px; }
+    .k b { font-size: 22px; }
+    .k span { display: block; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .08em; }
+
+    .layout { display:grid; grid-template-columns: 1.3fr .9fr; gap:12px; }
+
+    .list { border: 1px solid var(--line); border-radius: 12px; background: var(--panel); overflow: hidden; }
+    .row {
+      display: grid; grid-template-columns: 1.2fr .7fr .9fr 1fr 1fr; gap: 10px;
+      padding: 11px 14px; border-top: 1px solid #1c2330; align-items: center;
+    }
+    .row:first-child { border-top: 0; }
+    .head {
+      font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted);
+      background: #0f131b; font-weight: 650;
+    }
+    .status { font-size: 11px; font-weight: 700; letter-spacing: .08em; }
+    .processing { color: var(--processing); }
+    .waiting { color: var(--waiting); }
+    .healthy { color: var(--healthy); }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; color: #b7c5e3; }
+    .muted { color: var(--muted); font-size: 13px; }
+
+    .detail {
+      border:1px solid var(--line); border-radius:12px; background:var(--panel); padding:12px;
+      display:grid; gap:10px; align-content:start;
+    }
+    .card { border:1px solid #1f2633; background:#0f131b; border-radius:10px; padding:10px; }
+    .label { color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:.08em; margin-bottom:6px; display:block; }
+    .md {
+      border:1px dashed #2a3447; border-radius:8px; padding:10px; background:#0d1118; font-size:13px; line-height:1.4;
+    }
+    .md code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; background:#131a26; padding:2px 5px; border-radius:5px; }
+    .md ul { margin: 6px 0 0 18px; padding:0; }
+
+    @media (max-width: 980px) {
+      .layout { grid-template-columns: 1fr; }
+      .kpis { grid-template-columns: 1fr 1fr; }
+      .row { grid-template-columns: 1fr; gap: 4px; }
+      .head { display:none; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <section class="top">
+      <h1>Live Agent · Minimal</h1>
+      <div class="tiny">Now with condo, task, and last markdown update</div>
+    </section>
+
+    <section class="kpis">
+      <div class="k"><span>Processing</span><b>2</b></div>
+      <div class="k"><span>Waiting</span><b>1</b></div>
+      <div class="k"><span>Healthy</span><b>1</b></div>
+      <div class="k"><span>Alerts</span><b>0</b></div>
+    </section>
+
+    <section class="layout">
+      <section class="list">
+        <div class="row head"><div>Agent</div><div>Status</div><div>Session</div><div>Condo / Thread</div><div>Task</div></div>
+        <div class="row"><div>Librarian</div><div class="status processing">PROCESSING</div><div class="mono">706c8957…</div><div class="mono">OpenClaw Ecosystem · 352</div><div>Ingest + dedupe inbound items</div></div>
+        <div class="row"><div>Scout</div><div class="status processing">PROCESSING</div><div class="mono">14bf0ff4…</div><div class="mono">OpenClaw Ecosystem · 1467</div><div>Classify repos/discussions</div></div>
+        <div class="row"><div>Error Sweep</div><div class="status waiting">WAITING</div><div class="mono">e0a3a7c1…</div><div class="mono">Ops/Security · 36</div><div>Await next diagnostics window</div></div>
+        <div class="row"><div>Security Sentinel</div><div class="status healthy">HEALTHY</div><div class="mono">be9ebad7…</div><div class="mono">Ops/Security · 36</div><div>Port exposure check</div></div>
+      </section>
+
+      <aside class="detail">
+        <div class="card">
+          <span class="label">Selected agent</span>
+          <b>Librarian</b>
+          <div class="muted">Session <span class="mono">706c8957…</span></div>
+        </div>
+        <div class="card">
+          <span class="label">Condo</span>
+          <div>OpenClaw Ecosystem Operations</div>
+          <div class="muted">Thread 352</div>
+        </div>
+        <div class="card">
+          <span class="label">Current task</span>
+          <div>Hourly ingest, dedupe, and tracker update</div>
+        </div>
+        <div class="card">
+          <span class="label">Last parsed update (markdown)</span>
+          <div class="md">
+            <strong>Librarian hourly ingest complete</strong>
+            <ul>
+              <li>Processed <code>8 new entries</code></li>
+              <li>Added <code>5 new items</code> to ecosystem API</li>
+              <li>Skipped <code>3 duplicates</code></li>
+              <li>State updated to <code>176 lines</code></li>
+            </ul>
+          </div>
+        </div>
+      </aside>
+    </section>
+  </main>
+</body>
+</html>

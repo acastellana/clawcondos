@@ -1,0 +1,38 @@
+[
+  {
+    "order_id": "408-4511588-9463547",
+    "status": "mismatch",
+    "issues": [
+      "Item name discrepancy: Extracted 'iDesign Linus Organizador de cajones para Armario y tocador, Caja organizadora de 30,5 cm x 22,9 cm ' (truncated and with trailing space) versus PDF 'iDesign Linus Organizador de cajones para Armario y tocador, Caja organizadora de 30,5 cm x 22,9 cm x 7,6 cm en plástico, Transparente'.",
+      "Extracted data contains 'category' field ('Alimentación') not found in PDF.",
+      "Extracted data contains 'category_emoji' field ('🍕') not found in PDF."
+    ],
+    "extracted_total": 36.4,
+    "correct_total": 36.4,
+    "missing_items": []
+  },
+  {
+    "order_id": "408-7469270-7086763",
+    "status": "mismatch",
+    "issues": [
+      "Extracted 'Subtotal' corresponds to 'Total' in the PDF; PDF does not explicitly list a separate subtotal.",
+      "Item name 'Artwelt Mantel Transparente Lámina de Mesa Primera Calidad 2.0mm | Made in Germany | Impermeable Lav' is truncated compared to the original PDF text.",
+      "Shipping item ('Envío 0,00 €') is missing from extracted items."
+    ],
+    "extracted_total": 47.89,
+    "correct_total": 47.89,
+    "missing_items": [
+      "Envío 0,00 €"
+    ]
+  },
+  {
+    "order_id": "408-4129830-4137166",
+    "status": "mismatch",
+    "issues": [
+      "Item name is truncated in extracted data."
+    ],
+    "extracted_total": 73.82,
+    "correct_total": 73.82,
+    "missing_items": []
+  }
+]

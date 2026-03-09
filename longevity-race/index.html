@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Longevity Race — Aging Scoreboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <!-- Scanline overlay -->
+  <div class="scanline-overlay"></div>
+
+  <!-- Navigation -->
+  <nav class="nav-bar">
+    <div class="nav-logo">
+      <span class="nav-icon">◉</span>
+      <span class="nav-title">LONGEVITY<span class="nav-accent">RACE</span></span>
+    </div>
+    <div class="nav-links">
+      <a href="#scoreboard">Scoreboard</a>
+      <a href="#effect-chart">Effects</a>
+      <a href="#translation-gap">Translation</a>
+      <a href="#pipeline">Pipeline</a>
+      <a href="#failed">Failed</a>
+      <a href="#methodology">Methods</a>
+    </div>
+    <div class="nav-status">
+      <span class="status-dot"></span>
+      <span class="status-text" id="statusText">LIVE DATA</span>
+      <button class="recalc-btn" id="recalcBtn" title="Refresh trial counts from ClinicalTrials.gov and recompute scores">
+        <span class="recalc-icon" id="recalcIcon">↻</span>
+        <span class="recalc-label" id="recalcLabel">Recalculate</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- Hero Header -->
+  <header class="hero" id="hero">
+    <div class="hero-grid-bg"></div>
+    <div class="hero-content">
+      <div class="hero-badge-row">
+        <span class="hero-badge">NIA Interventions Testing Program</span>
+        <span class="hero-badge">ClinicalTrials.gov</span>
+      </div>
+      <h1 class="hero-title">
+        <span class="hero-title-line1">THE LONGEVITY</span>
+        <span class="hero-title-line2">RACE</span>
+      </h1>
+      <p class="hero-subtitle">Tracking every compound in the race to slow aging.</p>
+      <p class="hero-date">Last Updated: February 2026</p>
+    </div>
+  </header>
+
+  <!-- Key Metrics Bar -->
+  <section class="metrics-bar" id="metrics">
+    <div class="metrics-container">
+      <div class="metric-card">
+        <div class="metric-value" data-target="65">0</div>
+        <div class="metric-suffix">+</div>
+        <div class="metric-label">COMPOUNDS TESTED</div>
+      </div>
+      <div class="metric-card accent-green">
+        <div class="metric-value" data-target="15">0</div>
+        <div class="metric-label">CONFIRMED EXTENDERS</div>
+      </div>
+      <div class="metric-card accent-amber">
+        <div class="metric-value" data-target="150">0</div>
+        <div class="metric-suffix">+</div>
+        <div class="metric-label">ACTIVE HUMAN TRIALS</div>
+      </div>
+      <div class="metric-card accent-green">
+        <div class="metric-value">+37%</div>
+        <div class="metric-label">BEST MOUSE RESULT</div>
+        <div class="metric-sub">Rapa + Acarbose</div>
+      </div>
+      <div class="metric-card accent-amber">
+        <div class="metric-value">Phase 4</div>
+        <div class="metric-label">FURTHEST HUMAN TRIAL</div>
+        <div class="metric-sub">Metformin / TAME</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Main Scoreboard -->
+  <section class="section" id="scoreboard">
+    <div class="section-header">
+      <h2 class="section-title"><span class="section-number">01</span> COMPOUND SCOREBOARD</h2>
+      <p class="section-desc">All compounds ranked by composite score — combining ITP mouse results, effect size, and human trial evidence.</p>
+    </div>
+    <div class="table-controls">
+      <div class="search-box">
+        <span class="search-icon">⌕</span>
+        <input type="text" id="searchInput" placeholder="Search compounds..." autocomplete="off">
+      </div>
+      <div class="filter-buttons">
+        <button class="filter-btn active" data-filter="all">All</button>
+        <button class="filter-btn" data-filter="positive">ITP Positive</button>
+        <button class="filter-btn" data-filter="negative">ITP Negative</button>
+        <button class="filter-btn" data-filter="human">Has Human Trials</button>
+      </div>
+    </div>
+    <div class="table-wrapper">
+      <table class="scoreboard-table" id="scoreboardTable">
+        <thead>
+          <tr>
+            <th data-sort="rank" class="sortable sorted-asc">#</th>
+            <th data-sort="name" class="sortable">COMPOUND</th>
+            <th data-sort="score" class="sortable">SCORE</th>
+            <th data-sort="itp" class="sortable">ITP RESULT</th>
+            <th data-sort="male" class="sortable">♂ LIFESPAN</th>
+            <th data-sort="female" class="sortable">♀ LIFESPAN</th>
+            <th data-sort="trials" class="sortable">TRIALS</th>
+            <th data-sort="phase" class="sortable">PHASE</th>
+            <th>DETAILS</th>
+          </tr>
+        </thead>
+        <tbody id="scoreboardBody">
+          <!-- Populated by JS -->
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Effect Size Chart -->
+  <section class="section" id="effect-chart">
+    <div class="section-header">
+      <h2 class="section-title"><span class="section-number">02</span> EFFECT SIZE — MALE LIFESPAN EXTENSION</h2>
+      <p class="section-desc">Top compounds ranked by best reported male lifespan extension (%). Color indicates human trial status.</p>
+    </div>
+    <div class="chart-container">
+      <canvas id="effectChart"></canvas>
+    </div>
+  </section>
+
+  <!-- Translation Gap -->
+  <section class="section" id="translation-gap">
+    <div class="section-header">
+      <h2 class="section-title"><span class="section-number">03</span> TRANSLATION GAP</h2>
+      <p class="section-desc">Mouse effect size vs. human trial progress. The gap between promising mouse data and human evidence is the central challenge of longevity science.</p>
+    </div>
+    <div class="chart-container">
+      <canvas id="translationChart"></canvas>
+    </div>
+    <div class="translation-legend">
+      <div class="legend-item"><span class="legend-dot" style="background:#06d6a0"></span> ITP Positive</div>
+      <div class="legend-item"><span class="legend-dot" style="background:#ef4444"></span> ITP Negative</div>
+      <div class="legend-item"><span class="legend-dot" style="background:#94a3b8"></span> Not ITP Tested</div>
+      <div class="legend-note">Bubble size = Composite Score</div>
+    </div>
+  </section>
+
+  <!-- Pipeline Tracker -->
+  <section class="section" id="pipeline">
+    <div class="section-header">
+      <h2 class="section-title"><span class="section-number">04</span> ITP PIPELINE — IN PROGRESS</h2>
+      <p class="section-desc">Compounds currently being tested in the NIA Interventions Testing Program. Results expected 2026–2028.</p>
+    </div>
+    <div class="pipeline-grid" id="pipelineGrid">
+      <!-- Populated by JS -->
+    </div>
+  </section>
+
+  <!-- Failed Compounds -->
+  <section class="section" id="failed">
+    <div class="section-header">
+      <h2 class="section-title"><span class="section-number">05</span> FAILED COMPOUNDS</h2>
+      <p class="section-desc">ITP-tested compounds that did not significantly extend lifespan. Click to expand.</p>
+    </div>
+    <button class="collapse-toggle" id="failedToggle">
+      <span class="toggle-icon">▸</span> Show 29 Failed Compounds
+    </button>
+    <div class="failed-grid collapsed" id="failedGrid">
+      <!-- Populated by JS -->
+    </div>
+  </section>
+
+  <!-- Methodology -->
+  <section class="section" id="methodology">
+    <div class="section-header">
+      <h2 class="section-title"><span class="section-number">06</span> METHODOLOGY</h2>
+    </div>
+    <div class="methodology-cards">
+      <div class="method-card">
+        <h3>NIA Interventions Testing Program (ITP)</h3>
+        <p>The ITP is a peer-reviewed, NIA-funded program that tests compounds for lifespan extension in genetically heterogeneous (UM-HET3) mice across three independent sites (Jackson Laboratory, University of Michigan, University of Texas Health San Antonio). It is the gold standard for mammalian lifespan studies because of its rigorous multi-site design, large sample sizes (~160 mice per group per sex), and use of genetically diverse mice that avoid strain-specific artifacts.</p>
+      </div>
+      <div class="method-card">
+        <h3>Composite Score</h3>
+        <p>Each compound receives a 0–100 composite score weighting: ITP result status and effect size (40%), reproducibility and both-sex benefit (20%), human trial count and phase advancement (25%), and mechanistic plausibility and safety profile (15%). Scores are relative rankings to highlight the most promising translational candidates.</p>
+      </div>
+      <div class="method-card">
+        <h3>Human Trial Data</h3>
+        <p>Human trial counts and phase data are sourced from ClinicalTrials.gov, filtered for aging, longevity, healthspan, and age-related disease endpoints. Trial phases reflect the most advanced registered trial for each compound in an aging-relevant context.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="footer-content">
+      <p class="footer-text">THE LONGEVITY RACE — Data compiled from NIA ITP and ClinicalTrials.gov</p>
+      <p class="footer-sub">February 2026 · Not medical advice · For research tracking purposes</p>
+    </div>
+  </footer>
+
+  <script src="./app.js"></script>
+</body>
+</html>

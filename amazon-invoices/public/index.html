@@ -1,0 +1,1262 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Amazon Invoices Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <style>
+        .category-badge { transition: all 0.15s; }
+        .category-badge:hover { transform: scale(1.05); }
+        .invoice-card { transition: all 0.2s; }
+        .invoice-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; }
+        @media (max-width: 768px) {
+            .desktop-only { display: none !important; }
+            .mobile-card { display: block !important; }
+        }
+        @media (min-width: 769px) {
+            .mobile-card { display: none !important; }
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-100 min-h-screen">
+    <div class="container mx-auto px-3 md:px-4 py-4 md:py-8 max-w-6xl">
+        <!-- Header -->
+        <div class="mb-6 md:mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+                <h1 class="text-2xl md:text-3xl font-bold text-white">📦 Facturas Amazon</h1>
+                <p class="text-gray-400 text-sm">LayerOne SLU</p>
+            </div>
+            <div class="flex gap-2">
+                <button onclick="showUploadModal()" class="bg-emerald-600 hover:bg-emerald-700 px-3 md:px-4 py-2 rounded-lg font-medium text-sm transition-colors">
+                    + Añadir
+                </button>
+                <button onclick="exportCSV()" class="bg-gray-700 hover:bg-gray-600 px-3 md:px-4 py-2 rounded-lg font-medium text-sm transition-colors">
+                    CSV
+                </button>
+            </div>
+        </div>
+
+        <!-- Stats Cards - Scrollable on mobile -->
+        <div class="flex md:grid md:grid-cols-4 gap-3 mb-6 overflow-x-auto pb-2 -mx-3 px-3 md:mx-0 md:px-0">
+            <div class="bg-gray-800 rounded-xl p-4 border border-gray-700 min-w-[140px] flex-shrink-0">
+                <div class="text-gray-400 text-xs mb-1">Total Gastado</div>
+                <div id="total-spent" class="text-xl font-bold text-emerald-400">-</div>
+            </div>
+            <div class="bg-gray-800 rounded-xl p-4 border border-gray-700 min-w-[140px] flex-shrink-0">
+                <div class="text-gray-400 text-xs mb-1">IVA Total</div>
+                <div id="total-vat" class="text-xl font-bold text-orange-400">-</div>
+            </div>
+            <div class="bg-gray-800 rounded-xl p-4 border border-gray-700 min-w-[140px] flex-shrink-0">
+                <div class="text-gray-400 text-xs mb-1">Facturas</div>
+                <div id="invoice-count" class="text-xl font-bold text-blue-400">-</div>
+            </div>
+            <div class="bg-gray-800 rounded-xl p-4 border border-gray-700 min-w-[140px] flex-shrink-0">
+                <div class="text-gray-400 text-xs mb-1">Pendientes</div>
+                <div id="pending-count" class="text-xl font-bold text-yellow-400">-</div>
+            </div>
+        </div>
+
+        <!-- Categories Overview -->
+        <div class="bg-gray-800 rounded-xl p-4 border border-gray-700 mb-6">
+            <div class="flex items-center justify-between mb-3">
+                <h2 class="font-semibold text-sm">Por Categoría</h2>
+                <button onclick="clearFilters()" class="text-xs text-gray-400 hover:text-white">Limpiar filtros</button>
+            </div>
+            <div id="category-buttons" class="flex flex-wrap gap-2"></div>
+        </div>
+
+        <!-- Filters - Collapsible on mobile -->
+        <details class="bg-gray-800 rounded-xl border border-gray-700 mb-6 group">
+            <summary class="p-4 cursor-pointer flex items-center justify-between">
+                <span class="font-semibold text-sm">🔍 Filtros avanzados</span>
+                <span class="text-gray-400 group-open:rotate-180 transition-transform">▼</span>
+            </summary>
+            <div class="p-4 pt-0 grid grid-cols-3 md:grid-cols-6 gap-2">
+                <div>
+                    <label class="text-gray-400 text-xs">📅 Año</label>
+                    <select id="year-filter" class="w-full bg-gray-700 rounded px-2 py-1.5 text-sm mt-1" onchange="applyFilters()">
+                        <option value="">Todos</option>
+                        <option value="2026">2026</option>
+                        <option value="2025">2025</option>
+                        <option value="2024">2024</option>
+                        <option value="2023">2023</option>
+                        <option value="2022">2022</option>
+                        <option value="2021">2021</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-gray-400 text-xs">Desde</label>
+                    <input type="date" id="date-from" class="w-full bg-gray-700 rounded px-2 py-1.5 text-sm mt-1" onchange="applyFilters()">
+                </div>
+                <div>
+                    <label class="text-gray-400 text-xs">Hasta</label>
+                    <input type="date" id="date-to" class="w-full bg-gray-700 rounded px-2 py-1.5 text-sm mt-1" onchange="applyFilters()">
+                </div>
+                <div>
+                    <label class="text-gray-400 text-xs">Vendedor</label>
+                    <select id="vendor-filter" class="w-full bg-gray-700 rounded px-2 py-1.5 text-sm mt-1" onchange="applyFilters()">
+                        <option value="">Todos</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-gray-400 text-xs">Estado</label>
+                    <select id="status-filter" class="w-full bg-gray-700 rounded px-2 py-1.5 text-sm mt-1" onchange="applyFilters()">
+                        <option value="">Todos</option>
+                        <option value="pending">⏳</option>
+                        <option value="reviewed">✅</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-gray-400 text-xs">🔍</label>
+                    <input type="text" id="search" placeholder="Buscar..." class="w-full bg-gray-700 rounded px-2 py-1.5 text-sm mt-1" oninput="applyFilters()">
+                </div>
+            </div>
+        </details>
+
+        <!-- Charts Section - Horizontal scroll on mobile -->
+        <div class="flex overflow-x-auto gap-3 mb-4 pb-2 snap-x snap-mandatory md:grid md:grid-cols-2 lg:grid-cols-3 md:overflow-visible">
+            <!-- Yearly Spending -->
+            <div class="bg-gray-800 rounded-xl border border-gray-700 p-3 flex-shrink-0 w-[280px] md:w-auto snap-start">
+                <h3 class="text-xs font-semibold mb-2">📆 Gasto por Año</h3>
+                <canvas id="yearly-chart" height="150"></canvas>
+            </div>
+            
+            <!-- Monthly Spending -->
+            <div class="bg-gray-800 rounded-xl border border-gray-700 p-3 flex-shrink-0 w-[280px] md:w-auto snap-start">
+                <h3 class="text-xs font-semibold mb-2">📈 Gasto Mensual</h3>
+                <canvas id="spending-chart" height="150"></canvas>
+            </div>
+            
+            <!-- Category Breakdown -->
+            <div class="bg-gray-800 rounded-xl border border-gray-700 p-3 flex-shrink-0 w-[280px] md:w-auto snap-start">
+                <h3 class="text-xs font-semibold mb-2">🏷️ Por Categoría</h3>
+                <canvas id="category-chart" height="150"></canvas>
+            </div>
+            
+            <!-- Top Vendors -->
+            <div class="bg-gray-800 rounded-xl border border-gray-700 p-3 flex-shrink-0 w-[280px] md:w-auto snap-start">
+                <h3 class="text-xs font-semibold mb-2">🏪 Top Vendedores</h3>
+                <canvas id="vendor-chart" height="150"></canvas>
+            </div>
+            
+            <!-- Spending Trend -->
+            <div class="bg-gray-800 rounded-xl border border-gray-700 p-3 flex-shrink-0 w-[280px] md:w-auto snap-start">
+                <h3 class="text-xs font-semibold mb-2">📉 Tendencia Acumulada</h3>
+                <canvas id="trend-chart" height="150"></canvas>
+            </div>
+            
+            <!-- Price Distribution -->
+            <div class="bg-gray-800 rounded-xl border border-gray-700 p-3 flex-shrink-0 w-[280px] md:w-auto snap-start">
+                <h3 class="text-xs font-semibold mb-2">💰 Distribución de Precios</h3>
+                <canvas id="price-chart" height="150"></canvas>
+            </div>
+        </div>
+        
+        <!-- Stats Summary - separate row on mobile -->
+        <div class="bg-gray-800 rounded-xl border border-gray-700 p-3 mb-4">
+            <h3 class="text-xs font-semibold mb-2">📊 Resumen</h3>
+            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 text-xs">
+                <div class="flex justify-between md:flex-col md:text-center p-2 bg-gray-700/50 rounded">
+                    <span class="text-gray-400">Ticket medio</span>
+                    <span id="avg-order" class="font-semibold text-emerald-400">-</span>
+                </div>
+                <div class="flex justify-between md:flex-col md:text-center p-2 bg-gray-700/50 rounded">
+                    <span class="text-gray-400">Máxima</span>
+                    <span id="max-order" class="font-semibold text-red-400">-</span>
+                </div>
+                <div class="flex justify-between md:flex-col md:text-center p-2 bg-gray-700/50 rounded">
+                    <span class="text-gray-400">Mínima</span>
+                    <span id="min-order" class="font-semibold text-blue-400">-</span>
+                </div>
+                <div class="flex justify-between md:flex-col md:text-center p-2 bg-gray-700/50 rounded">
+                    <span class="text-gray-400">IVA medio</span>
+                    <span id="avg-vat" class="font-semibold text-orange-400">-</span>
+                </div>
+                <div class="flex justify-between md:flex-col md:text-center p-2 bg-gray-700/50 rounded">
+                    <span class="text-gray-400">Top vendor</span>
+                    <span id="top-vendor" class="font-semibold text-purple-400 truncate">-</span>
+                </div>
+                <div class="flex justify-between md:flex-col md:text-center p-2 bg-gray-700/50 rounded">
+                    <span class="text-gray-400">Mes top</span>
+                    <span id="top-month" class="font-semibold text-yellow-400">-</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Advanced Analytics Section -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+            <div class="bg-gray-800 rounded-xl border border-gray-700 p-3">
+                <h3 class="text-xs font-semibold mb-2">📅 Estacionalidad (Gasto por Mes)</h3>
+                <canvas id="seasonality-chart" height="150"></canvas>
+            </div>
+            <div class="bg-gray-800 rounded-xl border border-gray-700 p-3">
+                <h3 class="text-xs font-semibold mb-2">📆 Patrones (Día de la Semana)</h3>
+                <canvas id="dayofweek-chart" height="150"></canvas>
+            </div>
+            <div class="bg-gray-800 rounded-xl border border-gray-700 p-3">
+                <h3 class="text-xs font-semibold mb-2">🏷️ Evolución por Categoría</h3>
+                <canvas id="category-evolution-chart" height="150"></canvas>
+            </div>
+            <div class="bg-gray-800 rounded-xl border border-gray-700 p-3">
+                <h3 class="text-xs font-semibold mb-2">🔄 Frecuencia de Compra</h3>
+                <canvas id="frequency-chart" height="150"></canvas>
+            </div>
+            <div class="bg-gray-800 rounded-xl border border-gray-700 p-3">
+                <h3 class="text-xs font-semibold mb-2">📈 Tendencia Ticket Medio</h3>
+                <canvas id="ticket-trend-chart" height="150"></canvas>
+            </div>
+            <div class="bg-gray-800 rounded-xl border border-gray-700 p-3">
+                <h3 class="text-xs font-semibold mb-2">🔁 Productos Más Comprados</h3>
+                <div id="top-products" class="text-xs space-y-1 max-h-[150px] overflow-y-auto"></div>
+            </div>
+        </div>
+
+        <!-- Invoices - Card view on mobile, table on desktop -->
+        <div class="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
+            <div class="p-4 border-b border-gray-700 flex justify-between items-center">
+                <h2 class="font-semibold">Facturas</h2>
+                <span id="filtered-count" class="text-gray-400 text-xs"></span>
+            </div>
+            
+            <!-- Mobile Card View -->
+            <div id="invoice-cards" class="mobile-card divide-y divide-gray-700"></div>
+            
+            <!-- Desktop Table View -->
+            <div class="desktop-only overflow-x-auto">
+                <table class="w-full">
+                    <thead class="bg-gray-750">
+                        <tr class="text-left text-gray-400 text-xs">
+                            <th class="px-4 py-3">Estado</th>
+                            <th class="px-4 py-3 cursor-pointer hover:text-white" onclick="sortBy('date')">Fecha ↕</th>
+                            <th class="px-4 py-3">Categoría</th>
+                            <th class="px-4 py-3">Vendedor</th>
+                            <th class="px-4 py-3">Descripción</th>
+                            <th class="px-4 py-3 text-right cursor-pointer hover:text-white" onclick="sortBy('total')">Total ↕</th>
+                            <th class="px-4 py-3 text-center">PDF</th>
+                        </tr>
+                    </thead>
+                    <tbody id="invoice-table" class="divide-y divide-gray-700 text-sm"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- PDF Viewer Panel -->
+    <div id="pdf-panel" class="fixed inset-y-0 right-0 w-full md:w-2/3 lg:w-1/2 bg-gray-800 shadow-2xl transform translate-x-full transition-transform duration-300 z-50 flex flex-col">
+        <div class="flex items-center justify-between p-3 border-b border-gray-700 bg-gray-900">
+            <div class="truncate flex-1 mr-2">
+                <h3 id="pdf-title" class="font-semibold text-white text-sm truncate">Factura</h3>
+                <p id="pdf-subtitle" class="text-xs text-gray-400 truncate"></p>
+            </div>
+            <div class="flex gap-2 flex-shrink-0">
+                <a id="pdf-open" href="#" target="_blank" class="bg-emerald-600 hover:bg-emerald-500 px-2 py-1 rounded text-xs font-medium">
+                    Abrir
+                </a>
+                <a id="pdf-download" href="#" download class="bg-blue-600 hover:bg-blue-500 px-2 py-1 rounded text-xs font-medium">
+                    Bajar
+                </a>
+                <button onclick="closePdfPanel()" class="bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded text-xs font-medium">
+                    ✕
+                </button>
+            </div>
+        </div>
+        <div id="pdf-container" class="flex-1 bg-gray-600 relative overflow-auto">
+            <div id="pdf-loading" class="absolute inset-0 flex items-center justify-center bg-gray-700">
+                <div class="text-gray-400">Cargando PDF...</div>
+            </div>
+            <div id="pdf-pages" class="flex flex-col items-center gap-2 p-4"></div>
+        </div>
+    </div>
+    <div id="pdf-overlay" class="fixed inset-0 bg-black/50 hidden z-40" onclick="closePdfPanel()"></div>
+
+    <!-- Category Edit Modal -->
+    <div id="category-modal" class="fixed inset-0 bg-black/70 hidden items-center justify-center z-50 p-4">
+        <div class="bg-gray-800 rounded-xl p-4 max-w-sm w-full border border-gray-700">
+            <h3 class="font-semibold mb-3">Asignar Categoría</h3>
+            <p id="category-modal-invoice" class="text-sm text-gray-400 mb-4 truncate"></p>
+            <div id="category-options" class="grid grid-cols-2 gap-2 mb-4"></div>
+            <div class="flex gap-2">
+                <button onclick="toggleReviewStatus()" id="review-btn" class="flex-1 bg-gray-700 hover:bg-gray-600 px-3 py-2 rounded text-sm">
+                    ✅ Marcar revisado
+                </button>
+                <button onclick="closeCategoryModal()" class="bg-gray-600 hover:bg-gray-500 px-3 py-2 rounded text-sm">
+                    Cerrar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Upload Modal -->
+    <div id="upload-modal" class="fixed inset-0 bg-black/70 hidden items-center justify-center z-50 p-4">
+        <div class="bg-gray-800 rounded-xl p-4 max-w-lg w-full border border-gray-700">
+            <h3 class="font-semibold mb-3">Añadir Facturas</h3>
+            <textarea id="invoice-json" class="w-full h-32 bg-gray-900 rounded-lg p-3 text-xs font-mono border border-gray-700" placeholder='[{"invoice_number": "...", "date": "2024-01-01", ...}]'></textarea>
+            <div class="flex gap-2 mt-3">
+                <button onclick="uploadInvoices()" class="bg-emerald-600 hover:bg-emerald-700 px-4 py-2 rounded-lg font-medium flex-1 text-sm">
+                    Importar
+                </button>
+                <button onclick="hideUploadModal()" class="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg font-medium text-sm">
+                    Cancelar
+                </button>
+            </div>
+            <div id="upload-status" class="mt-2 text-xs"></div>
+        </div>
+    </div>
+
+    <script>
+        // Categories with colors
+        const CATEGORIES = {
+            'hogar': { label: '🏠 Hogar', color: 'bg-green-600', textColor: 'text-green-400' },
+            'tech': { label: '💻 Tech', color: 'bg-purple-600', textColor: 'text-purple-400' },
+            'mascotas': { label: '🐕 Mascotas', color: 'bg-amber-600', textColor: 'text-amber-400' },
+            'comida': { label: '🍽️ Comida', color: 'bg-orange-600', textColor: 'text-orange-400' },
+            'bebidas': { label: '🍷 Bebidas', color: 'bg-red-600', textColor: 'text-red-400' },
+            'personal': { label: '👤 Personal', color: 'bg-pink-600', textColor: 'text-pink-400' },
+            'oficina': { label: '🏢 Oficina', color: 'bg-blue-600', textColor: 'text-blue-400' },
+            'juguetes': { label: '🧸 Juguetes', color: 'bg-yellow-600', textColor: 'text-yellow-400' },
+            'ropa': { label: '👕 Ropa', color: 'bg-indigo-600', textColor: 'text-indigo-400' },
+            'otros': { label: '📦 Otros', color: 'bg-gray-600', textColor: 'text-gray-400' }
+        };
+
+        let invoices = [];
+        let filteredInvoices = [];
+        let sortField = 'date';
+        let sortDir = -1;
+        let yearlyChart, spendingChart, categoryChart, vendorChart, trendChart, priceChart;
+        let seasonalityChart, dayofweekChart, categoryEvolutionChart, frequencyChart, ticketTrendChart;
+        let selectedInvoiceId = null;
+        let categoryFilter = null;
+
+        // Initialize PDF.js
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+        async function loadData() {
+            try {
+                // Load invoices
+                const response = await fetch('/amazon-invoices/api/invoices');
+                invoices = await response.json();
+                filteredInvoices = [...invoices];
+                
+                // Load available PDFs — build a Map from order_id → actual filename
+                // Filenames follow: YYYYMMDD_Tax Invoice_{order_id}[_N].pdf
+                try {
+                    const pdfResponse = await fetch('/amazon-invoices/api/pdfs');
+                    const pdfs = await pdfResponse.json();
+                    window.pdfMap = {};
+                    const orderIdPattern = /_Tax Invoice_([\d]+-[\d]+-[\d]+)(?:_\d+)?\.pdf$/i;
+                    pdfs.forEach(filename => {
+                        const m = filename.match(orderIdPattern);
+                        if (m) {
+                            const orderId = m[1];
+                            // Keep first match; multi-part orders get the first PDF
+                            if (!window.pdfMap[orderId]) window.pdfMap[orderId] = filename;
+                        }
+                    });
+                } catch { window.pdfMap = {}; }
+                
+                populateFilters();
+                renderCategoryButtons();
+                renderDashboard();
+            } catch (e) {
+                console.error('Failed to load invoices:', e);
+            }
+        }
+
+        function formatCurrency(amount) {
+            return new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(amount || 0);
+        }
+
+        function formatDate(dateStr) {
+            if (!dateStr) return '-';
+            const date = new Date(dateStr);
+            return date.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: '2-digit' });
+        }
+
+        function populateFilters() {
+            const vendors = [...new Set(invoices.map(i => i.vendor).filter(Boolean))].sort();
+            const select = document.getElementById('vendor-filter');
+            select.innerHTML = '<option value="">Todos</option>' + 
+                vendors.map(v => `<option value="${v}">${v}</option>`).join('');
+        }
+
+        function renderCategoryButtons() {
+            const container = document.getElementById('category-buttons');
+            // Calculate spending per category at item level
+            const categorySpending = {};
+            const categoryCounts = {};
+            
+            invoices.forEach(inv => {
+                if (inv.category_breakdown && Object.keys(inv.category_breakdown).length > 0) {
+                    for (const [cat, amount] of Object.entries(inv.category_breakdown)) {
+                        categorySpending[cat] = (categorySpending[cat] || 0) + (amount || 0);
+                        categoryCounts[cat] = (categoryCounts[cat] || 0) + 1;
+                    }
+                } else {
+                    const cat = inv.category || 'sin_categoria';
+                    categorySpending[cat] = (categorySpending[cat] || 0) + (inv.total || 0);
+                    categoryCounts[cat] = (categoryCounts[cat] || 0) + 1;
+                }
+            });
+
+            const totalSpent = Object.values(categorySpending).reduce((a, b) => a + b, 0);
+            let html = `<button onclick="filterByCategory(null)" class="px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${!categoryFilter ? 'bg-white text-gray-900' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}">
+                Todas (${invoices.length})
+            </button>`;
+
+            // Sort categories by amount descending
+            const sortedCats = Object.entries(categorySpending).sort((a, b) => b[1] - a[1]);
+            const catColors = {
+                'Alimentación': 'bg-orange-600', 'Ropa/Calzado': 'bg-indigo-600', 'Hogar': 'bg-green-600',
+                'Bebés': 'bg-pink-600', 'Plantas': 'bg-lime-600', 'Otros': 'bg-gray-600',
+                'Cocina': 'bg-amber-600', 'Tecnología': 'bg-purple-600', 'Bebidas': 'bg-red-600',
+                'Juegos': 'bg-yellow-600', 'Mascotas': 'bg-orange-700', 'Deportes': 'bg-teal-600',
+                'Bricolaje': 'bg-stone-600', 'Belleza': 'bg-pink-500', 'Salud': 'bg-lime-500',
+                'Oficina': 'bg-blue-600', 'Limpieza': 'bg-cyan-600', 'Libros': 'bg-violet-500',
+                'Muebles': 'bg-orange-500', 'Accesorios': 'bg-fuchsia-600'
+            };
+            
+            for (const [key, amount] of sortedCats) {
+                if (amount === 0) continue;
+                const catName = key.replace(/^.+\s/, ''); // Remove emoji prefix
+                const bgColor = catColors[catName] || 'bg-gray-600';
+                const isActive = categoryFilter === key;
+                html += `<button onclick="filterByCategory('${key}')" class="px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${isActive ? bgColor + ' text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}">
+                    ${key} (${amount.toFixed(0)}€)
+                </button>`;
+            }
+
+            container.innerHTML = html;
+        }
+
+        function filterByCategory(cat) {
+            categoryFilter = cat;
+            renderCategoryButtons();
+            applyFilters();
+        }
+
+        function applyFilters() {
+            const yearFilter = document.getElementById('year-filter').value;
+            const dateFrom = document.getElementById('date-from').value;
+            const dateTo = document.getElementById('date-to').value;
+            const vendor = document.getElementById('vendor-filter').value;
+            const status = document.getElementById('status-filter').value;
+            const search = document.getElementById('search').value.toLowerCase();
+
+            filteredInvoices = invoices.filter(inv => {
+                if (yearFilter && !inv.date?.startsWith(yearFilter)) return false;
+                if (dateFrom && inv.date < dateFrom) return false;
+                if (dateTo && inv.date > dateTo) return false;
+                if (vendor && inv.vendor !== vendor) return false;
+                if (categoryFilter) {
+                    const hasCategory = inv.category_breakdown && Object.keys(inv.category_breakdown).includes(categoryFilter);
+                    if (!hasCategory) return false;
+                }
+                if (status === 'pending' && inv.reviewed) return false;
+                if (status === 'reviewed' && !inv.reviewed) return false;
+                if (search) {
+                    const searchable = [inv.order_id || inv.invoice_number, inv.vendor, ...(inv.items || []).map(i => i.description)].join(' ').toLowerCase();
+                    if (!searchable.includes(search)) return false;
+                }
+                return true;
+            });
+
+            renderDashboard();
+        }
+
+        function clearFilters() {
+            document.getElementById('year-filter').value = '';
+            document.getElementById('date-from').value = '';
+            document.getElementById('date-to').value = '';
+            document.getElementById('vendor-filter').value = '';
+            document.getElementById('status-filter').value = '';
+            document.getElementById('search').value = '';
+            categoryFilter = null;
+            filteredInvoices = [...invoices];
+            renderCategoryButtons();
+            renderDashboard();
+        }
+
+        function sortBy(field) {
+            if (sortField === field) sortDir *= -1;
+            else { sortField = field; sortDir = -1; }
+            renderDashboard();
+        }
+
+        function renderDashboard() {
+            const data = filteredInvoices;
+            
+            // Stats
+            const totalSpent = data.reduce((sum, inv) => sum + (inv.total || 0), 0);
+            const totalVat = data.reduce((sum, inv) => sum + (inv.vat_amount || 0), 0);
+            const pendingCount = data.filter(inv => !inv.reviewed).length;
+
+            document.getElementById('total-spent').textContent = formatCurrency(totalSpent);
+            document.getElementById('total-vat').textContent = formatCurrency(totalVat);
+            document.getElementById('invoice-count').textContent = data.length;
+            document.getElementById('pending-count').textContent = pendingCount;
+            document.getElementById('filtered-count').textContent = 
+                data.length !== invoices.length ? `${data.length} de ${invoices.length}` : '';
+
+            // Charts
+            renderCharts(data);
+            
+            // Sort data
+            const sorted = [...data].sort((a, b) => {
+                let av = a[sortField], bv = b[sortField];
+                if (sortField === 'date') return (av || '').localeCompare(bv || '') * sortDir;
+                return ((av || 0) - (bv || 0)) * sortDir;
+            });
+
+            // Mobile cards
+            renderMobileCards(sorted);
+            
+            // Desktop table
+            renderDesktopTable(sorted);
+        }
+
+        function renderCharts(data) {
+            const chartOptions = {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.1)' }, ticks: { color: '#9ca3af', font: { size: 10 } } },
+                    x: { grid: { display: false }, ticks: { color: '#9ca3af', font: { size: 10 } } }
+                }
+            };
+
+            // 0. Yearly spending bar chart
+            const yearly = {};
+            data.forEach(inv => {
+                const year = inv.date?.substring(0, 4) || 'Unknown';
+                yearly[year] = (yearly[year] || 0) + (inv.total || 0);
+            });
+            const sortedYears = Object.keys(yearly).sort();
+
+            if (yearlyChart) yearlyChart.destroy();
+            const ctxYear = document.getElementById('yearly-chart')?.getContext('2d');
+            if (ctxYear) {
+                yearlyChart = new Chart(ctxYear, {
+                    type: 'bar',
+                    data: {
+                        labels: sortedYears,
+                        datasets: [{ 
+                            data: sortedYears.map(y => yearly[y]), 
+                            backgroundColor: sortedYears.map((_, i) => 
+                                ['#f97316', '#8b5cf6', '#22c55e', '#3b82f6', '#ec4899', '#eab308'][i % 6]
+                            ),
+                            borderRadius: 4 
+                        }]
+                    },
+                    options: {
+                        ...chartOptions,
+                        scales: {
+                            ...chartOptions.scales,
+                            y: {
+                                ...chartOptions.scales.y,
+                                ticks: {
+                                    ...chartOptions.scales.y.ticks,
+                                    callback: v => '€' + (v >= 1000 ? (v/1000).toFixed(0) + 'k' : v)
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            // 1. Monthly spending bar chart
+            const monthly = {};
+            data.forEach(inv => {
+                const month = inv.date?.substring(0, 7) || 'Unknown';
+                monthly[month] = (monthly[month] || 0) + (inv.total || 0);
+            });
+            const sortedMonths = Object.keys(monthly).sort();
+
+            if (spendingChart) spendingChart.destroy();
+            const ctx = document.getElementById('spending-chart')?.getContext('2d');
+            if (ctx) {
+                spendingChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: sortedMonths.map(m => {
+                            const [y, mo] = m.split('-');
+                            return new Date(y, mo - 1).toLocaleDateString('es-ES', { month: 'short', year: '2-digit' });
+                        }),
+                        datasets: [{ data: sortedMonths.map(m => monthly[m]), backgroundColor: 'rgba(52, 211, 153, 0.8)', borderRadius: 4 }]
+                    },
+                    options: chartOptions
+                });
+            }
+
+            // 2. Category doughnut chart (item-level breakdown)
+            const categoryTotals = {};
+            data.forEach(inv => {
+                if (inv.category_breakdown && Object.keys(inv.category_breakdown).length > 0) {
+                    // Use item-level breakdown
+                    for (const [cat, amount] of Object.entries(inv.category_breakdown)) {
+                        categoryTotals[cat] = (categoryTotals[cat] || 0) + (amount || 0);
+                    }
+                } else {
+                    // Fallback to invoice-level category
+                    const cat = inv.category || 'otros';
+                    categoryTotals[cat] = (categoryTotals[cat] || 0) + (inv.total || 0);
+                }
+            });
+
+            if (categoryChart) categoryChart.destroy();
+            const ctx2 = document.getElementById('category-chart')?.getContext('2d');
+            if (ctx2) {
+                // Category keys already include emoji (e.g. "🍕 Alimentación"), use directly
+                const labels = Object.keys(categoryTotals);
+                const categoryColors = {
+                    'Alimentación': '#f97316', 'Ropa/Calzado': '#6366f1', 'Hogar': '#22c55e',
+                    'Bebés': '#ec4899', 'Plantas': '#84cc16', 'Otros': '#6b7280',
+                    'Cocina': '#f59e0b', 'Tecnología': '#8b5cf6', 'Bebidas': '#ef4444',
+                    'Juegos': '#eab308', 'Mascotas': '#d97706', 'Deportes': '#14b8a6',
+                    'Bricolaje': '#78716c', 'Belleza': '#f472b6', 'Salud': '#a3e635',
+                    'Oficina': '#3b82f6', 'Limpieza': '#06b6d4', 'Libros': '#a78bfa',
+                    'Muebles': '#fb923c', 'Accesorios': '#c084fc', 'Regalos': '#f43f5e',
+                    'Decoración': '#fbbf24', 'Electrónica': '#0ea5e9', 'Camping': '#65a30d',
+                    'Audiovisual': '#7c3aed', 'Peluquería': '#db2777', 'Fotografía': '#2dd4bf'
+                };
+                const colors = labels.map(k => {
+                    const catName = k.replace(/^.+\s/, ''); // Remove emoji prefix
+                    return categoryColors[catName] || '#6b7280';
+                });
+                
+                categoryChart = new Chart(ctx2, {
+                    type: 'doughnut',
+                    data: { labels, datasets: [{ data: Object.values(categoryTotals), backgroundColor: colors }] },
+                    options: { responsive: true, plugins: { legend: { position: 'right', labels: { color: '#9ca3af', boxWidth: 10, font: { size: 9 } } } } }
+                });
+            }
+
+            // 3. Top vendors horizontal bar
+            const vendorTotals = {};
+            data.forEach(inv => {
+                const vendor = (inv.vendor || 'Desconocido').substring(0, 20);
+                vendorTotals[vendor] = (vendorTotals[vendor] || 0) + (inv.total || 0);
+            });
+            const topVendors = Object.entries(vendorTotals).sort((a, b) => b[1] - a[1]).slice(0, 5);
+
+            if (vendorChart) vendorChart.destroy();
+            const ctx3 = document.getElementById('vendor-chart')?.getContext('2d');
+            if (ctx3 && topVendors.length > 0) {
+                vendorChart = new Chart(ctx3, {
+                    type: 'bar',
+                    data: {
+                        labels: topVendors.map(v => v[0]),
+                        datasets: [{ 
+                            data: topVendors.map(v => v[1]), 
+                            backgroundColor: ['#8b5cf6', '#a78bfa', '#c4b5fd', '#ddd6fe', '#ede9fe'], 
+                            borderRadius: 4 
+                        }]
+                    },
+                    options: {
+                        indexAxis: 'y',
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            x: { 
+                                beginAtZero: true, 
+                                grid: { color: 'rgba(255,255,255,0.1)' }, 
+                                ticks: { 
+                                    color: '#9ca3af', 
+                                    font: { size: 10 },
+                                    callback: v => '€' + (v >= 1000 ? (v/1000).toFixed(0) + 'k' : v)
+                                } 
+                            },
+                            y: { 
+                                grid: { display: false }, 
+                                ticks: { color: '#9ca3af', font: { size: 9 } } 
+                            }
+                        }
+                    }
+                });
+            }
+
+            // 4. Cumulative spending trend line
+            const sortedData = [...data].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+            let cumulative = 0;
+            const trendData = sortedData.map(inv => {
+                cumulative += inv.total || 0;
+                return { x: inv.date, y: cumulative };
+            });
+
+            if (trendChart) trendChart.destroy();
+            const ctx4 = document.getElementById('trend-chart')?.getContext('2d');
+            if (ctx4) {
+                trendChart = new Chart(ctx4, {
+                    type: 'line',
+                    data: {
+                        labels: trendData.map(d => formatDate(d.x)),
+                        datasets: [{
+                            data: trendData.map(d => d.y),
+                            borderColor: '#f59e0b',
+                            backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                            fill: true,
+                            tension: 0.3,
+                            pointRadius: 3
+                        }]
+                    },
+                    options: chartOptions
+                });
+            }
+
+            // 5. Price distribution histogram
+            const ranges = [
+                { min: 0, max: 20, label: '0-20€' },
+                { min: 20, max: 50, label: '20-50€' },
+                { min: 50, max: 100, label: '50-100€' },
+                { min: 100, max: 200, label: '100-200€' },
+                { min: 200, max: Infinity, label: '200€+' }
+            ];
+            const priceDist = ranges.map(r => ({
+                label: r.label,
+                count: data.filter(inv => (inv.total || 0) >= r.min && (inv.total || 0) < r.max).length
+            }));
+
+            if (priceChart) priceChart.destroy();
+            const ctx5 = document.getElementById('price-chart')?.getContext('2d');
+            if (ctx5) {
+                priceChart = new Chart(ctx5, {
+                    type: 'bar',
+                    data: {
+                        labels: priceDist.map(d => d.label),
+                        datasets: [{ data: priceDist.map(d => d.count), backgroundColor: ['#22c55e', '#84cc16', '#eab308', '#f97316', '#ef4444'], borderRadius: 4 }]
+                    },
+                    options: chartOptions
+                });
+            }
+
+            // 6. Stats summary
+            const totals = data.map(inv => inv.total || 0);
+            const vats = data.map(inv => inv.vat_amount || 0);
+            
+            document.getElementById('avg-order').textContent = formatCurrency(totals.reduce((a, b) => a + b, 0) / totals.length || 0);
+            document.getElementById('max-order').textContent = formatCurrency(Math.max(...totals, 0));
+            document.getElementById('min-order').textContent = formatCurrency(Math.min(...totals.filter(t => t > 0), 0) || 0);
+            document.getElementById('avg-vat').textContent = formatCurrency(vats.reduce((a, b) => a + b, 0) / vats.length || 0);
+            
+            const topVendorEntry = topVendors[0];
+            document.getElementById('top-vendor').textContent = topVendorEntry ? topVendorEntry[0] : '-';
+            
+            const topMonthEntry = Object.entries(monthly).sort((a, b) => b[1] - a[1])[0];
+            if (topMonthEntry) {
+                const [y, mo] = topMonthEntry[0].split('-');
+                document.getElementById('top-month').textContent = new Date(y, mo - 1).toLocaleDateString('es-ES', { month: 'short', year: '2-digit' });
+            }
+
+            // 7. ESTACIONALIDAD - Spending by month (Jan-Dec across all years)
+            const monthlySeasonality = Array(12).fill(0);
+            data.forEach(inv => {
+                const d = new Date(inv.date);
+                if (!isNaN(d)) monthlySeasonality[d.getMonth()] += (inv.total || 0);
+            });
+            if (seasonalityChart) seasonalityChart.destroy();
+            const ctxSeason = document.getElementById('seasonality-chart')?.getContext('2d');
+            if (ctxSeason) {
+                const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+                seasonalityChart = new Chart(ctxSeason, {
+                    type: 'bar',
+                    data: {
+                        labels: monthNames,
+                        datasets: [{ data: monthlySeasonality, backgroundColor: monthlySeasonality.map((v, i) => `hsl(${200 + i * 10}, 70%, ${40 + v / Math.max(...monthlySeasonality) * 30}%)`), borderRadius: 4 }]
+                    },
+                    options: { ...chartOptions, scales: { ...chartOptions.scales, y: { ...chartOptions.scales.y, ticks: { ...chartOptions.scales.y.ticks, callback: v => '€' + (v >= 1000 ? (v/1000).toFixed(0) + 'k' : v) } } } }
+                });
+            }
+
+            // 8. PATRONES - Day of week
+            const dayNames = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+            const dayTotals = Array(7).fill(0);
+            const dayCounts = Array(7).fill(0);
+            data.forEach(inv => {
+                const d = new Date(inv.date);
+                if (!isNaN(d)) { dayTotals[d.getDay()] += (inv.total || 0); dayCounts[d.getDay()]++; }
+            });
+            if (dayofweekChart) dayofweekChart.destroy();
+            const ctxDay = document.getElementById('dayofweek-chart')?.getContext('2d');
+            if (ctxDay) {
+                dayofweekChart = new Chart(ctxDay, {
+                    type: 'bar',
+                    data: {
+                        labels: dayNames,
+                        datasets: [
+                            { label: 'Total €', data: dayTotals, backgroundColor: '#3b82f6', borderRadius: 4, yAxisID: 'y' },
+                            { label: 'Pedidos', data: dayCounts, backgroundColor: '#22c55e', borderRadius: 4, yAxisID: 'y1' }
+                        ]
+                    },
+                    options: { ...chartOptions, plugins: { legend: { display: true, labels: { color: '#9ca3af', font: { size: 9 } } } }, scales: { y: { ...chartOptions.scales.y, position: 'left', ticks: { callback: v => '€' + (v >= 1000 ? (v/1000).toFixed(0) + 'k' : v), color: '#3b82f6', font: { size: 9 } } }, y1: { position: 'right', grid: { display: false }, ticks: { color: '#22c55e', font: { size: 9 } } }, x: chartOptions.scales.x } }
+                });
+            }
+
+            // 9. CATEGORÍA EVOLUTION - Top 5 categories over time
+            const catByMonth = {};
+            const topCats = Object.entries(data.reduce((acc, inv) => {
+                Object.entries(inv.category_breakdown || {}).forEach(([cat, amt]) => { acc[cat] = (acc[cat] || 0) + amt; });
+                return acc;
+            }, {})).sort((a, b) => b[1] - a[1]).slice(0, 5).map(e => e[0]);
+            data.forEach(inv => {
+                const month = inv.date?.substring(0, 7);
+                if (!month) return;
+                if (!catByMonth[month]) catByMonth[month] = {};
+                Object.entries(inv.category_breakdown || {}).forEach(([cat, amt]) => {
+                    if (topCats.includes(cat)) catByMonth[month][cat] = (catByMonth[month][cat] || 0) + amt;
+                });
+            });
+            const catMonths = Object.keys(catByMonth).sort().slice(-12);
+            if (categoryEvolutionChart) categoryEvolutionChart.destroy();
+            const ctxCatEvo = document.getElementById('category-evolution-chart')?.getContext('2d');
+            if (ctxCatEvo) {
+                const catColors = ['#f97316', '#8b5cf6', '#22c55e', '#ec4899', '#eab308'];
+                categoryEvolutionChart = new Chart(ctxCatEvo, {
+                    type: 'line',
+                    data: {
+                        labels: catMonths.map(m => { const [y, mo] = m.split('-'); return new Date(y, mo - 1).toLocaleDateString('es-ES', { month: 'short' }); }),
+                        datasets: topCats.map((cat, i) => ({ label: cat.split(' ')[0], data: catMonths.map(m => catByMonth[m]?.[cat] || 0), borderColor: catColors[i], backgroundColor: catColors[i] + '33', fill: true, tension: 0.3 }))
+                    },
+                    options: { ...chartOptions, plugins: { legend: { display: true, labels: { color: '#9ca3af', font: { size: 8 } } } } }
+                });
+            }
+
+            // 10. FRECUENCIA - Orders per month histogram
+            const ordersPerMonth = {};
+            data.forEach(inv => { const m = inv.date?.substring(0, 7); if (m) ordersPerMonth[m] = (ordersPerMonth[m] || 0) + 1; });
+            const freqMonths = Object.keys(ordersPerMonth).sort().slice(-18);
+            if (frequencyChart) frequencyChart.destroy();
+            const ctxFreq = document.getElementById('frequency-chart')?.getContext('2d');
+            if (ctxFreq) {
+                frequencyChart = new Chart(ctxFreq, {
+                    type: 'bar',
+                    data: {
+                        labels: freqMonths.map(m => { const [y, mo] = m.split('-'); return new Date(y, mo - 1).toLocaleDateString('es-ES', { month: 'short', year: '2-digit' }); }),
+                        datasets: [{ data: freqMonths.map(m => ordersPerMonth[m]), backgroundColor: '#8b5cf6', borderRadius: 4 }]
+                    },
+                    options: chartOptions
+                });
+            }
+
+            // 11. TENDENCIA TICKET MEDIO - Average order value trend
+            const avgByMonth = {};
+            const countByMonth = {};
+            data.forEach(inv => {
+                const m = inv.date?.substring(0, 7);
+                if (m) { avgByMonth[m] = (avgByMonth[m] || 0) + (inv.total || 0); countByMonth[m] = (countByMonth[m] || 0) + 1; }
+            });
+            const trendMonths = Object.keys(avgByMonth).sort().slice(-18);
+            if (ticketTrendChart) ticketTrendChart.destroy();
+            const ctxTicket = document.getElementById('ticket-trend-chart')?.getContext('2d');
+            if (ctxTicket) {
+                ticketTrendChart = new Chart(ctxTicket, {
+                    type: 'line',
+                    data: {
+                        labels: trendMonths.map(m => { const [y, mo] = m.split('-'); return new Date(y, mo - 1).toLocaleDateString('es-ES', { month: 'short', year: '2-digit' }); }),
+                        datasets: [{ data: trendMonths.map(m => avgByMonth[m] / countByMonth[m]), borderColor: '#22c55e', backgroundColor: '#22c55e33', fill: true, tension: 0.3 }]
+                    },
+                    options: { ...chartOptions, scales: { ...chartOptions.scales, y: { ...chartOptions.scales.y, ticks: { ...chartOptions.scales.y.ticks, callback: v => '€' + v.toFixed(0) } } } }
+                });
+            }
+
+            // 12. TOP PRODUCTOS - Most purchased items
+            const productCounts = {};
+            data.forEach(inv => {
+                (inv.items || []).forEach(item => {
+                    const name = (item.name || '').substring(0, 40);
+                    if (name) productCounts[name] = (productCounts[name] || 0) + (item.quantity || 1);
+                });
+            });
+            const topProducts = Object.entries(productCounts).sort((a, b) => b[1] - a[1]).slice(0, 10);
+            const topProductsDiv = document.getElementById('top-products');
+            if (topProductsDiv) {
+                topProductsDiv.innerHTML = topProducts.map(([name, count], i) => 
+                    `<div class="flex justify-between items-center py-1 border-b border-gray-700/50">
+                        <span class="truncate text-gray-300 flex-1 mr-2">${i + 1}. ${name}</span>
+                        <span class="text-emerald-400 font-medium">${count}x</span>
+                    </div>`
+                ).join('');
+            }
+        }
+
+        function getComputedColor(bgClass) {
+            const colors = {
+                'bg-blue-600': '#2563eb', 'bg-green-600': '#16a34a', 'bg-orange-600': '#ea580c',
+                'bg-purple-600': '#9333ea', 'bg-pink-600': '#db2777', 'bg-amber-600': '#d97706', 'bg-gray-600': '#4b5563'
+            };
+            return colors[bgClass] || '#6b7280';
+        }
+
+        function renderMobileCards(data) {
+            const container = document.getElementById('invoice-cards');
+            container.innerHTML = data.map((inv, idx) => {
+                const cat = CATEGORIES[inv.category] || null;
+                const _pdfFile = window.pdfMap && (window.pdfMap[inv.order_id] || window.pdfMap[inv.invoice_number]);
+                const pdfUrl = _pdfFile ? `/amazon-invoices/pdf/${encodeURIComponent(_pdfFile)}` : null;
+                
+                // Build category breakdown tags  
+                let categoryTags = '';
+                const tagColors = {
+                    'Alimentación': 'bg-orange-600', 'Ropa/Calzado': 'bg-indigo-600', 'Hogar': 'bg-green-600',
+                    'Bebés': 'bg-pink-600', 'Plantas': 'bg-lime-600', 'Otros': 'bg-gray-600',
+                    'Cocina': 'bg-amber-600', 'Tecnología': 'bg-purple-600', 'Bebidas': 'bg-red-600',
+                    'Juegos': 'bg-yellow-600', 'Mascotas': 'bg-orange-700', 'Deportes': 'bg-teal-600',
+                    'Bricolaje': 'bg-stone-600', 'Belleza': 'bg-pink-500', 'Salud': 'bg-lime-500',
+                    'Oficina': 'bg-blue-600', 'Limpieza': 'bg-cyan-600', 'Libros': 'bg-violet-500'
+                };
+                if (inv.category_breakdown && Object.keys(inv.category_breakdown).length > 0) {
+                    const sorted = Object.entries(inv.category_breakdown).sort((a, b) => b[1] - a[1]);
+                    categoryTags = sorted.map(([catKey, amount]) => {
+                        const catName = catKey.replace(/^.+\s/, ''); // Remove emoji prefix
+                        const bgColor = tagColors[catName] || 'bg-gray-600';
+                        const emoji = catKey.split(' ')[0] || '📦';
+                        return `<span class="text-xs px-1.5 py-0.5 rounded ${bgColor} text-white">${emoji} €${Math.round(amount)}</span>`;
+                    }).join('');
+                } else if (cat) {
+                    categoryTags = `<span class="text-xs px-2 py-0.5 rounded ${cat.color} text-white">${cat.label}</span>`;
+                }
+                
+                // Build full items list for expansion
+                let itemsList = '';
+                let itemCount = 0;
+                if (inv.items && inv.items.length > 0) {
+                    const validItems = inv.items.filter(i => i.total_gross > 0 || i.total > 0);
+                    itemCount = validItems.length;
+                    if (validItems.length > 0) {
+                        itemsList = validItems.map(item => {
+                            const itemCat = CATEGORIES[item.category];
+                            const emoji = itemCat ? itemCat.label.split(' ')[0] : '📦';
+                            const color = itemCat ? itemCat.textColor : 'text-gray-400';
+                            const amount = item.total_gross || item.total || 0;
+                            const vatInfo = item.vat_rate ? ` (${item.vat_rate}% IVA)` : '';
+                            return `<div class="flex justify-between items-start py-1.5 border-b border-gray-700 last:border-0">
+                                <div class="flex-1 min-w-0 pr-2">
+                                    <span class="${color} text-xs">${emoji}</span>
+                                    <span class="text-xs text-gray-300 ml-1">${item.name || item.description || 'Sin descripción'}</span>
+                                    <span class="text-xs text-gray-500">${vatInfo}</span>
+                                </div>
+                                <span class="text-sm font-medium ${color} flex-shrink-0">€${amount.toFixed(2)}</span>
+                            </div>`;
+                        }).join('');
+                    }
+                }
+                if (!itemsList) {
+                    itemsList = '<div class="text-xs text-gray-500 py-2">No se han podido extraer items de este PDF</div>';
+                }
+                
+                const cardId = `card-${idx}`;
+                const detailsId = `details-${idx}`;
+                
+                return `
+                <div class="invoice-card border-b border-gray-700" id="${cardId}">
+                    <div class="p-3 cursor-pointer" onclick="toggleInvoiceDetails('${detailsId}', '${cardId}')">
+                        <div class="flex items-start justify-between gap-2 mb-2">
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center gap-1.5 mb-1 flex-wrap">
+                                    <span class="status-dot ${inv.reviewed ? 'bg-green-500' : 'bg-yellow-500'}"></span>
+                                    <span class="text-xs text-gray-400">${formatDate(inv.date)}</span>
+                                    <span class="text-xs text-gray-500">${itemCount} items</span>
+                                </div>
+                                <div class="text-sm font-medium text-white truncate">${inv.vendor || 'Vendedor desconocido'}</div>
+                            </div>
+                            <div class="text-right flex-shrink-0">
+                                <div class="text-lg font-bold text-emerald-400">${formatCurrency(inv.total)}</div>
+                                ${inv.vat_amount ? `<div class="text-xs text-gray-500">IVA: €${inv.vat_amount.toFixed(2)}</div>` : ''}
+                            </div>
+                        </div>
+                        <div class="flex flex-wrap gap-1 mb-1">${categoryTags}</div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs text-gray-500">Toca para ver detalles ▼</span>
+                            <div class="flex gap-2">
+                                ${pdfUrl ? `<button onclick="event.stopPropagation(); openPdfPanel('${pdfUrl}', '${inv.order_id || inv.invoice_number}', '${(inv.vendor || '').replace(/'/g, "\\'")}', '${formatDate(inv.date)}')" class="text-xs text-blue-400 hover:text-blue-300">📄 PDF</button>` : ''}
+                                <button onclick="event.stopPropagation(); openCategoryModal('${inv.order_id || inv.invoice_number}')" class="text-xs text-purple-400 hover:text-purple-300">🏷️ Categoría</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="${detailsId}" class="hidden bg-gray-800 px-3 pb-3 border-t border-gray-700">
+                        <div class="text-xs text-gray-400 font-medium py-2 border-b border-gray-600 mb-1">Items extraídos:</div>
+                        ${itemsList}
+                    </div>
+                </div>`;
+            }).join('');
+        }
+        
+        function toggleInvoiceDetails(detailsId, cardId) {
+            const details = document.getElementById(detailsId);
+            const card = document.getElementById(cardId);
+            if (details.classList.contains('hidden')) {
+                details.classList.remove('hidden');
+                card.classList.add('bg-gray-800');
+            } else {
+                details.classList.add('hidden');
+                card.classList.remove('bg-gray-800');
+            }
+        }
+
+        function renderDesktopTable(data) {
+            const tbody = document.getElementById('invoice-table');
+            const tagColors = {
+                'Alimentación': 'bg-orange-600', 'Ropa/Calzado': 'bg-indigo-600', 'Hogar': 'bg-green-600',
+                'Bebés': 'bg-pink-600', 'Plantas': 'bg-lime-600', 'Otros': 'bg-gray-600',
+                'Cocina': 'bg-amber-600', 'Tecnología': 'bg-purple-600', 'Bebidas': 'bg-red-600',
+                'Juegos': 'bg-yellow-600', 'Mascotas': 'bg-orange-700', 'Deportes': 'bg-teal-600'
+            };
+            tbody.innerHTML = data.map(inv => {
+                // Build category tags from category_breakdown
+                let categoryHtml = '<span class="text-xs text-gray-500">Sin categoría</span>';
+                if (inv.category_breakdown && Object.keys(inv.category_breakdown).length > 0) {
+                    const sorted = Object.entries(inv.category_breakdown).sort((a, b) => b[1] - a[1]);
+                    categoryHtml = sorted.slice(0, 2).map(([catKey, amount]) => {
+                        const catName = catKey.replace(/^.+\s/, '');
+                        const bgColor = tagColors[catName] || 'bg-gray-600';
+                        const emoji = catKey.split(' ')[0] || '📦';
+                        return `<span class="text-xs px-1.5 py-0.5 rounded ${bgColor} text-white mr-1">${emoji}</span>`;
+                    }).join('');
+                }
+                const itemDesc = (inv.items || []).map(i => `${i.quantity || 1}x ${(i.name || i.description || '').substring(0, 30)}...`).join(', ') || 'Sin descripción';
+                const orderId = inv.order_id || inv.invoice_number;
+                const _pdfFilename = window.pdfMap && window.pdfMap[orderId];
+                const pdfUrl = _pdfFilename ? `/amazon-invoices/pdf/${encodeURIComponent(_pdfFilename)}` : null;
+                
+                // Build items list for expansion
+                const itemsHtml = (inv.items || []).map(item => {
+                    const emoji = item.category_emoji || '📦';
+                    return `<div class="flex justify-between items-center py-1 border-b border-gray-700/50">
+                        <span class="text-xs"><span class="mr-1">${emoji}</span> ${(item.name || 'Sin descripción').substring(0, 60)}${(item.name || '').length > 60 ? '...' : ''}</span>
+                        <span class="text-emerald-400 text-xs font-medium ml-2">€${(item.total || 0).toFixed(2)}</span>
+                    </div>`;
+                }).join('');
+                
+                return `
+                <tr class="hover:bg-gray-750 transition-colors cursor-pointer" onclick="toggleDesktopRow('${orderId}')">
+                    <td class="px-4 py-3">
+                        <span class="status-dot inline-block ${inv.reviewed ? 'bg-green-500' : 'bg-yellow-500'}" title="${inv.reviewed ? 'Revisado' : 'Pendiente'}"></span>
+                    </td>
+                    <td class="px-4 py-3 text-gray-300">${formatDate(inv.date)}</td>
+                    <td class="px-4 py-3">
+                        ${categoryHtml}
+                    </td>
+                    <td class="px-4 py-3 text-gray-300 max-w-[150px] truncate">${inv.vendor || '-'}</td>
+                    <td class="px-4 py-3 text-gray-400 text-xs max-w-[200px] truncate" title="${itemDesc}">${itemDesc}</td>
+                    <td class="px-4 py-3 text-right font-medium text-emerald-400">${formatCurrency(inv.total)}</td>
+                    <td class="px-4 py-3 text-center">
+                        ${pdfUrl ? `<button onclick="event.stopPropagation(); openPdfPanel('${pdfUrl}', '${orderId}', '${(inv.vendor || '').replace(/'/g, "\\'")}', '${formatDate(inv.date)}')" class="px-2 py-1 bg-blue-600 hover:bg-blue-500 rounded text-xs">📄</button>` : '<span class="text-gray-600">-</span>'}
+                    </td>
+                </tr>
+                <tr id="detail-${orderId}" class="hidden bg-gray-900">
+                    <td colspan="7" class="px-4 py-3">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <div class="text-xs text-gray-400 mb-2 font-semibold">Items (${inv.items?.length || 0})</div>
+                                <div class="max-h-[200px] overflow-y-auto">${itemsHtml || '<span class="text-gray-500 text-xs">No items</span>'}</div>
+                            </div>
+                            <div class="space-y-2">
+                                <div class="text-xs"><span class="text-gray-400">Pedido:</span> <span class="text-white font-mono">${orderId}</span></div>
+                                <div class="text-xs"><span class="text-gray-400">Subtotal:</span> €${(inv.subtotal || 0).toFixed(2)}</div>
+                                <div class="text-xs"><span class="text-gray-400">IVA:</span> €${(inv.tax || 0).toFixed(2)}</div>
+                                <div class="text-xs"><span class="text-gray-400">Total:</span> <span class="text-emerald-400 font-bold">€${(inv.total || 0).toFixed(2)}</span></div>
+                                <div class="flex gap-2 mt-3">
+                                    ${pdfUrl ? `<button onclick="event.stopPropagation(); openPdfPanel('${pdfUrl}', '${orderId}', '${(inv.vendor || '').replace(/'/g, "\\'")}', '${formatDate(inv.date)}')" class="px-3 py-1 bg-blue-600 hover:bg-blue-500 rounded text-xs">📄 Ver PDF</button>` : ''}
+                                    <button onclick="event.stopPropagation(); openCategoryModal('${orderId}')" class="px-3 py-1 bg-purple-600 hover:bg-purple-500 rounded text-xs">🏷️ Categoría</button>
+                                </div>
+                            </div>
+                        </div>
+                    </td>
+                </tr>`;
+            }).join('');
+        }
+
+        // Toggle desktop row expansion
+        function toggleDesktopRow(orderId) {
+            const detailRow = document.getElementById(`detail-${orderId}`);
+            if (detailRow) {
+                detailRow.classList.toggle('hidden');
+            }
+        }
+
+        // Category Modal
+        function openCategoryModal(invoiceNum) {
+            selectedInvoiceId = invoiceNum;
+            const inv = invoices.find(i => (i.order_id || i.invoice_number) === invoiceNum);
+            if (!inv) return;
+
+            document.getElementById('category-modal-invoice').textContent = `${inv.vendor} - ${formatCurrency(inv.total)}`;
+            document.getElementById('review-btn').textContent = inv.reviewed ? '⏳ Marcar pendiente' : '✅ Marcar revisado';
+            
+            const options = document.getElementById('category-options');
+            options.innerHTML = Object.entries(CATEGORIES).map(([key, cat]) => `
+                <button onclick="assignCategory('${key}')" class="px-3 py-2 rounded text-sm font-medium transition-colors ${inv.category === key ? cat.color + ' text-white' : 'bg-gray-700 hover:bg-gray-600'}">
+                    ${cat.label}
+                </button>
+            `).join('');
+
+            document.getElementById('category-modal').classList.remove('hidden');
+            document.getElementById('category-modal').classList.add('flex');
+        }
+
+        function closeCategoryModal() {
+            document.getElementById('category-modal').classList.add('hidden');
+            document.getElementById('category-modal').classList.remove('flex');
+            selectedInvoiceId = null;
+        }
+
+        async function assignCategory(category) {
+            if (!selectedInvoiceId) return;
+            
+            const inv = invoices.find(i => (i.order_id || i.invoice_number) === selectedInvoiceId);
+            if (inv) {
+                inv.category = category;
+                await saveInvoices();
+                renderCategoryButtons();
+                renderDashboard();
+            }
+            closeCategoryModal();
+        }
+
+        async function toggleReviewStatus() {
+            if (!selectedInvoiceId) return;
+            
+            const inv = invoices.find(i => (i.order_id || i.invoice_number) === selectedInvoiceId);
+            if (inv) {
+                inv.reviewed = !inv.reviewed;
+                await saveInvoices();
+                renderDashboard();
+            }
+            closeCategoryModal();
+        }
+
+        async function saveInvoices() {
+            try {
+                await fetch('/amazon-invoices/api/invoices/save', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(invoices)
+                });
+            } catch (e) {
+                console.error('Failed to save:', e);
+            }
+        }
+
+        // PDF Viewer
+        let currentPdfDoc = null;
+        
+        async function openPdfPanel(url, invoiceNum, vendor, date) {
+            const panel = document.getElementById('pdf-panel');
+            const overlay = document.getElementById('pdf-overlay');
+            const title = document.getElementById('pdf-title');
+            const subtitle = document.getElementById('pdf-subtitle');
+            const download = document.getElementById('pdf-download');
+            const openBtn = document.getElementById('pdf-open');
+            const pdfPages = document.getElementById('pdf-pages');
+            const pdfLoading = document.getElementById('pdf-loading');
+            
+            title.textContent = invoiceNum;
+            subtitle.textContent = `${vendor} · ${date}`;
+            download.href = url;
+            download.download = `${invoiceNum}.pdf`;
+            openBtn.href = url;
+            
+            panel.classList.remove('translate-x-full');
+            overlay.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+            
+            pdfPages.innerHTML = '';
+            pdfLoading.classList.remove('hidden');
+            
+            try {
+                const loadingTask = pdfjsLib.getDocument(url);
+                currentPdfDoc = await loadingTask.promise;
+                pdfLoading.classList.add('hidden');
+                
+                const containerWidth = pdfPages.parentElement.clientWidth - 32;
+                
+                for (let pageNum = 1; pageNum <= currentPdfDoc.numPages; pageNum++) {
+                    const page = await currentPdfDoc.getPage(pageNum);
+                    const viewport = page.getViewport({ scale: 1 });
+                    const scale = Math.min(containerWidth / viewport.width, 2);
+                    const scaledViewport = page.getViewport({ scale });
+                    
+                    const canvas = document.createElement('canvas');
+                    canvas.className = 'shadow-lg rounded';
+                    canvas.width = scaledViewport.width;
+                    canvas.height = scaledViewport.height;
+                    
+                    await page.render({ canvasContext: canvas.getContext('2d'), viewport: scaledViewport }).promise;
+                    pdfPages.appendChild(canvas);
+                }
+            } catch (error) {
+                console.error('Error loading PDF:', error);
+                pdfLoading.innerHTML = `<div class="text-center text-gray-400"><p class="mb-2">No se pudo cargar</p><a href="${url}" target="_blank" class="text-blue-400 underline">Abrir en nueva pestaña</a></div>`;
+            }
+        }
+        
+        function closePdfPanel() {
+            document.getElementById('pdf-panel').classList.add('translate-x-full');
+            document.getElementById('pdf-overlay').classList.add('hidden');
+            document.getElementById('pdf-pages').innerHTML = '';
+            document.getElementById('pdf-loading').classList.remove('hidden');
+            document.getElementById('pdf-loading').innerHTML = '<div class="text-gray-400">Cargando PDF...</div>';
+            currentPdfDoc = null;
+            document.body.style.overflow = '';
+        }
+
+        // Upload Modal
+        function showUploadModal() {
+            document.getElementById('upload-modal').classList.remove('hidden');
+            document.getElementById('upload-modal').classList.add('flex');
+        }
+
+        function hideUploadModal() {
+            document.getElementById('upload-modal').classList.add('hidden');
+            document.getElementById('upload-modal').classList.remove('flex');
+        }
+
+        async function uploadInvoices() {
+            const json = document.getElementById('invoice-json').value.trim();
+            const status = document.getElementById('upload-status');
+            
+            try {
+                const data = JSON.parse(json);
+                const response = await fetch('/amazon-invoices/api/invoices', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                const result = await response.json();
+                status.innerHTML = `<span class="text-emerald-400">✓ Añadidas ${result.added} facturas</span>`;
+                setTimeout(() => { hideUploadModal(); loadData(); }, 1000);
+            } catch (e) {
+                status.innerHTML = `<span class="text-red-400">Error: ${e.message}</span>`;
+            }
+        }
+
+        function exportCSV() {
+            const headers = ['Fecha', 'Factura', 'Categoría', 'Vendedor', 'Total', 'IVA', 'Estado'];
+            const rows = filteredInvoices.map(inv => [
+                inv.date, inv.order_id || inv.invoice_number, CATEGORIES[inv.category]?.label || 'Sin categoría',
+                inv.vendor, inv.total, inv.vat_amount, inv.reviewed ? 'Revisado' : 'Pendiente'
+            ]);
+            const csv = [headers, ...rows].map(r => r.map(c => `"${(c || '').toString().replace(/"/g, '""')}"`).join(',')).join('\n');
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `facturas-amazon-${new Date().toISOString().split('T')[0]}.csv`;
+            a.click();
+        }
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closePdfPanel();
+                closeCategoryModal();
+            }
+        });
+
+        loadData();
+    </script>
+</body>
+</html>

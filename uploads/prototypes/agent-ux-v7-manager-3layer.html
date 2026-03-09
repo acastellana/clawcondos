@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Agent Visualizer · 3-Layer Manager Model</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0b1018;
+      --panel: #121927;
+      --line: #25314a;
+      --text: #edf3ff;
+      --muted: #9eb0d4;
+      --ok: #47d49b;
+      --warn: #f3c05f;
+      --risk: #ff7a7a;
+      --active: #63b3ff;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: radial-gradient(1200px circle at 100% -20%, rgba(99,179,255,.18), transparent 55%), var(--bg);
+      color: var(--text);
+      font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+      padding: 18px;
+    }
+    .app { max-width: 1240px; margin: 0 auto; display: grid; gap: 12px; }
+    .top {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--panel);
+      padding: 14px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+    }
+    h1 { margin: 0; font-size: 24px; }
+    .sub { color: var(--muted); font-size: 13px; }
+
+    .layer {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--panel);
+      overflow: hidden;
+    }
+    .layer-head {
+      padding: 10px 14px;
+      background: #0f1521;
+      border-bottom: 1px solid #1e2940;
+      display:flex; justify-content:space-between; align-items:center;
+    }
+    .layer-title { font-weight: 700; }
+    .layer-note { color: var(--muted); font-size: 12px; }
+
+    /* Layer 1 */
+    .kpis { display: grid; grid-template-columns: repeat(6, minmax(0,1fr)); gap: 10px; padding: 12px; }
+    .k {
+      border: 1px solid #202c45;
+      border-radius: 10px;
+      background: #101724;
+      padding: 10px;
+    }
+    .k .l { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .08em; }
+    .k b { font-size: 22px; }
+
+    /* Layer 2 */
+    .board { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; padding: 12px; }
+    .col { border: 1px solid #202c45; border-radius: 10px; background: #101724; padding: 10px; }
+    .col h3 { margin: 0 0 8px; font-size: 14px; }
+    .task {
+      border: 1px solid #273654;
+      border-radius: 8px;
+      background: #0d1420;
+      padding: 9px;
+      margin-bottom: 8px;
+      font-size: 13px;
+    }
+    .meta { color: var(--muted); font-size: 11px; margin-top: 5px; display:flex; justify-content:space-between; gap:8px; }
+
+    /* Layer 3 */
+    .ops { display: grid; grid-template-columns: 1.2fr .8fr; gap: 10px; padding: 12px; }
+    .list { border:1px solid #202c45; border-radius:10px; overflow:hidden; }
+    .row {
+      display:grid;
+      grid-template-columns: 1.05fr .7fr .9fr 1fr 1fr;
+      gap:8px;
+      padding:10px 12px;
+      border-top:1px solid #1d2740;
+      font-size:13px;
+      align-items:center;
+    }
+    .row:first-child { border-top: 0; }
+    .head { background:#0d1420; color: var(--muted); font-size:11px; letter-spacing:.08em; text-transform:uppercase; font-weight:700; }
+    .status { font-weight:700; font-size:11px; letter-spacing:.08em; }
+    .active { color: var(--active); }
+    .warn { color: var(--warn); }
+    .ok { color: var(--ok); }
+    .risk { color: var(--risk); }
+    .mono { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 12px; color:#b9caea; }
+
+    .detail { border:1px solid #202c45; border-radius:10px; background:#101724; padding:10px; display:grid; gap:8px; }
+    .card { border:1px solid #2a3a5d; border-radius:8px; background:#0d1420; padding:8px; }
+    .label { color: var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:.08em; }
+    .md { margin-top:5px; border:1px dashed #314367; border-radius:8px; padding:8px; font-size:13px; line-height:1.4; }
+    .md code { background:#141d2d; border-radius:5px; padding:2px 5px; font-family: "IBM Plex Mono", monospace; }
+    .md ul { margin: 6px 0 0 18px; padding: 0; }
+
+    @media (max-width: 1050px) {
+      .kpis { grid-template-columns: repeat(3,1fr); }
+      .board { grid-template-columns: 1fr; }
+      .ops { grid-template-columns: 1fr; }
+      .row { grid-template-columns: 1fr; gap:4px; }
+      .head { display:none; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <section class="top">
+      <h1>Agent Visualizer · Manager 3-Layer Model</h1>
+      <div class="sub">Decision-first: goals → coordination → operations</div>
+    </section>
+
+    <section class="layer">
+      <div class="layer-head">
+        <div class="layer-title">Layer 1 · Executive Health</div>
+        <div class="layer-note">Answer: Are we on track, and where intervention is needed</div>
+      </div>
+      <div class="kpis">
+        <div class="k"><div class="l">Goals on track</div><b>4 / 5</b></div>
+        <div class="k"><div class="l">Blocked goals</div><b class="risk">1</b></div>
+        <div class="k"><div class="l">24h throughput</div><b>+18%</b></div>
+        <div class="k"><div class="l">SLA misses</div><b class="warn">2</b></div>
+        <div class="k"><div class="l">Critical alerts</div><b class="ok">0</b></div>
+        <div class="k"><div class="l">Intervention now</div><b class="warn">AMM runner</b></div>
+      </div>
+    </section>
+
+    <section class="layer">
+      <div class="layer-head">
+        <div class="layer-title">Layer 2 · Coordination Board (Condo → Task)</div>
+        <div class="layer-note">Answer: Who owns what, dependency/risk, ETA confidence</div>
+      </div>
+      <div class="board">
+        <div class="col">
+          <h3>OpenClaw Ecosystem Condo</h3>
+          <div class="task">
+            Ingest and classify new ecosystem entries
+            <div class="meta"><span>Owner: Librarian</span><span>ETA: high confidence</span></div>
+          </div>
+          <div class="task">
+            Monitor releases + discussions with quality filters
+            <div class="meta"><span>Owner: Monitor</span><span>Risk: low</span></div>
+          </div>
+        </div>
+        <div class="col">
+          <h3>AMM Challenge Condo</h3>
+          <div class="task">
+            Run Wave A/B/C and publish experiment index
+            <div class="meta"><span>Owner: Runner</span><span>Risk: medium</span></div>
+          </div>
+          <div class="task">
+            Benchmark delta vs SUBMISSION baseline
+            <div class="meta"><span>Owner: Benchmark</span><span>Blocked: recently</span></div>
+          </div>
+        </div>
+        <div class="col">
+          <h3>Ops/Security Condo</h3>
+          <div class="task">
+            Exposure and tool-health checks
+            <div class="meta"><span>Owner: Sentinel</span><span>Risk: low</span></div>
+          </div>
+          <div class="task">
+            telebiz-mcp probe stability
+            <div class="meta"><span>Owner: Error Sweep</span><span>Risk: medium</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="layer">
+      <div class="layer-head">
+        <div class="layer-title">Layer 3 · Operator Live Detail</div>
+        <div class="layer-note">Answer: Exactly what each agent/session is doing right now</div>
+      </div>
+      <div class="ops">
+        <div class="list">
+          <div class="row head"><div>Agent</div><div>Status</div><div>Session</div><div>Condo / Thread</div><div>Current task</div></div>
+          <div class="row"><div>Librarian</div><div class="status active">PROCESSING</div><div class="mono">706c8957…</div><div class="mono">Ecosystem · 352</div><div>Ingest + dedupe entries</div></div>
+          <div class="row"><div>Monitor</div><div class="status active">PROCESSING</div><div class="mono">14bf0ff4…</div><div class="mono">Ecosystem · 1467</div><div>Track repo/reddit deltas</div></div>
+          <div class="row"><div>AMM Runner</div><div class="status warn">RECOVERING</div><div class="mono">842cc7c7…</div><div class="mono">AMM · local</div><div>Wave loop restarted</div></div>
+          <div class="row"><div>Security Sentinel</div><div class="status ok">HEALTHY</div><div class="mono">105af903…</div><div class="mono">Ops · 36</div><div>Port exposure clear</div></div>
+        </div>
+
+        <aside class="detail">
+          <div class="card"><div class="label">Selected</div><b>AMM Runner</b><div class="mono">session 842cc7c7…</div></div>
+          <div class="card"><div class="label">Condo / task</div><div>AMM Challenge · Run wave cycle and republish index</div></div>
+          <div class="card">
+            <div class="label">Last parsed update (markdown)</div>
+            <div class="md">
+              <strong>AMM keepalive check completed</strong>
+              <ul>
+                <li>No matching runner process detected initially</li>
+                <li>Started <code>run_many_waves.sh</code> in background</li>
+                <li>Loop now active: runner + experiment + benchmark</li>
+                <li>Tracker updated with keepalive action</li>
+              </ul>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

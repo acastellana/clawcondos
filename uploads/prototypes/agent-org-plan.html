@@ -1,0 +1,695 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Agent Operating Model Proposal</title>
+  <style>
+    :root {
+      --bg: #0b1020;
+      --panel: #131a2e;
+      --panel-2: #1a2340;
+      --text: #e9eefc;
+      --muted: #9fb0d6;
+      --accent: #57d0ff;
+      --ok: #5ee4a4;
+      --warn: #ffcf70;
+      --line: #2b365f;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+      background: radial-gradient(1200px 700px at 20% -10%, #1a2340 0%, var(--bg) 60%);
+      color: var(--text);
+    }
+    .wrap {
+      max-width: 1200px;
+      margin: 24px auto;
+      padding: 0 16px;
+      display: grid;
+      grid-template-columns: 1.1fr 1fr;
+      gap: 16px;
+    }
+    .card {
+      background: linear-gradient(180deg, var(--panel), var(--panel-2));
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 16px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.25);
+    }
+    h1 { margin: 0 0 8px; font-size: 24px; }
+    h2 { margin: 0 0 10px; font-size: 16px; color: var(--accent); }
+    p { margin: 8px 0; color: var(--muted); }
+
+    .org {
+      margin-top: 10px;
+      display: grid;
+      gap: 12px;
+    }
+    .node {
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.02);
+      border-radius: 12px;
+      padding: 10px 12px;
+      cursor: pointer;
+      transition: .15s ease;
+    }
+    .node:hover { border-color: var(--accent); transform: translateY(-1px); }
+    .node.active { border-color: var(--ok); box-shadow: 0 0 0 1px rgba(94,228,164,.3) inset; }
+    .node .title { font-weight: 700; }
+    .node .meta { color: var(--muted); font-size: 12px; margin-top: 2px; }
+
+    .children {
+      margin-left: 18px;
+      border-left: 2px dashed var(--line);
+      padding-left: 12px;
+      display: grid;
+      gap: 10px;
+    }
+
+    ul { margin: 8px 0 0 20px; color: var(--text); }
+    li { margin: 6px 0; }
+    .pill {
+      display:inline-block;
+      border:1px solid var(--line);
+      color: var(--muted);
+      font-size: 12px;
+      border-radius: 999px;
+      padding: 2px 8px;
+      margin-right: 6px;
+    }
+    .phase { margin-top: 10px; }
+    .phase strong { color: var(--warn); }
+    .tiny { font-size: 12px; color: var(--muted); }
+    .section-title { margin-top: 14px; font-size: 14px; color: var(--accent); }
+    .job { margin: 6px 0; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: rgba(255,255,255,.02); }
+    .job code { color: #c7d6ff; }
+    .checklist { margin-top: 8px; display: grid; gap: 8px; }
+    .checkitem {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 8px 10px;
+      background: rgba(255,255,255,.02);
+    }
+    .checkitem input { margin-top: 3px; }
+    .checkitem .label { font-size: 13px; color: var(--text); }
+    .checkitem .meta { font-size: 12px; color: var(--muted); }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { border: 1px solid var(--line); padding: 8px; font-size: 13px; text-align: left; vertical-align: top; }
+    th { color: var(--accent); background: rgba(255,255,255,.03); }
+    .flag-ok { color: var(--ok); font-weight: 700; }
+    .flag-warn { color: var(--warn); font-weight: 700; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="card">
+      <h1>Agent Operating Model (Proposal)</h1>
+      <p>Click any node to see responsibilities + task stack. Goal: Bob orchestrates, specialist agents execute in isolated context.</p>
+
+      <div class="org" id="orgTree">
+        <div class="node active" data-id="bob">
+          <div class="title">Bob (Main Orchestrator)</div>
+          <div class="meta">Single human-facing controller • Approval gates • Cross-agent arbitration</div>
+        </div>
+
+        <div class="children">
+          <div class="node" data-id="caffeine">
+            <div class="title">Caffeine Agent</div>
+            <div class="meta">Moltbook campaign execution + posting lanes</div>
+          </div>
+          <div class="node" data-id="librarian">
+            <div class="title">Librarian Agent</div>
+            <div class="meta">Ecosystem ingest, normalization, dedupe, curation</div>
+          </div>
+          <div class="node" data-id="genlayer-scout">
+            <div class="title">GenLayer Scout Agent</div>
+            <div class="meta">Narrative research + draft queue for Bob approval</div>
+          </div>
+          <div class="node" data-id="shill-scout">
+            <div class="title">Shill Scout Agent</div>
+            <div class="meta">Distribution venue mapping + posting rules intelligence</div>
+          </div>
+          <div class="node" data-id="ops-security">
+            <div class="title">Ops/Security Agent</div>
+            <div class="meta">Gateway checks, risk alerts, tooling and cron hygiene</div>
+          </div>
+          <div class="node" data-id="qa-verifier">
+            <div class="title">QA / Verifier Agent</div>
+            <div class="meta">Preflight + post-publish validation and release gates</div>
+          </div>
+          <div class="node" data-id="memory-steward">
+            <div class="title">Memory Steward Agent</div>
+            <div class="meta">Memory hygiene, dedupe, durable context integrity</div>
+          </div>
+          <div class="node" data-id="experiment-analyst">
+            <div class="title">Experiment Analyst Agent</div>
+            <div class="meta">A/B analysis, performance attribution, strategy recommendations</div>
+          </div>
+          <div class="node" data-id="fixer-debugger">
+            <div class="title">Fixer / Debugger Agent</div>
+            <div class="meta">Code fixes, DevOps issues, service recovery, root cause analysis</div>
+          </div>
+          <div class="node" data-id="codex-coder">
+            <div class="title">Codex Coding Agent</div>
+            <div class="meta">Architecture, code review, implementation planning — OpenAI Codex lane</div>
+          </div>
+          <div class="node" data-id="claude-coder">
+            <div class="title">Claude Coding Agent</div>
+            <div class="meta">Feature implementation, execution, testing — Sonnet lane</div>
+          </div>
+          <div class="node" data-id="gatsby">
+            <div class="title">Gatsby Agent</div>
+            <div class="meta">Prediction market intelligence — observe, theorize, paper-trade, evolve</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="phase tiny">
+        <p><strong>Phase A ✅ complete:</strong> SOUL.md + workspace + memory tree per agent. All 13 agents registered in gateway.</p>
+        <p><strong>Phase B ✅ LIVE (2026-02-23):</strong> All 20 specialist cron jobs routed to correct <code>agentId</code>. Persistent sessions via workspace-file continuity. <code>message</code> tool enabled per agent.</p>
+        <p><strong>Phase C (next):</strong> Output contracts (typed JSON), QA/Verifier as preflight gate, Experiment Analyst daily report, Memory Steward weekly sweep.</p>
+      </div>
+    </section>
+
+    <section class="card" id="detailCard">
+      <h2 id="detailTitle">Bob (Main Orchestrator)</h2>
+      <div id="detailBody"></div>
+    </section>
+  </div>
+
+  <div class="wrap" style="margin-top: 0;">
+    <section class="card" style="grid-column: 1 / -1;">
+      <h2>Model Policy Table</h2>
+      <p>Primary/fallback model policy + rough token budgeting to spot overkill before migration.</p>
+      <table>
+        <thead>
+          <tr>
+            <th>Agent</th>
+            <th>Primary Model</th>
+            <th>Fallback</th>
+            <th>Run Frequency (est.)</th>
+            <th>Avg Tokens/Run (est.)</th>
+            <th>Daily Tokens (est.)</th>
+            <th>Overkill Risk</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Bob (Orchestrator)</td>
+            <td>opus 4.6</td>
+            <td>sonnet → codex → gemini</td>
+            <td>On demand (human-triggered)</td>
+            <td>4k-12k</td>
+            <td>30k-120k</td>
+            <td><span class="flag-ok">Low</span> (high-value reasoning)</td>
+          </tr>
+          <tr>
+            <td>Caffeine</td>
+            <td>opus 4.6</td>
+            <td>sonnet → codex → gemini</td>
+            <td>24 posting runs/day</td>
+            <td>3k-8k</td>
+            <td>72k-192k</td>
+            <td><span class="flag-warn">Medium</span> (watch if prompts are bloated)</td>
+          </tr>
+          <tr>
+            <td>Librarian</td>
+            <td>gemini-flash (2.5-flash)</td>
+            <td>sonnet → codex</td>
+            <td>Hourly ingest + 3h harvest + 6h monitor + daily digest + weekly sweep</td>
+            <td>1k-3k</td>
+            <td>25k-80k</td>
+            <td><span class="flag-ok">Low</span></td>
+          </tr>
+          <tr>
+            <td>GenLayer Scout</td>
+            <td>sonnet</td>
+            <td>codex → gemini</td>
+            <td>Every 4h</td>
+            <td>2k-6k</td>
+            <td>12k-36k</td>
+            <td><span class="flag-ok">Low</span></td>
+          </tr>
+          <tr>
+            <td>Shill Scout</td>
+            <td>gemini (2.5-pro)</td>
+            <td>sonnet → codex</td>
+            <td>Every 6h</td>
+            <td>1.5k-4k</td>
+            <td>6k-16k</td>
+            <td><span class="flag-ok">Low</span></td>
+          </tr>
+          <tr>
+            <td>Ops/Security</td>
+            <td>gpt (5.x)</td>
+            <td>sonnet → gemini</td>
+            <td>Mixed monitors (hourly/daily)</td>
+            <td>1k-3k</td>
+            <td>20k-70k</td>
+            <td><span class="flag-ok">Low</span></td>
+          </tr>
+          <tr>
+            <td>QA / Verifier</td>
+            <td>gpt (5.x)</td>
+            <td>sonnet → gemini</td>
+            <td>Per outbound item (est. 24-40/day)</td>
+            <td>800-2k</td>
+            <td>19k-80k</td>
+            <td><span class="flag-warn">Medium</span> (can optimize with rule-first checks)</td>
+          </tr>
+          <tr>
+            <td>Memory Steward</td>
+            <td>gpt (5.x) daily · sonnet weekly</td>
+            <td>gemini</td>
+            <td>Daily + weekly</td>
+            <td>2k-8k</td>
+            <td>3k-20k</td>
+            <td><span class="flag-ok">Low</span></td>
+          </tr>
+          <tr>
+            <td>Fixer / Debugger</td>
+            <td>opus 4.6</td>
+            <td>sonnet → codex → gemini</td>
+            <td>On-demand + weekly postmortem</td>
+            <td>5k-20k (complex traces)</td>
+            <td>5k-60k (incident-driven)</td>
+            <td><span class="flag-ok">Low</span> (high-value, low-frequency)</td>
+          </tr>
+          <tr>
+            <td>Codex Coding Agent</td>
+            <td>openai-codex (gpt-5.3-codex)</td>
+            <td>sonnet → gemini</td>
+            <td>On-demand (architecture/review tasks)</td>
+            <td>3k-10k</td>
+            <td>0-80k (project-driven)</td>
+            <td><span class="flag-ok">Low</span></td>
+          </tr>
+          <tr>
+            <td>Claude Coding Agent</td>
+            <td>sonnet (claude-sonnet-4-6)</td>
+            <td>codex → gemini</td>
+            <td>On-demand (implementation tasks)</td>
+            <td>5k-20k</td>
+            <td>0-150k (project-driven)</td>
+            <td><span class="flag-warn">Medium</span> (scales with project activity)</td>
+          </tr>
+          <tr>
+            <td>Gatsby (Prediction Markets)</td>
+            <td>opus 4.6</td>
+            <td>sonnet → gemini</td>
+            <td>Dormant (paper-trade phase)</td>
+            <td>2k-10k</td>
+            <td>0-30k (when active)</td>
+            <td><span class="flag-ok">Low</span> (currently dormant)</td>
+          </tr>
+          <tr>
+            <td>Experiment Analyst</td>
+            <td>sonnet</td>
+            <td>gemini (2.5-pro)</td>
+            <td>Daily + weekly deep-dive</td>
+            <td>4k-15k</td>
+            <td>8k-35k</td>
+            <td><span class="flag-ok">Low</span> (high ROI insight work)</td>
+          </tr>
+        </tbody>
+      </table>
+      <p class="tiny" style="margin-top:10px;">Portfolio estimate: <strong>~195k to ~649k tokens/day</strong> depending on traffic, retries, and prompt size. Biggest cost lever is Caffeine + QA; use shorter prompts + deterministic validators first, escalate to LLM only when needed.</p>
+      <p class="tiny">Model policy: orchestration + content + fixes → <strong>Opus 4.6</strong>; coding implementation → <strong>Sonnet</strong>; architecture/review → <strong>Codex</strong>; discovery/ingest → <strong>Gemini 2.5 Pro</strong>; verification/triage → <strong>GPT-5.x</strong>. Fallback chain: <strong>Sonnet → Codex → Gemini. Never Opus as fallback.</strong></p>
+    </section>
+  </div>
+
+  <script>
+    const details = {
+      bob: {
+        title: 'Bob (Main Orchestrator)',
+        model: 'opus 4.6 (anthropic/claude-opus-4-6) primary · fallback: sonnet (claude-sonnet-4-6)',
+        badges: ['Owner interface', 'Final gate', 'Cross-agent coordinator'],
+        tasks: [
+          'Own all user-facing replies and high-stakes decisions',
+          'Route work to specialist agents and enforce boundaries',
+          'Apply quality gates (facts, scope, routing, safety)',
+          'Resolve conflicts between agent outputs',
+          'Control escalation and approvals for external/public actions'
+        ],
+        files: [
+          '/home/albert/clawd/SOUL.md',
+          '/home/albert/clawd/AGENTS.md',
+          '/home/albert/clawd/MEMORY.md'
+        ],
+        jobs: [
+          'Bob directly owns user-facing orchestration (not a single cron)',
+          'Examples: manual synthesis + routing across Caffeine/Librarian/Scouts'
+        ]
+      },
+      caffeine: {
+        title: 'Caffeine Agent',
+        model: 'opus 4.6 (anthropic/claude-opus-4-6) primary · fallback: sonnet (claude-sonnet-4-6)',
+        badges: ['Campaign execution', 'Research-first posting', 'Thread-locked outputs'],
+        tasks: [
+          'Run topic lanes (argue.fun, GenLayer, InternetCourt, Rally)',
+          'Research from official sources before each post',
+          'Enforce pre-post and post-publish body integrity checks',
+          'Handle cooldown/rate-limit queueing and retries',
+          'Report post links only to Telegram topic 352'
+        ],
+        files: [
+          '/home/albert/clawd-caffeine/SOUL.md',
+          '/home/albert/clawd-caffeine/STRATEGY.md',
+          '/home/albert/clawd-caffeine/memory/*'
+        ],
+        jobs: [
+          'caffeine-campaign-arguefun-6x-day — agentId: caffeine ✅',
+          'caffeine-campaign-genlayer-6x-day — agentId: caffeine ✅',
+          'caffeine-campaign-internetcourt-6x-day — agentId: caffeine ✅',
+          'caffeine-campaign-rally-6x-day — agentId: caffeine ✅',
+          'caffeine-alignment-check (4h) — agentId: caffeine ✅',
+          'caffeine-daily-1screen-report — agentId: caffeine ✅'
+        ]
+      },
+      librarian: {
+        title: 'Librarian Agent',
+        model: 'gemini-flash (google-gemini-cli/gemini-2.5-flash) — lightweight ingest/curation',
+        badges: ['Ingest', 'Deduplicate', 'Normalize metadata', 'Ecosystem monitoring'],
+        tasks: [
+          'Consume inbox candidates (max 10/run) and validate URLs',
+          'POST candidates to ecosystem API — handle 201/409 gracefully',
+          'Enrich name/category/description/status per item',
+          'Write decisions log for each candidate',
+          'Curate existing items hourly (fill missing fields, fix categories)',
+          'Monitor GitHub/Reddit for new ecosystem items (6h)',
+          'Harvest Moltbook artifacts (3h) + sync awesome-moltbook (daily)',
+          'Score and enqueue trending links for ingest',
+          'Notify Bob only on meaningful batch deltas (3+ new items)'
+        ],
+        files: [
+          '/home/albert/clawd/agents/openclaw-librarian/SOUL.md',
+          '/home/albert/clawd/agents/openclaw-librarian/memory/inbox.jsonl',
+          '/home/albert/clawd/agents/openclaw-librarian/memory/decisions.jsonl',
+          '/home/albert/clawd/agents/openclaw-librarian/memory/state.json'
+        ],
+        jobs: [
+          'openclaw-librarian (hourly ingest) — agentId: librarian ✅',
+          'openclaw-librarian (weekly review suspicious) — agentId: librarian ✅',
+          'openclaw-ecosystem-curation (hourly batch) — agentId: librarian ✅',
+          'openclaw-ecosystem-monitor (6h) — agentId: librarian ✅',
+          'moltbook-trend-scorer (hourly) — agentId: librarian ✅',
+          'moltbook-artifact-harvester-auto (3h) — agentId: librarian ✅',
+          'moltbook-awesome-sync (daily) — agentId: librarian ✅',
+          'moltbook-ecosystem-digest (daily) — agentId: librarian ✅'
+        ]
+      },
+      'genlayer-scout': {
+        title: 'GenLayer Scout Agent',
+        model: 'sonnet (claude-sonnet-4-6) primary · fallback: openai-codex/gpt-5.3-codex',
+        badges: ['Narrative research', 'Draft generation', 'No direct posting'],
+        tasks: [
+          'Track trust/verification/enforcement threads',
+          'Generate 3-5 high-signal drafts per scan',
+          'Store drafts in queue for Bob review',
+          'Escalate only P0 opportunities',
+          'Never post publicly without Bob approval'
+        ],
+        files: [
+          '/home/albert/clawd/agents/genlayer-scout/SOUL.md (to add)',
+          '/home/albert/clawd/agents/genlayer-scout/memory/post-queue.json'
+        ],
+        jobs: [
+          'genlayer-scout-draft-scan — agentId: genlayer-scout ✅'
+        ]
+      },
+      'shill-scout': {
+        title: 'Shill Scout Agent',
+        model: 'gemini (google-gemini-cli/gemini-2.5-pro) — best Gemini quality for discovery synthesis',
+        badges: ['Venue discovery', 'Distribution rules', 'No autopost'],
+        tasks: [
+          'Discover high-leverage venues for distribution',
+          'Capture posting rules, fit, and method (API/browser/manual)',
+          'Rank opportunities by expected reach/effort',
+          'Update places registry and candidate list',
+          'Alert Bob only on meaningful new venue discoveries'
+        ],
+        files: [
+          '/home/albert/clawd/agents/shill-scout/SOUL.md (to add)',
+          '/home/albert/clawd/agents/shill-scout/memory/places.jsonl'
+        ],
+        jobs: [
+          'shill-scout-scan — agentId: shill-scout ✅'
+        ]
+      },
+      'ops-security': {
+        title: 'Ops/Security Agent',
+        model: 'gpt (openai/gpt-5.x) primary · fallback: sonnet (claude-sonnet-4-6)',
+        badges: ['Monitoring', 'Hardening', 'Low-noise alerts'],
+        tasks: [
+          'Monitor gateway exposure, locks, and daemon health',
+          'Run scheduled security scans and tool audits',
+          'Keep cron hygiene clean (no duplicate or noisy jobs)',
+          'Escalate only critical/high-confidence issues',
+          'Propose remediations to Bob before destructive changes'
+        ],
+        files: [
+          '/home/albert/clawd/scripts/skill-security-scan.sh',
+          '/home/albert/clawd/memory/security-log.md',
+          '/home/albert/clawd/memory/*.md'
+        ],
+        jobs: [
+          '→ Security jobs moved to Fixer/Debugger agent (2026-02-23)',
+          'self-improvement-error-sweep — agentId: main',
+          'self-improvement-tool-audit — agentId: main',
+          'self-improvement-agent-sync — agentId: main',
+          'self-improvement-promotion-review — agentId: main',
+          'self-improvement-weekly-synthesis — agentId: main',
+          'agent-weekly-reflection — agentId: main'
+        ]
+      },
+      'qa-verifier': {
+        title: 'QA / Verifier Agent',
+        model: 'gpt (openai/gpt-5.x) primary · fallback: sonnet (claude-sonnet-4-6)',
+        badges: ['Release gate', 'Preflight checks', 'Post-publish verification'],
+        tasks: [
+          'Run preflight validation on every publishable artifact',
+          'Verify body integrity, links, structure, and routing constraints',
+          'Reject or bounce malformed outputs back to source agent',
+          'Run post-publish readback checks (content present, url alive)',
+          'Emit pass/fail report for Bob gate decision'
+        ],
+        files: [
+          '/home/albert/clawd/agents/qa-verifier/SOUL.md (to add)',
+          '/home/albert/clawd/agents/qa-verifier/OBJECTIVES.md (to add)',
+          '/home/albert/clawd/agents/qa-verifier/memory/*.jsonl (to add)'
+        ],
+        jobs: [
+          'NEW: qa-verifier-prepublish-gate (per lane trigger)',
+          'NEW: qa-verifier-postpublish-audit (hourly)'
+        ]
+      },
+      'memory-steward': {
+        title: 'Memory Steward Agent',
+        model: 'gpt (openai/gpt-5.x) daily · sonnet (claude-sonnet-4-6) weekly synthesis',
+        badges: ['Memory hygiene', 'Dedupe', 'Durable context integrity'],
+        tasks: [
+          'Split tactical daily logs vs durable memory truths',
+          'Dedupe repeated entries and collapse noisy status spam',
+          'Archive stale tactical context and keep active context lean',
+          'Enforce shared memory schema across all agent lanes',
+          'Produce weekly memory integrity report to Bob'
+        ],
+        files: [
+          '/home/albert/clawd/agents/memory-steward/SOUL.md (to add)',
+          '/home/albert/clawd/agents/memory-steward/STRATEGY.md (to add)',
+          '/home/albert/clawd/memory/*.md'
+        ],
+        jobs: [
+          'NEW: memory-steward-daily-hygiene',
+          'NEW: memory-steward-weekly-durable-sync'
+        ]
+      },
+      'fixer-debugger': {
+        title: 'Fixer / Debugger Agent',
+        model: 'opus 4.6 (anthropic/claude-opus-4-6) primary · fallback: sonnet → codex → gemini',
+        badges: ['Code fixes', 'DevOps recovery', 'Root cause analysis', 'No speculative changes'],
+        tasks: [
+          'Diagnose code or infra failures with concrete evidence before proposing fixes',
+          'Apply targeted surgical fixes — no refactors unless scoped',
+          'Handle service recovery: restart, re-route, patch config',
+          'Run root cause analysis and document in memory',
+          'Escalate destructive changes (hard resets, history rewrites) to Bob for approval',
+          'Verify fix is live and confirmed before reporting done'
+        ],
+        files: [
+          '/home/albert/clawd/agents/fixer-debugger/SOUL.md (to add)',
+          '/home/albert/clawd/agents/fixer-debugger/OBJECTIVES.md (to add)',
+          '/home/albert/clawd/agents/fixer-debugger/memory/incident-log.md (to add)'
+        ],
+        jobs: [
+          'security-monitor-daily — agentId: fixer-debugger ✅',
+          'Security Check: Gateway Exposure (hourly) — agentId: fixer-debugger ✅',
+          'skill-security-nightly-scan — agentId: fixer-debugger ✅',
+          'Claude quota/token exhaustion monitor (10m) — agentId: fixer-debugger ✅',
+          'On-demand: triggered by Bob or ops alerts'
+        ]
+      },
+      'codex-coder': {
+        title: 'Codex Coding Agent',
+        model: 'openai-codex/gpt-5.3-codex primary · fallback: sonnet (claude-sonnet-4-6)',
+        badges: ['Architecture', 'Code review', 'Implementation planning', 'No direct deployment'],
+        tasks: [
+          'Own architecture decisions and tech spec drafting',
+          'Review implementation code from Claude Coder before merge',
+          'Generate implementation plans broken into atomic tasks',
+          'Identify design smells, edge cases, and structural risks',
+          'Output structured plan JSON/Markdown for Claude Coder to execute'
+        ],
+        files: [
+          '/home/albert/clawd/agents/codex-coder/SOUL.md (to add)',
+          '/home/albert/clawd/agents/codex-coder/OBJECTIVES.md (to add)',
+          '/home/albert/clawd/agents/codex-coder/memory/review-log.md (to add)'
+        ],
+        jobs: [
+          'On-demand: triggered by Bob for architecture/review tasks',
+          'NEW: codex-coder-review-gate (pre-merge check)'
+        ]
+      },
+      'gatsby': {
+        title: 'Gatsby Agent',
+        model: 'anthropic/claude-opus-4-6 primary · fallback: sonnet → gemini',
+        badges: ['Prediction markets', 'Paper-trade first', 'Self-evolving', 'No real money without Bob approval'],
+        tasks: [
+          'Observe and scan prediction markets (Polymarket, Kalshi) continuously',
+          'Theorize hypotheses and document in hypotheses/ dir',
+          'Paper-trade minimum 2 weeks before proposing real capital',
+          'Post-mortem every trade within 24h — tag EXPECTED/LUCKY/SURPRISED/UNLUCKY',
+          'Kill underperforming strategies weekly; self-evolve DNA.md monthly',
+          'Escalate to Bob before any real capital deployment',
+          'Hard kill switch: drawdown > 20% → halt, alert Bob, analysis-only mode'
+        ],
+        files: [
+          '/home/albert/clawd/agents/gatsby/SOUL.md',
+          '/home/albert/clawd/agents/gatsby/DNA.md',
+          '/home/albert/clawd/agents/gatsby/CONFIG.yaml',
+          '/home/albert/clawd/agents/gatsby/hypotheses/',
+          '/home/albert/clawd/agents/gatsby/memory/'
+        ],
+        jobs: [
+          'arguefun-daily-report (daily 11:30) — agentId: gatsby ✅',
+          'Next: gatsby-market-observe (hourly paper-trade scanner)'
+        ]
+      },
+      'claude-coder': {
+        title: 'Claude Coding Agent',
+        model: 'sonnet (claude-sonnet-4-6) primary · fallback: openai-codex/gpt-5.3-codex → gemini',
+        badges: ['Implementation', 'Test execution', 'Coding delivery'],
+        tasks: [
+          'Execute implementation plans produced by Codex Coder or Bob',
+          'Write production-quality code with tests and docs',
+          'Run build + lint + test suite; confirm green before reporting done',
+          'Never claim completion without verification evidence',
+          'Escalate blockers to Bob; never go off-plan autonomously'
+        ],
+        files: [
+          '/home/albert/clawd/agents/claude-coder/SOUL.md (to add)',
+          '/home/albert/clawd/agents/claude-coder/OBJECTIVES.md (to add)',
+          '/home/albert/clawd/agents/claude-coder/memory/build-log.md (to add)'
+        ],
+        jobs: [
+          'On-demand: triggered by Bob or Codex Coder plan delivery',
+          'NEW: claude-coder-build-verify-gate (post-implementation)'
+        ]
+      },
+      'experiment-analyst': {
+        title: 'Experiment Analyst Agent',
+        model: 'sonnet (claude-sonnet-4-6) primary · fallback: gemini (gemini-2.5-pro)',
+        badges: ['A/B analysis', 'Attribution', 'Strategy optimization'],
+        tasks: [
+          'Analyze performance by lane/topic/format/timing',
+          'Run confidence-scored A/B summaries',
+          'Generate next-day optimization recommendations',
+          'Track impact attribution by agent and campaign lane',
+          'Feed strategy deltas back to Bob + Caffeine STRATEGY.md'
+        ],
+        files: [
+          '/home/albert/clawd/agents/experiment-analyst/SOUL.md (to add)',
+          '/home/albert/clawd/agents/experiment-analyst/OBJECTIVES.md (to add)',
+          '/home/albert/clawd-caffeine/memory/tracking/*'
+        ],
+        jobs: [
+          'NEW: experiment-analyst-daily-report',
+          'NEW: experiment-analyst-weekly-deep-dive'
+        ]
+      }
+    };
+
+    const migrationChecklist = [
+      { done: true, label: 'Define target org chart (Bob + specialist agents)', meta: 'Completed in this page' },
+      { done: true, label: 'Map current cron jobs to target agents', meta: 'Added per-agent in detail panel' },
+      { done: true, label: 'Create SOUL.md for Librarian', meta: '/home/albert/clawd/agents/openclaw-librarian/SOUL.md' },
+      { done: true, label: 'Create SOUL.md for GenLayer Scout', meta: '/home/albert/clawd/agents/genlayer-scout/SOUL.md' },
+      { done: true, label: 'Create SOUL.md for Shill Scout', meta: '/home/albert/clawd/agents/shill-scout/SOUL.md' },
+      { done: true, label: 'Create SOUL.md for Fixer/Debugger', meta: '/home/albert/clawd/agents/fixer-debugger/SOUL.md ✅' },
+      { done: true, label: 'Create SOUL.md for QA/Verifier', meta: '/home/albert/clawd/agents/qa-verifier/SOUL.md ✅' },
+      { done: true, label: 'Create SOUL.md for Memory Steward', meta: '/home/albert/clawd/agents/memory-steward/SOUL.md ✅' },
+      { done: true, label: 'Create SOUL.md for Experiment Analyst', meta: '/home/albert/clawd/agents/experiment-analyst/SOUL.md ✅' },
+      { done: true, label: 'Create SOUL.md for Codex Coder + Claude Coder', meta: '/home/albert/clawd/agents/{codex-coder,claude-coder}/SOUL.md ✅' },
+      { done: true, label: 'Fix delivery failures (cron announce)', meta: 'delivery.mode → none on 11 jobs; agents post directly via message tool' },
+      { done: true, label: 'Caffeine campaign lanes → opus 4.6', meta: 'All 4 lanes updated from gemini-2.5-pro' },
+      { done: true, label: 'Migrate 4 systemEvent/main jobs → isolated agentTurn', meta: 'genlayer-scout, security-monitor, clawdbot-research, caffeine-daily-report' },
+      { done: true, label: 'Clean caffeine memory (33 old files archived)', meta: '/home/albert/clawd-caffeine/memory/_archive/' },
+      { done: true, label: 'Delete 4 dead jobs', meta: 'moltbook-highlights, ecosystem-monitor-old, molt-crawl, conversation-review' },
+      { done: true, label: 'Document Gatsby agent in org chart', meta: 'Prediction market agent — dormant, paper-trade phase' },
+      { done: true, label: 'Create OBJECTIVES.md + STRATEGY.md for all 11 agent lanes', meta: 'librarian, scouts, qa, steward, analyst, fixer, coders, gatsby ✅' },
+      { done: true, label: 'Create dedicated persistent session per agent role', meta: 'Workspace-file persistence active: SOUL.md + memory/ per agent loaded each isolated run ✅' },
+      { done: true, label: 'Refactor crons to target specific agentId (not main)', meta: '20 jobs routed: 6→caffeine, 8→librarian, 1→genlayer-scout, 1→shill-scout, 1→gatsby, 4→fixer-debugger ✅ (2026-02-23)' },
+      { done: false, label: 'Set output contracts (JSON) for all worker lanes', meta: 'See each agent STRATEGY.md for format' },
+      { done: true, label: 'Add configured agent IDs in gateway (Phase B)', meta: '13 agents registered: main, codex, caffeine, claude, librarian, genlayer-scout, shill-scout, qa-verifier, memory-steward, experiment-analyst, fixer-debugger, gatsby ✅' }
+    ];
+
+    const orgTree = document.getElementById('orgTree');
+    const titleEl = document.getElementById('detailTitle');
+    const bodyEl = document.getElementById('detailBody');
+
+    function renderDetail(id) {
+      const item = details[id];
+      if (!item) return;
+      titleEl.textContent = item.title;
+      bodyEl.innerHTML = `
+        <div>${item.badges.map(b => `<span class="pill">${b}</span>`).join('')}</div>
+        <div class="section-title">Assigned LLM Model</div>
+        <div class="job"><code>${item.model || 'TBD'}</code></div>
+        <h2 style="margin-top:12px;">Primary Tasks</h2>
+        <ul>${item.tasks.map(t => `<li>${t}</li>`).join('')}</ul>
+        <h2 style="margin-top:14px;">Context + Memory Files</h2>
+        <ul>${item.files.map(f => `<li><code>${f}</code></li>`).join('')}</ul>
+        <div class="section-title">Current Cron/Workflow Mapping</div>
+        <div>${(item.jobs || []).map(j => `<div class="job"><code>${j}</code></div>`).join('')}</div>
+        <div class="section-title">Migration Checklist (Execution Dashboard)</div>
+        <div class="checklist">
+          ${migrationChecklist.map(c => `
+            <label class="checkitem">
+              <input type="checkbox" disabled ${c.done ? 'checked' : ''} />
+              <span>
+                <div class="label">${c.label}</div>
+                <div class="meta">${c.meta}</div>
+              </span>
+            </label>
+          `).join('')}
+        </div>
+      `;
+    }
+
+    orgTree.addEventListener('click', (e) => {
+      const node = e.target.closest('.node');
+      if (!node) return;
+      [...document.querySelectorAll('.node')].forEach(n => n.classList.remove('active'));
+      node.classList.add('active');
+      renderDetail(node.dataset.id);
+    });
+
+    renderDetail('bob');
+  </script>
+</body>
+</html>

@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>⚔️ argue.fun Tracker</title>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --bg2: #0f0f17;
+    --card: #111118;
+    --card2: #1a1a24;
+    --border: #2a2a3a;
+    --accent: #00ff88;
+    --accent2: #00cc6a;
+    --text: #e8e8f0;
+    --muted: #6b6b80;
+    --yes: #00ff88;
+    --no: #ff4466;
+    --pending: #ffaa00;
+    --red: #ff4466;
+    --green: #00ff88;
+    --yellow: #ffaa00;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; min-height: 100vh; }
+
+  /* Header */
+  .header {
+    background: var(--card);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .header h1 { font-size: 1.3rem; font-weight: 700; letter-spacing: 0.05em; }
+  .header h1 span { color: var(--accent); }
+  .header .subtitle { font-size: 0.75rem; color: var(--muted); margin-top: 2px; }
+  .refresh-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    padding: 6px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: all 0.2s;
+  }
+  .refresh-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* Tabs */
+  .tabs {
+    display: flex;
+    background: var(--card);
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    gap: 0;
+    overflow-x: auto;
+  }
+  .tab {
+    padding: 12px 20px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+    white-space: nowrap;
+    text-transform: uppercase;
+  }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  /* Content */
+  .content { padding: 24px; max-width: 1400px; margin: 0 auto; }
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  /* Stat cards */
+  .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
+  .stat-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    transition: border-color 0.2s;
+  }
+  .stat-card:hover { border-color: var(--accent); }
+  .stat-label { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 8px; }
+  .stat-value { font-size: 1.8rem; font-weight: 700; color: var(--accent); line-height: 1; }
+  .stat-sub { font-size: 0.75rem; color: var(--muted); margin-top: 6px; }
+
+  /* Section titles */
+  .section-title {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* Table */
+  .table-wrap { overflow-x: auto; border-radius: 12px; border: 1px solid var(--border); }
+  table { width: 100%; border-collapse: collapse; background: var(--card); }
+  thead { background: var(--card2); }
+  th {
+    padding: 12px 16px;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    text-align: left;
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+  }
+  th:hover { color: var(--accent); }
+  th .sort-icon { opacity: 0.4; margin-left: 4px; }
+  th.sorted .sort-icon { opacity: 1; color: var(--accent); }
+  td {
+    padding: 12px 16px;
+    font-size: 0.85rem;
+    border-top: 1px solid var(--border);
+    vertical-align: top;
+  }
+  tr:hover td { background: var(--card2); }
+  .statement-cell { max-width: 300px; line-height: 1.4; }
+  .truncate { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 250px; display: block; }
+
+  /* Badges */
+  .badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .badge-yes { background: rgba(0,255,136,0.15); color: var(--yes); border: 1px solid rgba(0,255,136,0.3); }
+  .badge-no { background: rgba(255,68,102,0.15); color: var(--no); border: 1px solid rgba(255,68,102,0.3); }
+  .badge-active { background: rgba(255,170,0,0.15); color: var(--pending); border: 1px solid rgba(255,170,0,0.3); }
+  .badge-resolved { background: rgba(0,255,136,0.1); color: var(--yes); border: 1px solid rgba(0,255,136,0.2); }
+  .badge-cancelled { background: rgba(107,107,128,0.15); color: var(--muted); border: 1px solid rgba(107,107,128,0.3); }
+  .badge-confirmed { background: rgba(255,68,102,0.15); color: var(--red); border: 1px solid rgba(255,68,102,0.3); }
+  .badge-rejected { background: rgba(0,255,136,0.15); color: var(--green); border: 1px solid rgba(0,255,136,0.3); }
+  .badge-pending { background: rgba(255,170,0,0.15); color: var(--yellow); border: 1px solid rgba(255,170,0,0.3); }
+
+  .roi-pos { color: var(--green); font-weight: 700; }
+  .roi-neg { color: var(--red); font-weight: 700; }
+  .roi-neutral { color: var(--muted); }
+
+  /* Experiment pairs */
+  .pair-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 20px; margin-top: 8px; }
+  .pair-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .pair-header {
+    padding: 14px 18px;
+    background: var(--card2);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .pair-title { font-size: 0.85rem; font-weight: 700; color: var(--text); }
+  .pair-body { padding: 16px 18px; display: flex; flex-direction: column; gap: 12px; }
+  .debate-row {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+  }
+  .debate-label { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin-bottom: 4px; }
+  .debate-statement { font-size: 0.82rem; color: var(--text); line-height: 1.4; margin-bottom: 8px; }
+  .debate-meta { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+
+  /* Playbook */
+  .playbook-body {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 28px;
+    line-height: 1.7;
+    max-width: 900px;
+  }
+  .playbook-body h1, .playbook-body h2, .playbook-body h3 { color: var(--accent); margin: 1.2em 0 0.5em; }
+  .playbook-body h1 { font-size: 1.4rem; }
+  .playbook-body h2 { font-size: 1.1rem; border-bottom: 1px solid var(--border); padding-bottom: 6px; }
+  .playbook-body h3 { font-size: 0.95rem; color: var(--text); }
+  .playbook-body p { margin: 0.5em 0; color: var(--text); }
+  .playbook-body em { color: var(--muted); }
+  .playbook-body strong { color: var(--accent); }
+  .playbook-body table { width: 100%; border-collapse: collapse; margin: 1em 0; }
+  .playbook-body th { background: var(--card2); padding: 8px 12px; text-align: left; font-size: 0.8rem; color: var(--muted); border: 1px solid var(--border); }
+  .playbook-body td { padding: 8px 12px; border: 1px solid var(--border); font-size: 0.82rem; }
+  .playbook-body ul, .playbook-body ol { padding-left: 1.4em; margin: 0.5em 0; }
+  .playbook-body li { margin: 0.3em 0; }
+  .playbook-body code { background: var(--card2); padding: 2px 6px; border-radius: 4px; font-family: monospace; font-size: 0.8em; color: var(--accent); }
+  .playbook-body pre { background: var(--card2); padding: 16px; border-radius: 8px; overflow-x: auto; margin: 1em 0; }
+  .playbook-body hr { border: none; border-top: 1px solid var(--border); margin: 1.5em 0; }
+  .playbook-body blockquote { border-left: 3px solid var(--accent); padding-left: 12px; color: var(--muted); font-style: italic; }
+
+  /* Loading/error */
+  .loading { color: var(--muted); font-size: 0.85rem; padding: 24px; text-align: center; }
+  .error { color: var(--red); font-size: 0.85rem; padding: 12px 16px; background: rgba(255,68,102,0.08); border: 1px solid rgba(255,68,102,0.2); border-radius: 8px; }
+  .updated { font-size: 0.7rem; color: var(--muted); text-align: right; margin-top: 8px; }
+  .spinner { display: inline-block; animation: spin 1s linear infinite; }
+  @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1>⚔️ <span>argue.fun</span> Tracker</h1>
+    <div class="subtitle">Bet tracking · P&L · Experiments · Playbook</div>
+  </div>
+  <button class="refresh-btn" onclick="refreshAll()">↻ Refresh</button>
+</div>
+
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('dashboard')">📊 Dashboard</div>
+  <div class="tab" onclick="switchTab('debates')">⚔️ Debates</div>
+  <div class="tab" onclick="switchTab('experiment')">🧪 Experiment</div>
+  <div class="tab" onclick="switchTab('playbook')">📖 Playbook</div>
+</div>
+
+<div class="content">
+
+  <!-- DASHBOARD -->
+  <div id="panel-dashboard" class="panel active">
+    <div class="stat-grid" id="stat-cards">
+      <div class="stat-card"><div class="stat-label">ARGUE Balance</div><div class="stat-value" id="s-argue">…</div><div class="stat-sub" id="s-at-risk">At risk: …</div></div>
+      <div class="stat-card"><div class="stat-label">lARGUE Balance</div><div class="stat-value" id="s-largue">…</div><div class="stat-sub" id="s-claimable">Claimable: …</div></div>
+      <div class="stat-card"><div class="stat-label">Total Bets</div><div class="stat-value" id="s-total">…</div><div class="stat-sub" id="s-resolved">… resolved</div></div>
+      <div class="stat-card"><div class="stat-label">Win Rate</div><div class="stat-value" id="s-winrate">…</div><div class="stat-sub" id="s-pnl">Net P&amp;L: …</div></div>
+    </div>
+
+    <div class="section-title">Recent Activity</div>
+    <div id="recent-debates" class="loading"><span class="spinner">⟳</span> Loading debates…</div>
+    <div class="updated" id="dash-updated"></div>
+  </div>
+
+  <!-- DEBATES -->
+  <div id="panel-debates" class="panel">
+    <div id="debates-error" style="display:none" class="error"></div>
+    <div class="table-wrap">
+      <table id="debates-table">
+        <thead>
+          <tr>
+            <th onclick="sortTable('statement')">Statement <span class="sort-icon">⇅</span></th>
+            <th onclick="sortTable('side')">Side <span class="sort-icon">⇅</span></th>
+            <th onclick="sortTable('stake')">Stake <span class="sort-icon">⇅</span></th>
+            <th onclick="sortTable('status')">Status <span class="sort-icon">⇅</span></th>
+            <th onclick="sortTable('roi')">ROI % <span class="sort-icon">⇅</span></th>
+          </tr>
+        </thead>
+        <tbody id="debates-tbody">
+          <tr><td colspan="5" class="loading"><span class="spinner">⟳</span> Loading debates…</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="updated" id="debates-updated"></div>
+  </div>
+
+  <!-- EXPERIMENT -->
+  <div id="panel-experiment" class="panel">
+    <div id="exp-meta" style="margin-bottom:16px; font-size:0.82rem; color: var(--muted);"></div>
+    <div class="section-title">YES-BIAS TEST — 3 Contradictory Pairs</div>
+    <div class="pair-grid" id="pair-grid">
+      <div class="loading"><span class="spinner">⟳</span> Loading experiment…</div>
+    </div>
+  </div>
+
+  <!-- PLAYBOOK -->
+  <div id="panel-playbook" class="panel">
+    <div id="playbook-body" class="playbook-body loading"><span class="spinner">⟳</span> Loading playbook…</div>
+  </div>
+
+</div>
+
+<script>
+let debatesData = [];
+let sortKey = 'amount';
+let sortDir = -1; // -1 = desc
+
+// ── Tab switching ──────────────────────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach((t, i) => {
+    const names = ['dashboard','debates','experiment','playbook'];
+    t.classList.toggle('active', names[i] === name);
+  });
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById(`panel-${name}`).classList.add('active');
+  if (name === 'playbook' && !playbookLoaded) loadPlaybook();
+  if (name === 'experiment' && !experimentLoaded) loadExperiment();
+}
+
+let playbookLoaded = false;
+let experimentLoaded = false;
+
+// ── Refresh ────────────────────────────────────────────────────────────────
+function refreshAll() {
+  playbookLoaded = false;
+  experimentLoaded = false;
+  loadWallet();
+  loadDebates();
+  const active = document.querySelector('.panel.active');
+  if (active && active.id === 'panel-playbook') loadPlaybook();
+  if (active && active.id === 'panel-experiment') loadExperiment();
+}
+
+// ── Format helpers ─────────────────────────────────────────────────────────
+function fmt(n, dec = 0) {
+  if (n == null) return '—';
+  return Number(n).toLocaleString('en', { maximumFractionDigits: dec });
+}
+function fmtDate(iso) {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleDateString('en', { month:'short', day:'numeric', year:'numeric' });
+}
+function statusBadge(status) {
+  const s = (status || '').toLowerCase();
+  if (s === 'active')        return `<span class="badge badge-active">Active</span>`;
+  if (s === 'resolving')     return `<span class="badge badge-pending">Resolving</span>`;
+  if (s === 'resolved')      return `<span class="badge badge-resolved">Resolved</span>`;
+  if (s === 'undetermined')  return `<span class="badge badge-cancelled">Undetermined</span>`;
+  return `<span class="badge badge-active">${status || '?'}</span>`;
+}
+function sideBadge(side) {
+  if (side === 'YES')  return `<span class="badge badge-yes">YES</span>`;
+  if (side === 'NO')   return `<span class="badge badge-no">NO</span>`;
+  if (side === 'BOTH') return `<span class="badge badge-pending">BOTH</span>`;
+  return `<span class="badge" style="color:var(--muted)">—</span>`;
+}
+function stakeCell(d) {
+  const parts = [];
+  const totalA = (d.userLockedA || 0) + (d.userUnlockedA || 0);
+  const totalB = (d.userLockedB || 0) + (d.userUnlockedB || 0);
+  // Side A breakdown
+  if (d.userUnlockedA > 0) parts.push(`${fmt(d.userUnlockedA,0)} ARGUE`);
+  if (d.userLockedA   > 0) parts.push(`${fmt(d.userLockedA,0)} lARGUE`);
+  // Side B breakdown (for BOTH positions)
+  if (d.userUnlockedB > 0) parts.push(`${fmt(d.userUnlockedB,0)} ARGUE (B)`);
+  if (d.userLockedB   > 0) parts.push(`${fmt(d.userLockedB,0)} lARGUE (B)`);
+  return parts.length ? parts.join('<br>') : '—';
+}
+function roiCell(roi) {
+  if (roi == null) return `<span class="roi-neutral">—</span>`;
+  const cls = roi > 0 ? 'roi-pos' : roi < 0 ? 'roi-neg' : 'roi-neutral';
+  const sign = roi > 0 ? '+' : '';
+  return `<span class="${cls}">${sign}${roi.toFixed(1)}%</span>`;
+}
+
+// ── Wallet ─────────────────────────────────────────────────────────────────
+async function loadWallet() {
+  try {
+    const r = await fetch('api/wallet');
+    const d = await r.json();
+    if (d.error) throw new Error(d.error);
+    document.getElementById('s-argue').textContent = fmt(d.argue, 0);
+    document.getElementById('s-largue').textContent = fmt(d.largue, 0);
+    document.getElementById('s-at-risk').textContent = `At risk: ${fmt(d.totalAtRisk, 0)} ARGUE`;
+    document.getElementById('s-claimable').textContent = d.totalClaimable > 0
+      ? `⚡ Claimable: ${fmt(d.totalClaimable, 0)} ARGUE`
+      : 'Nothing to claim';
+  } catch(e) {
+    document.getElementById('s-argue').textContent = 'ERR';
+    document.getElementById('s-largue').textContent = 'ERR';
+  }
+}
+
+// ── Debates ────────────────────────────────────────────────────────────────
+async function loadDebates() {
+  try {
+    const r = await fetch('api/debates');
+    const d = await r.json();
+    if (d.error) throw new Error(d.error);
+
+    debatesData = d.debates || [];
+    const stats = d.stats || {};
+
+    // Update dashboard stats
+    document.getElementById('s-total').textContent = stats.total || '0';
+    document.getElementById('s-resolved').textContent = `${stats.resolved || 0} resolved · ${stats.wins || 0}W ${stats.losses || 0}L${stats.claimable ? ` · ${stats.claimable} to claim` : ''}`;
+    document.getElementById('s-winrate').textContent = stats.winRate != null ? `${stats.winRate.toFixed(0)}%` : '—';
+    document.getElementById('s-pnl').textContent = `Net P&L: ${stats.netProfit != null ? (stats.netProfit > 0 ? '+' : '') + fmt(stats.netProfit, 0) + ' ARGUE' : '—'}`;
+
+    const ts = d.updatedAt ? new Date(d.updatedAt).toLocaleTimeString() : '';
+    document.getElementById('debates-updated').textContent = ts ? `Updated ${ts}` : '';
+    document.getElementById('dash-updated').textContent = ts ? `Updated ${ts}` : '';
+
+    renderDebatesTable();
+    renderRecentActivity(stats);
+
+  } catch(e) {
+    const errEl = document.getElementById('debates-error');
+    errEl.style.display = 'block';
+    errEl.textContent = `Error loading debates: ${e.message}`;
+    document.getElementById('debates-tbody').innerHTML = `<tr><td colspan="5" class="error">${e.message}</td></tr>`;
+    document.getElementById('recent-debates').innerHTML = `<div class="error">${e.message}</div>`;
+  }
+}
+
+function renderDebatesTable() {
+  const sorted = [...debatesData].sort((a, b) => {
+    let av = a[sortKey], bv = b[sortKey];
+    if (sortKey === 'roi') { av = a.roi ?? -Infinity; bv = b.roi ?? -Infinity; }
+    if (typeof av === 'string') return sortDir * av.localeCompare(bv);
+    return sortDir * ((av || 0) - (bv || 0));
+  });
+
+  const tbody = document.getElementById('debates-tbody');
+  if (!sorted.length) {
+    tbody.innerHTML = '<tr><td colspan="5" class="loading">No debates found</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = sorted.map(d => {
+    if (d.error) return `<tr><td colspan="5" class="error">${d.address}: ${d.error}</td></tr>`;
+    return `<tr>
+      <td class="statement-cell"><span class="truncate" title="${(d.statement||'').replace(/"/g,'&quot;')}">${d.statement || d.address}</span></td>
+      <td>${sideBadge(d.side)}</td>
+      <td>${stakeCell(d)}</td>
+      <td>${statusBadge(d.status)}</td>
+      <td>${roiCell(d.roi)}</td>
+    </tr>`;
+  }).join('');
+}
+
+function sortTable(key) {
+  if (sortKey === key) sortDir *= -1;
+  else { sortKey = key; sortDir = -1; }
+  document.querySelectorAll('th').forEach(th => th.classList.remove('sorted'));
+  renderDebatesTable();
+}
+
+function renderRecentActivity(stats) {
+  const el = document.getElementById('recent-debates');
+  const recent = debatesData.filter(d => !d.error).slice(0, 5);
+  if (!recent.length) { el.innerHTML = '<div class="loading">No debates yet</div>'; return; }
+
+  el.innerHTML = `<div class="table-wrap"><table>
+    <thead><tr>
+      <th>Statement</th><th>Side</th><th>Stake</th><th>Status</th><th>ROI</th>
+    </tr></thead>
+    <tbody>${recent.map(d => `<tr>
+      <td class="statement-cell"><span class="truncate" title="${(d.statement||'').replace(/"/g,'&quot;')}">${d.statement || d.address}</span></td>
+      <td>${sideBadge(d.side)}</td>
+      <td>${stakeCell(d)}</td>
+      <td>${statusBadge(d.status)}</td>
+      <td>${roiCell(d.roi)}</td>
+    </tr>`).join('')}</tbody>
+  </table></div>`;
+}
+
+// ── Experiment ─────────────────────────────────────────────────────────────
+async function loadExperiment() {
+  if (experimentLoaded) return;
+  experimentLoaded = true;
+  try {
+    const r = await fetch('api/experiment');
+    const d = await r.json();
+    if (d.error) throw new Error(d.error);
+
+    document.getElementById('exp-meta').innerHTML =
+      `<strong>${d.experiment}</strong> &nbsp;·&nbsp; ${d.hypothesis}<br>
+       Bet per debate: <strong>${d.bet_per_debate}</strong> &nbsp;·&nbsp; Ends: <strong>${d.end_date_human || '—'}</strong>`;
+
+    const grid = document.getElementById('pair-grid');
+    const pairs = d.pairs || [];
+    if (!pairs.length) { grid.innerHTML = '<div class="loading">No pairs found</div>'; return; }
+
+    grid.innerHTML = pairs.map(pair => {
+      const biasClass = pair.biasStatus === 'BIAS CONFIRMED' ? 'badge-confirmed' :
+                        pair.biasStatus === 'BIAS REJECTED' ? 'badge-rejected' : 'badge-pending';
+      const biasEmoji = pair.biasStatus === 'BIAS CONFIRMED' ? '🔴' :
+                        pair.biasStatus === 'BIAS REJECTED' ? '🟢' : '🟡';
+
+      const debateCard = (d) => {
+        if (!d) return '';
+        const betAmt = d.userTotalBet > 0 ? `${fmt(d.userTotalBet, 0)} ${d.tokenType || 'ARGUE'}` : '—';
+        const walletNote = d.fromAgentWallet
+          ? `<span style="font-size:0.72rem;color:var(--yellow)" title="Bet placed via agent wallet">⚠ agent wallet</span>`
+          : '';
+        return `<div class="debate-row">
+          <div class="debate-label">Debate ${d.label}</div>
+          <div class="debate-statement">${d.statement}</div>
+          <div class="debate-meta">
+            <span class="badge badge-yes">YES</span>
+            <span style="font-size:0.75rem;color:var(--muted)">${betAmt}</span>
+            ${statusBadge(d.statusLabel || 'Unknown')}
+            ${walletNote}
+          </div>
+        </div>`;
+      };
+
+      return `<div class="pair-card">
+        <div class="pair-header">
+          <span class="pair-title">Pair ${pair.pairId}</span>
+          <span class="badge ${biasClass}">${biasEmoji} ${pair.biasStatus}</span>
+        </div>
+        <div class="pair-body">
+          ${debateCard(pair.a)}
+          ${debateCard(pair.b)}
+        </div>
+      </div>`;
+    }).join('');
+
+  } catch(e) {
+    document.getElementById('pair-grid').innerHTML = `<div class="error">${e.message}</div>`;
+  }
+}
+
+// ── Playbook ───────────────────────────────────────────────────────────────
+async function loadPlaybook() {
+  if (playbookLoaded) return;
+  playbookLoaded = true;
+  const el = document.getElementById('playbook-body');
+  try {
+    const r = await fetch('api/playbook');
+    const text = await r.text();
+    el.classList.remove('loading');
+    el.innerHTML = marked.parse(text);
+  } catch(e) {
+    el.innerHTML = `<div class="error">${e.message}</div>`;
+  }
+}
+
+// ── Init ───────────────────────────────────────────────────────────────────
+loadWallet();
+loadDebates();
+</script>
+</body>
+</html>
