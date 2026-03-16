@@ -2757,7 +2757,13 @@
       if (!container) return;
       var sessionKey = state.goalChatSessionKey;
       if (!sessionKey) {
-        container.innerHTML = '<div class="empty-state" style="padding:24px;">No session selected.</div>';
+        // Show a welcoming empty state with composer if condo exists (PM chat available)
+        var emptyGoal = state.goals.find(function(g) { return g.id === state.currentGoalOpenId; });
+        var hasCondo = !!(emptyGoal && emptyGoal.condoId);
+        container.innerHTML = hasCondo
+          ? '<div class="empty-state" style="padding:24px;">No conversation yet. Send a message to start working with PM.</div>'
+          : '<div class="empty-state" style="padding:24px;">No session selected.</div>';
+        if (hasCondo) renderGoalComposer();
         return;
       }
       // Determine if current session is the PM session
@@ -2994,12 +3000,13 @@
             if (t.sessionKey) tooltipParts.push('session: ' + t.sessionKey);
             if (t.summary) tooltipParts.push(t.summary);
             var tooltip = escapeHtml(tooltipParts.join(' \u00b7 '));
+            var taskLabel = t.text || t.title || '';
             return '<div class="goal-task ' + (isDone ? 'done' : '') + '">' +
               '<div class="goal-task-status ' + escapeHtml(taskStatus) + ' ' + hasSession + '"' +
               ' onclick="cycleTaskStatus(\'' + id + '\')"' +
               ' oncontextmenu="showTaskStatusMenu(event,\'' + id + '\')"' +
               ' title="' + tooltip + '"></div>' +
-              '<span class="goal-task-text">' + escapeHtml(t.text || '') + '</span>' +
+              '<span class="goal-task-text">' + escapeHtml(taskLabel) + '</span>' +
               spawnBtn +
               '<button class="goal-task-del" onclick="deleteGoalTask(\'' + id + '\')" title="Delete">\u00d7</button>' +
             '</div>';
