@@ -220,7 +220,7 @@
   </header>
   <div class="main-container">
     <div class="app-frame-container">
-      <iframe id="appFrame" class="app-frame" src="about:blank" sandbox="allow-scripts allow-forms allow-popups allow-same-origin" onload="handleFrameLoad()" onerror="handleFrameError(event)"></iframe>
+      <iframe id="appFrame" class="app-frame" src="about:blank" sandbox="allow-scripts allow-forms allow-popups allow-same-origin" onload="window.handleFrameLoad && window.handleFrameLoad()" onerror="window.handleFrameError && window.handleFrameError(event)"></iframe>
     </div>
     <aside class="assistant-panel" id="assistantPanel">
       <div class="assistant-header">
@@ -310,7 +310,28 @@
           window.location.href = '/';
           return;
         }
-        document.getElementById('appFrame').src = frameUrl;
+
+        // Apps that require crossOriginIsolated (e.g. WebVM/CheerpX) can't run in iframes.
+        // Open them in a new tab and show a placeholder instead.
+        if (app.openInNewTab) {
+          // NOTE: window.open() from async init is often blocked by popup blockers.
+          // So we render an explicit user-click link instead.
+          document.getElementById('appFrame').style.display = 'none';
+          const placeholder = document.createElement('div');
+          placeholder.style.cssText = 'flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;color:#6b6560;font-family:monospace;font-size:13px;background:#080808;padding:24px;';
+          placeholder.innerHTML = `
+            <div style="font-size:32px">${app.icon || '📦'}</div>
+            <div><strong style="color:#e7dfd4">${app.name}</strong> must run in a top-level tab (not inside an iframe).</div>
+            <a href="${frameUrl}" target="_blank" rel="noopener" style="color:#d4a843;text-decoration:none;border:1px solid #d4a843;padding:8px 20px;border-radius:4px;">Open in new tab ↗</a>
+            <div style="opacity:.85;max-width:560px;text-align:center;line-height:1.45">
+              This is required for SharedArrayBuffer (CheerpX/WebVM), which browsers block in sandboxed/embedded iframes.
+            </div>
+          `;
+          document.getElementById('appFrame').parentNode.insertBefore(placeholder, document.getElementById('appFrame'));
+          showToast('This app must be opened in a new tab. Click “Open in new tab ↗”.', 'warning', 8000);
+        } else {
+          document.getElementById('appFrame').src = frameUrl;
+        }
         sessionKey = `agent:app-assistant:app:${app.id}`;
         
         loadHistory();
