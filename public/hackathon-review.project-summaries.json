@@ -1,0 +1,775 @@
+[
+  {
+    "id": 1,
+    "projectName": "DevContractShield",
+    "summary": "DevContractShield — Trustless Freelance Payments on GenLayer, Aleph Hackathon align:start position:0% Imagine you're a developer who spends align:start position:0% Imagine you're a developer who spends align:start position:0% Imagine you're a developer who spends weeks building the perfect project and align:start position:0% weeks building the perfect project and align:start position:0% weeks building the perfect project and the client vanishes without paying. Or align:start position:0% the client vanishes without paying.",
+    "judgeNotes": [
+      "Transcript available — fast skim possible before opening the full demo.",
+      "Repo detected in TypeScript; pushed 2026-03-22T11:21:51Z.",
+      "README present."
+    ],
+    "scorecard": {
+      "problem_clarity": 7.2,
+      "demo_explainability": 7.4,
+      "technical_depth": 7.0,
+      "product_completeness": 7.1,
+      "code_quality": 8.0,
+      "innovation": 6.5,
+      "genlayer_fit": 7.0
+    },
+    "totalScore": 72.0
+  },
+  {
+    "id": 2,
+    "projectName": "JUBIFY",
+    "summary": "The pension the system never gave you. Self-custodial retirement fund with AI advisor on Avalanche + GenLayer align:start position:0% Mariach. align:start position:0% align:start position:0% the retirement plan that  makes the align:start position:0% the retirement plan that  makes the align:start position:0% the retirement plan that  makes the experience easy as any web to experience align:start position:0% experience easy as any web to experience align:start position:0% experience easy as any web to experience and the platform leverages defy and AI align:start position:0% and the platform leverages defy and AI align:start position:0% and the platform leverages defy and AI to help the user throughout his journey.",
+    "judgeNotes": [
+      "Transcript available — fast skim possible before opening the full demo.",
+      "Repo detected in Solidity; pushed 2026-03-22T12:44:31Z.",
+      "README present.",
+      "No license detected.",
+      "Main risk flags: no license detected."
+    ],
+    "scorecard": {
+      "problem_clarity": 7.2,
+      "demo_explainability": 7.4,
+      "technical_depth": 7.0,
+      "product_completeness": 7.1,
+      "code_quality": 7.0,
+      "innovation": 6.5,
+      "genlayer_fit": 7.0
+    },
+    "totalScore": 70.5
+  },
+  {
+    "id": 3,
+    "projectName": "How2Pitch",
+    "summary": "2026 03 22 08 48 27 align:start position:0% , hello. My name is Tovic, and this align:start position:0% , hello.",
+    "judgeNotes": [
+      "Transcript available — fast skim possible before opening the full demo.",
+      "Repo detected in TypeScript; pushed 2026-03-22T10:47:29Z.",
+      "No license detected.",
+      "Main risk flags: no license detected; no readme detected."
+    ],
+    "scorecard": {
+      "problem_clarity": 7.2,
+      "demo_explainability": 7.4,
+      "technical_depth": 7.0,
+      "product_completeness": 7.1,
+      "code_quality": 5.5,
+      "innovation": 6.5,
+      "genlayer_fit": 7.0
+    },
+    "totalScore": 68.3
+  },
+  {
+    "id": 4,
+    "projectName": "DebateArena",
+    "summary": "DebateArena is a hackathon submission in AI Agentics Track by GenLayer.",
+    "judgeNotes": [
+      "Transcript unavailable or partial (metadata_failed).",
+      "Repo detected in TypeScript; pushed 2026-03-22T11:57:26Z.",
+      "README present.",
+      "No license detected.",
+      "Main risk flags: no license detected."
+    ],
+    "scorecard": {
+      "problem_clarity": 5.8,
+      "demo_explainability": 5.0,
+      "technical_depth": 7.0,
+      "product_completeness": 5.6,
+      "code_quality": 7.0,
+      "innovation": 6.5,
+      "genlayer_fit": 7.0
+    },
+    "totalScore": 62.6
+  },
+  {
+    "id": 5,
+    "projectName": "Prisma",
+    "summary": "LedgerLens - Analizador financiero on-chain para billeteras Avalanche. Aleph Hackathon 2026. PRISMA HACKATHÓN ALEPH 2026 | SCZ-BOLIVIA Enlaces: https://ledgerlens-backend.vercel.app/ https://github.com/Kenyi001/ledgerlens.git https://alephhackathon.notion.site/spanish",
+    "judgeNotes": [
+      "Transcript unavailable or partial (no_subtitles_found).",
+      "Repo detected in TypeScript; pushed 2026-03-22T09:19:29Z.",
+      "README present.",
+      "No license detected.",
+      "Main risk flags: no license detected."
+    ],
+    "scorecard": {
+      "problem_clarity": 5.8,
+      "demo_explainability": 5.0,
+      "technical_depth": 7.0,
+      "product_completeness": 7.1,
+      "code_quality": 7.0,
+      "innovation": 6.5,
+      "genlayer_fit": 7.0
+    },
+    "totalScore": 64.8
+  },
+  {
+    "id": 6,
+    "projectName": "TruthMarket",
+    "summary": "https://www.youtube.com/watch?v=GzpukDt_JnM truthmarket align:start position:0% Hello everyone, my name is Kamill and align:start position:0% Hello everyone, my name is Kamill and align:start position:0% Hello everyone, my name is Kamill and welcome to Truth Market, a prediction align:start position:0% welcome to Truth Market, a prediction align:start position:0% welcome to Truth Market, a prediction marketplace where markets cannot be align:start position:0% marketplace where markets cannot be align:start position:0% marketplace where markets cannot be manipulated. Prediction markets are one align:start position:0% manipulated.",
+    "judgeNotes": [
+      "Transcript available — fast skim possible before opening the full demo.",
+      "Repo detected in TypeScript; pushed 2026-03-22T11:35:24Z.",
+      "README present."
+    ],
+    "scorecard": {
+      "problem_clarity": 7.2,
+      "demo_explainability": 7.4,
+      "technical_depth": 7.0,
+      "product_completeness": 7.1,
+      "code_quality": 8.0,
+      "innovation": 6.5,
+      "genlayer_fit": 7.0
+    },
+    "totalScore": 72.0
+  },
+  {
+    "id": 7,
+    "projectName": "BuildersClaw",
+    "summary": "Hackathons for AI Agents 🦞 Pitch + Demo BuildersClaw align:start position:0% Biterin said it clearly. If crypto keeps align:start position:0% Biterin said it clearly.",
+    "judgeNotes": [
+      "Transcript available — fast skim possible before opening the full demo.",
+      "Repo detected in TypeScript; pushed 2026-03-22T11:57:38Z.",
+      "README present.",
+      "No license detected.",
+      "Main risk flags: no license detected."
+    ],
+    "scorecard": {
+      "problem_clarity": 7.2,
+      "demo_explainability": 7.4,
+      "technical_depth": 7.0,
+      "product_completeness": 7.1,
+      "code_quality": 7.0,
+      "innovation": 6.5,
+      "genlayer_fit": 7.0
+    },
+    "totalScore": 70.5
+  },
+  {
+    "id": 8,
+    "projectName": "PROCUDA - NO-CODE AI AGENT BUILDER AND ORCHESTRATOR FOR ON-CHAIN PREDICTION MARKETS",
+    "summary": "PROCUDA - NO-CODE AI AGENT BUILDER AND ORCHESTRATOR FOR ON-CHAIN PREDICTION MARKETS is a hackathon submission in Best Projects by PL_Genesis, Avalanche Track.",
+    "judgeNotes": [
+      "Transcript unavailable or partial (metadata_failed).",
+      "Repo detected in TypeScript; pushed 2026-03-22T11:27:04Z.",
+      "README present.",
+      "No license detected.",
+      "Main risk flags: no license detected."
+    ],
+    "scorecard": {
+      "problem_clarity": 5.8,
+      "demo_explainability": 5.0,
+      "technical_depth": 7.0,
+      "product_completeness": 5.6,
+      "code_quality": 7.0,
+      "innovation": 6.5,
+      "genlayer_fit": 7.0
+    },
+    "totalScore": 62.6
+  },
+  {
+    "id": 9,
+    "projectName": "AlephRob",
+    "summary": "Project completed for Aleph Hackathon",
+    "judgeNotes": [
+      "Transcript unavailable or partial (metadata_failed).",
+      "Repo detected in TypeScript; pushed 2026-03-22T10:36:47Z.",
+      "README present.",
+      "No license detected.",
+      "Main risk flags: no license detected."
+    ],
+    "scorecard": {
+      "problem_clarity": 5.8,
+      "demo_explainability": 5.0,
+      "technical_depth": 7.0,
+      "product_completeness": 7.1,
+      "code_quality": 7.0,
+      "innovation": 6.5,
+      "genlayer_fit": 7.0
+    },
+    "totalScore": 64.8
+  },
+  {
+    "id": 10,
+    "projectName": "Proven",
+    "summary": "Claim it. Prove it. Or get wrecked. — 1 vs Many prediction challenges settled by AI on GenLayer. align:start position:0% What happens when you bet with someone align:start position:0% What happens when you bet with someone align:start position:0% What happens when you bet with someone and  most of the time nobody wants align:start position:0% and  most of the time nobody wants align:start position:0% and  most of the time nobody wants to pay or when you need a referee but align:start position:0% to pay or when you need a referee but align:start position:0% to pay or when you need a referee but you can't trust anyone? Personal bets align:start position:0% you can't trust anyone?",
+    "judgeNotes": [
+      "Transcript available — fast skim possible before opening the full demo.",
+      "Repo detected in TypeScript; pushed 2026-03-22T10:54:26Z.",
+      "README present.",
+      "No license detected.",
+      "Main risk flags: no license detected."
+    ],
+    "scorecard": {
+      "problem_clarity": 7.2,
+      "demo_explainability": 7.4,
+      "technical_depth": 7.0,
+      "product_completeness": 7.1,
+      "code_quality": 7.0,
+      "innovation": 6.5,
+      "genlayer_fit": 7.0
+    },
+    "totalScore": 70.5
+  },
+  {
+    "id": 11,
+    "projectName": "Space Runners",
+    "summary": "space runners - Aleph Hackathon 2026 align:start position:0% Hi, I'm Rob and this is a space runners align:start position:0% Hi, I'm Rob and this is a space runners align:start position:0% Hi, I'm Rob and this is a space runners chain runner game where you learn crypto align:start position:0% chain runner game where you learn crypto align:start position:0% chain runner game where you learn crypto while playing the problem crypto align:start position:0% while playing the problem crypto align:start position:0% while playing the problem crypto education is boring. Our solution a align:start position:0% education is boring.",
+    "judgeNotes": [
+      "Transcript available — fast skim possible before opening the full demo.",
+      "Repo detected in TypeScript; pushed 2026-03-22T08:24:32Z.",
+      "README present."
+    ],
+    "scorecard": {
+      "problem_clarity": 7.2,
+      "demo_explainability": 7.4,
+      "technical_depth": 7.0,
+      "product_completeness": 7.1,
+      "code_quality": 9.0,
+      "innovation": 6.5,
+      "genlayer_fit": 7.0
+    },
+    "totalScore": 73.5
+  },
+  {
+    "id": 12,
+    "projectName": "Securgov",
+    "summary": "Decentralized dispute resolution platform powered by Web3 governance. AI-assisted mediation, quadratic & weighted voting, on-chain reputation, and IPFS evidence uploads. Built with Next.js. securgov Decentralized dispute resolution platform powered by Web3 governance. Al-assisted mediation, quadratic & weighted voting, on-chain reputation, and IPFS evidence uploads.",
+    "judgeNotes": [
+      "Transcript unavailable or partial (no_subtitles_found).",
+      "Repo detected in TypeScript; pushed 2026-03-22T08:27:46Z.",
+      "README present.",
+      "No license detected.",
+      "Main risk flags: no license detected."
+    ],
+    "scorecard": {
+      "problem_clarity": 5.8,
+      "demo_explainability": 5.0,
+      "technical_depth": 7.0,
+      "product_completeness": 7.1,
+      "code_quality": 7.0,
+      "innovation": 6.5,
+      "genlayer_fit": 7.0
+    },
+    "totalScore": 64.8
+  },
+  {
+    "id": 13,
+    "projectName": "Industries Verified",
+    "summary": "Industries Verified is a hackathon submission in Best Projects by PL_Genesis, Biotech Track.",
+    "judgeNotes": [
+      "Transcript unavailable or partial (metadata_failed).",
+      "Repo detected in Python; pushed 2026-03-22T03:20:06Z.",
+      "No license detected.",
+      "Main risk flags: no license detected; no readme detected."
+    ],
+    "scorecard": {
+      "problem_clarity": 5.8,
+      "demo_explainability": 5.0,
+      "technical_depth": 7.0,
+      "product_completeness": 7.1,
+      "code_quality": 5.5,
+      "innovation": 6.5,
+      "genlayer_fit": 7.0
+    },
+    "totalScore": 62.6
+  },
+  {
+    "id": 14,
+    "projectName": "HandLend",
+    "summary": "align:start position:0% When disaster strikes, everything can align:start position:0% When disaster strikes, everything can align:start position:0% When disaster strikes, everything can change in a matter of seconds. And in align:start position:0% change in a matter of seconds.",
+    "judgeNotes": [
+      "Transcript available — fast skim possible before opening the full demo.",
+      "Repo detected in HTML; pushed 2026-03-22T06:06:17Z.",
+      "README present."
+    ],
+    "scorecard": {
+      "problem_clarity": 7.2,
+      "demo_explainability": 7.4,
+      "technical_depth": 7.0,
+      "product_completeness": 7.1,
+      "code_quality": 9.0,
+      "innovation": 6.5,
+      "genlayer_fit": 7.0
+    },
+    "totalScore": 73.5
+  },
+  {
+    "id": 15,
+    "projectName": "Autonomous FinOps Engine",
+    "summary": "Un motor de backend autónomo que escanea entornos de Google Cloud para detectar infraestructura ociosa (Cloud Waste) y genera automáticamente código IaC en Terraform para remediarlo, ahorrando miles de dólares. Optimización de Costos en la Nube: Solución Autónoma para el Desperdicio de Recursos 1 Hola a todos, soy Fernando Paragetica Caquetón. 2 Me enfoqué en resolver uno de los dolores financieros y técnicos más grandes que 3 tienen las empresas el día de hoy.",
+    "judgeNotes": [
+      "Transcript available — fast skim possible before opening the full demo.",
+      "Repo detected in Python; pushed 2026-03-22T08:51:58Z.",
+      "README present.",
+      "No license detected.",
+      "Main risk flags: no license detected."
+    ],
+    "scorecard": {
+      "problem_clarity": 7.2,
+      "demo_explainability": 7.4,
+      "technical_depth": 7.0,
+      "product_completeness": 7.1,
+      "code_quality": 7.0,
+      "innovation": 6.5,
+      "genlayer_fit": 7.0
+    },
+    "totalScore": 70.5
+  },
+  {
+    "id": 16,
+    "projectName": "Avalon",
+    "summary": "AI agents that trade for you — Aleph Hackathon 2026",
+    "judgeNotes": [
+      "Transcript unavailable or partial (no_subtitles_found).",
+      "Repo detected in TypeScript; pushed 2026-03-22T06:37:47Z.",
+      "README present."
+    ],
+    "scorecard": {
+      "problem_clarity": 5.8,
+      "demo_explainability": 5.0,
+      "technical_depth": 7.0,
+      "product_completeness": 7.1,
+      "code_quality": 8.0,
+      "innovation": 6.5,
+      "genlayer_fit": 7.0
+    },
+    "totalScore": 66.3
+  },
+  {
+    "id": 17,
+    "projectName": "SignalForce",
+    "summary": "Signal Force align:start position:0% Where is Sigma first? Did  that align:start position:0% Where is Sigma first?",
+    "judgeNotes": [
+      "Transcript available — fast skim possible before opening the full demo.",
+      "Repo detected in TypeScript; pushed 2026-03-21T16:41:25Z.",
+      "README present.",
+      "No license detected.",
+      "Main risk flags: no license detected."
+    ],
+    "scorecard": {
+      "problem_clarity": 7.2,
+      "demo_explainability": 7.4,
+      "technical_depth": 7.0,
+      "product_completeness": 7.1,
+      "code_quality": 7.0,
+      "innovation": 6.5,
+      "genlayer_fit": 7.0
+    },
+    "totalScore": 70.5
+  },
+  {
+    "id": 18,
+    "projectName": "Rebyt",
+    "summary": "La hackathon mas copada Rebyt — AI-Validated Escrow Protocol | Aleph Hackathon 2026 align:start position:0% Hi, Darian here. AI align:start position:0% Hi, Darian here.",
+    "judgeNotes": [
+      "Transcript available — fast skim possible before opening the full demo.",
+      "Repo detected in JavaScript; pushed 2026-03-22T08:45:09Z.",
+      "README present.",
+      "No license detected.",
+      "Main risk flags: no license detected."
+    ],
+    "scorecard": {
+      "problem_clarity": 7.2,
+      "demo_explainability": 7.4,
+      "technical_depth": 7.0,
+      "product_completeness": 7.1,
+      "code_quality": 8.0,
+      "innovation": 6.5,
+      "genlayer_fit": 7.0
+    },
+    "totalScore": 72.0
+  },
+  {
+    "id": 19,
+    "projectName": "Miske",
+    "summary": "Miskev - Plataforma descentralizada - Contratos & Mercados align:start position:0% You hire a service, but payment takes align:start position:0% You hire a service, but payment takes align:start position:0% You hire a service, but payment takes weeks. You bet on your team, but the align:start position:0% weeks.",
+    "judgeNotes": [
+      "Transcript available — fast skim possible before opening the full demo.",
+      "Repo detected in JavaScript; pushed 2026-03-22T03:56:04Z.",
+      "README present.",
+      "No license detected.",
+      "Main risk flags: no license detected."
+    ],
+    "scorecard": {
+      "problem_clarity": 7.2,
+      "demo_explainability": 7.4,
+      "technical_depth": 7.0,
+      "product_completeness": 7.1,
+      "code_quality": 7.0,
+      "innovation": 6.5,
+      "genlayer_fit": 7.0
+    },
+    "totalScore": 70.5
+  },
+  {
+    "id": 20,
+    "projectName": "Ai arbitration",
+    "summary": "Growth Ai Arbitration align:start position:0% Hi, my name is Peter Lelesandro Piscaro align:start position:0% Hi, my name is Peter Lelesandro Piscaro align:start position:0% Hi, my name is Peter Lelesandro Piscaro and today I am the represent of my team align:start position:0% and today I am the represent of my team align:start position:0% and today I am the represent of my team for present our application in this align:start position:0% for present our application in this align:start position:0% for present our application in this hackathon actually we are develop a align:start position:0% hackathon actually we are develop a align:start position:0% hackathon actually we are develop a arbitr that it's means a centralized align:start position:0% arbitr that it's means a centralized align:start position:0% arbitr that it's means a centralized resolution program or well a system that align:",
+    "judgeNotes": [
+      "Transcript available — fast skim possible before opening the full demo.",
+      "Repo detected in TypeScript; pushed 2026-03-22T05:27:24Z.",
+      "README present.",
+      "No license detected.",
+      "Main risk flags: no license detected."
+    ],
+    "scorecard": {
+      "problem_clarity": 7.2,
+      "demo_explainability": 7.4,
+      "technical_depth": 7.0,
+      "product_completeness": 7.1,
+      "code_quality": 7.0,
+      "innovation": 6.5,
+      "genlayer_fit": 7.0
+    },
+    "totalScore": 70.5
+  },
+  {
+    "id": 21,
+    "projectName": "TreasuryPilot",
+    "summary": "Treasury Pilot Demo - Aleph/GenLayer Hackathon align:start position:0% Dows have a governance problem. Treasury align:start position:0% Dows have a governance problem.",
+    "judgeNotes": [
+      "Transcript available — fast skim possible before opening the full demo.",
+      "Repo could not be validated automatically.",
+      "No license detected.",
+      "Main risk flags: github api 403."
+    ],
+    "scorecard": {
+      "problem_clarity": 7.2,
+      "demo_explainability": 7.4,
+      "technical_depth": 3.5,
+      "product_completeness": 7.1,
+      "code_quality": 4.0,
+      "innovation": 6.5,
+      "genlayer_fit": 7.0
+    },
+    "totalScore": 59.0
+  },
+  {
+    "id": 22,
+    "projectName": "CRYPTO SAGE AI",
+    "summary": "CRYPTO SAGE AI - AELPH HACKATHON align:start position:0% Yes. I am align:start position:0% Yes.",
+    "judgeNotes": [
+      "Transcript available — fast skim possible before opening the full demo.",
+      "Repo detected in HTML; pushed 2026-03-21T20:02:25Z.",
+      "README present.",
+      "No license detected.",
+      "Main risk flags: no license detected."
+    ],
+    "scorecard": {
+      "problem_clarity": 7.2,
+      "demo_explainability": 7.4,
+      "technical_depth": 7.0,
+      "product_completeness": 7.1,
+      "code_quality": 7.0,
+      "innovation": 6.5,
+      "genlayer_fit": 7.0
+    },
+    "totalScore": 70.5
+  },
+  {
+    "id": 23,
+    "projectName": "PetCare",
+    "summary": "Offer a platform that allows financing medical treatments for pets PetCare Pitch align:start position:0% [clears throat] align:start position:0% align:start position:0% Hi, my name is Jose. We are presenting align:start position:0% Hi, my name is Jose.",
+    "judgeNotes": [
+      "Transcript available — fast skim possible before opening the full demo.",
+      "Repo detected in JavaScript; pushed 2026-03-22T07:21:18Z.",
+      "README present.",
+      "No license detected.",
+      "Main risk flags: no license detected."
+    ],
+    "scorecard": {
+      "problem_clarity": 7.2,
+      "demo_explainability": 7.4,
+      "technical_depth": 7.0,
+      "product_completeness": 7.1,
+      "code_quality": 7.0,
+      "innovation": 6.5,
+      "genlayer_fit": 7.0
+    },
+    "totalScore": 70.5
+  },
+  {
+    "id": 24,
+    "projectName": "Darwinly",
+    "summary": "This is our proyect to win the alepch hackathon",
+    "judgeNotes": [
+      "Transcript unavailable or partial (metadata_failed).",
+      "Repo detected in TypeScript; pushed 2026-03-22T02:09:55Z.",
+      "README present.",
+      "No license detected.",
+      "Main risk flags: no license detected."
+    ],
+    "scorecard": {
+      "problem_clarity": 5.8,
+      "demo_explainability": 5.0,
+      "technical_depth": 7.0,
+      "product_completeness": 7.1,
+      "code_quality": 7.0,
+      "innovation": 6.5,
+      "genlayer_fit": 7.0
+    },
+    "totalScore": 64.8
+  },
+  {
+    "id": 25,
+    "projectName": "Hyphe",
+    "summary": "align:start position:0% Hello, my name is Dio and I will be align:start position:0% Hello, my name is Dio and I will be align:start position:0% Hello, my name is Dio and I will be introducing to hype. Hype is a sport align:start position:0% introducing to hype.",
+    "judgeNotes": [
+      "Transcript available — fast skim possible before opening the full demo.",
+      "Repo detected in TypeScript; pushed 2026-03-22T04:13:12Z.",
+      "README present."
+    ],
+    "scorecard": {
+      "problem_clarity": 7.2,
+      "demo_explainability": 7.4,
+      "technical_depth": 7.0,
+      "product_completeness": 7.1,
+      "code_quality": 8.0,
+      "innovation": 6.5,
+      "genlayer_fit": 7.0
+    },
+    "totalScore": 72.0
+  },
+  {
+    "id": 26,
+    "projectName": "AutoBounty",
+    "summary": "AutoBounty — Automated GitHub bounty verification using decentralized AI consensus. GenLayer validators evaluate PRs against issues, Avalanche handles escrow. No human reviewers. Minutes, not weeks. Pitch final - Autobounty - Aleph 2026 align:start position:0% Auto bounty, automated bounties for open align:start position:0% Auto bounty, automated bounties for open align:start position:0% Auto bounty, automated bounties for open source. We all know that PRs are growing align:start position:0% source.",
+    "judgeNotes": [
+      "Transcript available — fast skim possible before opening the full demo.",
+      "Repo detected in TypeScript; pushed 2026-03-22T04:37:07Z.",
+      "README present.",
+      "No license detected.",
+      "Main risk flags: no license detected."
+    ],
+    "scorecard": {
+      "problem_clarity": 7.2,
+      "demo_explainability": 7.4,
+      "technical_depth": 7.0,
+      "product_completeness": 7.1,
+      "code_quality": 7.0,
+      "innovation": 6.5,
+      "genlayer_fit": 7.0
+    },
+    "totalScore": 70.5
+  },
+  {
+    "id": 27,
+    "projectName": "RealFlow Studio",
+    "summary": "AI-Driven No-Code RWA Marketplace Builder - Build custom marketplaces for Real-World Assets in minutes, powered by AI. RealFlow Demo align:start position:0% Hi judges. I'm Moses from Lagos, Nigeria and I'm align:start position:0% I'm Moses from Lagos, Nigeria and I'm align:start position:0% I'm Moses from Lagos, Nigeria and I'm building solo for Alfaton.",
+    "judgeNotes": [
+      "Transcript available — fast skim possible before opening the full demo.",
+      "Repo detected in TypeScript; pushed 2026-03-22T06:01:33Z.",
+      "README present."
+    ],
+    "scorecard": {
+      "problem_clarity": 7.2,
+      "demo_explainability": 7.4,
+      "technical_depth": 7.0,
+      "product_completeness": 7.1,
+      "code_quality": 8.0,
+      "innovation": 6.5,
+      "genlayer_fit": 7.0
+    },
+    "totalScore": 72.0
+  },
+  {
+    "id": 28,
+    "projectName": "KuriPay",
+    "summary": "KuriPay is a hackathon submission in Fintech Track powered by Fiserv, AI Agentics Track by GenLayer.",
+    "judgeNotes": [
+      "Transcript unavailable or partial (metadata_failed).",
+      "Repo detected in TypeScript; pushed 2026-03-22T00:23:49Z.",
+      "README present.",
+      "No license detected.",
+      "Main risk flags: no license detected."
+    ],
+    "scorecard": {
+      "problem_clarity": 5.8,
+      "demo_explainability": 5.0,
+      "technical_depth": 7.0,
+      "product_completeness": 7.1,
+      "code_quality": 7.0,
+      "innovation": 6.5,
+      "genlayer_fit": 7.0
+    },
+    "totalScore": 64.8
+  },
+  {
+    "id": 29,
+    "projectName": "Budget Republic",
+    "summary": "Budget Republic is a hackathon submission in Best Projects by PL_Genesis, Avalanche Track.",
+    "judgeNotes": [
+      "Transcript unavailable or partial (metadata_failed).",
+      "Repo detected in Python; pushed 2026-03-21T22:30:48Z.",
+      "README present.",
+      "No license detected.",
+      "Main risk flags: no license detected."
+    ],
+    "scorecard": {
+      "problem_clarity": 5.8,
+      "demo_explainability": 5.0,
+      "technical_depth": 7.0,
+      "product_completeness": 7.1,
+      "code_quality": 7.0,
+      "innovation": 6.5,
+      "genlayer_fit": 7.0
+    },
+    "totalScore": 64.8
+  },
+  {
+    "id": 30,
+    "projectName": "EarnWhile",
+    "summary": "EarnWhile — Yield layer for idle capital in limit orders. Built for Aleph Hackathon 2026. EarnWhile - Yield Layer for Idle Capital | Aleph Hackathon 2026 EarnWhile turns idle capital in limit orders into active yield using AI-powered optimization via GenLayer's Optimistic Democracy. Demo for Aleph Hackathon March 2026.",
+    "judgeNotes": [
+      "Transcript unavailable or partial (no_subtitles_found).",
+      "Repo detected in TypeScript; pushed 2026-03-22T00:56:35Z.",
+      "README present.",
+      "No license detected.",
+      "Main risk flags: no license detected."
+    ],
+    "scorecard": {
+      "problem_clarity": 5.8,
+      "demo_explainability": 5.0,
+      "technical_depth": 7.0,
+      "product_completeness": 5.6,
+      "code_quality": 7.0,
+      "innovation": 6.5,
+      "genlayer_fit": 7.0
+    },
+    "totalScore": 62.6
+  },
+  {
+    "id": 31,
+    "projectName": "VeriTask",
+    "summary": "AI-Verified Freelance Escrow built on GenLayer. VeriTask: AI-Verified Escrow & Reputation Protocol | GenLayer Aleph Hackathon align:start position:0% [music] align:start position:0% align:start position:0% Style. align:start position:0% align:start position:0% Style is the answer to everything.",
+    "judgeNotes": [
+      "Transcript available — fast skim possible before opening the full demo.",
+      "Repo detected in TypeScript; pushed 2026-03-22T11:01:48Z.",
+      "README present.",
+      "No license detected.",
+      "Main risk flags: no license detected."
+    ],
+    "scorecard": {
+      "problem_clarity": 7.2,
+      "demo_explainability": 7.4,
+      "technical_depth": 7.0,
+      "product_completeness": 7.1,
+      "code_quality": 7.0,
+      "innovation": 6.5,
+      "genlayer_fit": 7.0
+    },
+    "totalScore": 70.5
+  },
+  {
+    "id": 32,
+    "projectName": "TrustWork",
+    "summary": "Use this:  > Decentralized freelance escrow platform powered by GenLayer Intelligent Contracts. AI validators evaluate work submissions and autonomously release payment — no middlemen, no platform fees.",
+    "judgeNotes": [
+      "Transcript unavailable or partial (metadata_failed).",
+      "Repo detected in JavaScript; pushed 2026-03-21T23:19:33Z.",
+      "README present.",
+      "No license detected.",
+      "Main risk flags: no license detected."
+    ],
+    "scorecard": {
+      "problem_clarity": 5.8,
+      "demo_explainability": 5.0,
+      "technical_depth": 7.0,
+      "product_completeness": 5.6,
+      "code_quality": 7.0,
+      "innovation": 6.5,
+      "genlayer_fit": 7.0
+    },
+    "totalScore": 62.6
+  },
+  {
+    "id": 33,
+    "projectName": "Proof of Audit",
+    "summary": "da0de5a2-f206-4c37-9bac-4a0718a15688",
+    "judgeNotes": [
+      "Transcript unavailable or partial (no_subtitles_found).",
+      "Repo detected in TypeScript; pushed 2026-03-21T18:33:53Z.",
+      "README present."
+    ],
+    "scorecard": {
+      "problem_clarity": 5.8,
+      "demo_explainability": 5.0,
+      "technical_depth": 7.0,
+      "product_completeness": 5.6,
+      "code_quality": 8.0,
+      "innovation": 6.5,
+      "genlayer_fit": 7.0
+    },
+    "totalScore": 64.1
+  },
+  {
+    "id": 34,
+    "projectName": "PayScout",
+    "summary": "AI-powered merchant discovery for Buenos Aires payscout",
+    "judgeNotes": [
+      "Transcript unavailable or partial (no_subtitles_found).",
+      "Repo detected in TypeScript; pushed 2026-03-21T18:40:20Z.",
+      "README present.",
+      "No license detected.",
+      "Main risk flags: no license detected."
+    ],
+    "scorecard": {
+      "problem_clarity": 5.8,
+      "demo_explainability": 5.0,
+      "technical_depth": 7.0,
+      "product_completeness": 7.1,
+      "code_quality": 7.0,
+      "innovation": 6.5,
+      "genlayer_fit": 7.0
+    },
+    "totalScore": 64.8
+  },
+  {
+    "id": 35,
+    "projectName": "Synergi",
+    "summary": "The first decentralized labor marketplace where AI agents autonomously hire, negotiate, and pay each other using the x402 protocol on Stacks/Bitcoin. SYNERGI: The First Autonomous Agent Economy on Stacks (x402) align:start position:0% Welcome to Synergic, the best align:start position:0% Welcome to Synergic, the best align:start position:0% Welcome to Synergic, the best decentralized labor marketplace where align:start position:0% decentralized labor marketplace where align:start position:0% decentralized labor marketplace where the AI agents don't just talk, they hire align:start position:0% the AI agents don't just talk, they hire align:start position:0% the AI agents don't just talk, they hire and negotiate and pay each other on the align:start position:0% and negotiate and pay each other on the align:start position:0% and negotiate and pay each other on the chain. We have built a sys",
+    "judgeNotes": [
+      "Transcript available — fast skim possible before opening the full demo.",
+      "Repo detected in TypeScript; pushed 2026-03-21T12:55:00Z.",
+      "README present.",
+      "No license detected.",
+      "Main risk flags: no license detected."
+    ],
+    "scorecard": {
+      "problem_clarity": 7.2,
+      "demo_explainability": 7.4,
+      "technical_depth": 7.0,
+      "product_completeness": 7.1,
+      "code_quality": 7.0,
+      "innovation": 6.5,
+      "genlayer_fit": 7.0
+    },
+    "totalScore": 70.5
+  },
+  {
+    "id": 36,
+    "projectName": "Proofed",
+    "summary": "Turn real work into tamper-proof, verifiable proof of skill — evaluated by AI, validated by consensus, stored on-chain. Proofed- Hackathon",
+    "judgeNotes": [
+      "Transcript unavailable or partial (no_subtitles_found).",
+      "Repo detected in TypeScript; pushed 2026-03-22T12:00:57Z.",
+      "README present.",
+      "No license detected.",
+      "Main risk flags: no license detected."
+    ],
+    "scorecard": {
+      "problem_clarity": 5.8,
+      "demo_explainability": 5.0,
+      "technical_depth": 7.0,
+      "product_completeness": 7.1,
+      "code_quality": 7.0,
+      "innovation": 6.5,
+      "genlayer_fit": 7.0
+    },
+    "totalScore": 64.8
+  }
+]

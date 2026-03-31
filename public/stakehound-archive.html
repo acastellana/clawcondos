@@ -1,0 +1,1079 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>StakeHound Archive</title>
+  <style>
+    :root {
+      --bg: #efe7db;
+      --bg-deep: #e3d6c4;
+      --paper: rgba(253, 249, 242, 0.9);
+      --paper-strong: rgba(255, 252, 247, 0.96);
+      --panel: rgba(255, 255, 255, 0.58);
+      --panel-2: rgba(255, 255, 255, 0.74);
+      --ink: #191512;
+      --muted: #6f6258;
+      --muted-2: #8b7d72;
+      --line: rgba(64, 47, 33, 0.12);
+      --line-strong: rgba(64, 47, 33, 0.22);
+      --accent: #8d4711;
+      --accent-soft: rgba(141, 71, 17, 0.1);
+      --accent-2: #23465c;
+      --accent-2-soft: rgba(35, 70, 92, 0.1);
+      --warn: #7d3128;
+      --shadow: 0 24px 60px rgba(41, 26, 16, 0.08);
+      --shadow-soft: 0 12px 30px rgba(41, 26, 16, 0.05);
+      --radius-xl: 24px;
+      --radius-lg: 18px;
+      --radius-md: 14px;
+      --radius-sm: 10px;
+      --serif: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Charter, Georgia, serif;
+      --sans: "Avenir Next", "Segoe UI", Helvetica, Arial, sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; }
+    body {
+      background:
+        radial-gradient(circle at top left, rgba(255,255,255,0.66), transparent 30%),
+        radial-gradient(circle at right 20%, rgba(35,70,92,0.08), transparent 24%),
+        linear-gradient(180deg, #f6efe4 0%, var(--bg) 44%, var(--bg-deep) 100%);
+      color: var(--ink);
+      font-family: var(--sans);
+    }
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      opacity: 0.14;
+      background-image:
+        linear-gradient(rgba(30,20,12,0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(30,20,12,0.04) 1px, transparent 1px);
+      background-size: 26px 26px;
+      mask-image: linear-gradient(180deg, rgba(0,0,0,0.7), transparent 92%);
+    }
+    a { color: inherit; }
+    button, input { font: inherit; }
+
+    .app {
+      min-height: 100vh;
+      padding: 22px;
+      display: grid;
+      gap: 14px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .masthead {
+      display: flex;
+      justify-content: space-between;
+      align-items: end;
+      gap: 18px;
+      padding: 18px 22px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-xl);
+      background: linear-gradient(135deg, rgba(255,252,247,0.92), rgba(247,239,228,0.84));
+      box-shadow: var(--shadow-soft);
+      backdrop-filter: blur(14px);
+    }
+    .eyebrow {
+      color: var(--accent-2);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+    }
+    h1 {
+      margin: 8px 0 10px;
+      font-family: var(--serif);
+      font-size: clamp(28px, 3vw, 40px);
+      line-height: 0.96;
+      letter-spacing: -0.04em;
+      font-weight: 600;
+      max-width: 12ch;
+    }
+    .lede {
+      color: var(--muted);
+      max-width: 68ch;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+    .masthead-meta {
+      display: grid;
+      gap: 10px;
+      justify-items: end;
+      min-width: 260px;
+    }
+    .stats {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: end;
+    }
+    .stat {
+      padding: 7px 11px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.62);
+      color: var(--muted);
+      font-size: 12px;
+      white-space: nowrap;
+    }
+    .mode-note {
+      color: var(--muted-2);
+      font-size: 11.5px;
+      text-align: right;
+      max-width: 42ch;
+    }
+
+    .workspace {
+      display: grid;
+      grid-template-columns: minmax(280px, 0.92fr) minmax(320px, 1.05fr) minmax(520px, 1.9fr);
+      gap: 14px;
+      min-height: calc(100vh - 180px);
+    }
+
+    .rail {
+      min-height: 0;
+      display: grid;
+      grid-template-rows: auto auto minmax(0, 1fr);
+      gap: 12px;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-xl);
+      background: linear-gradient(180deg, rgba(253,249,242,0.88), rgba(246,237,224,0.76));
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(16px);
+      overflow: hidden;
+    }
+
+    .rail--detail {
+      background: linear-gradient(180deg, rgba(255,252,247,0.95), rgba(244,235,223,0.88));
+      padding: 16px;
+    }
+
+    .rail-head {
+      display: grid;
+      gap: 10px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--line);
+    }
+    .rail-label {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+    }
+    .rail-title {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--accent-2);
+    }
+    .rail-kicker {
+      color: var(--muted-2);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .rail-copy {
+      font-family: var(--serif);
+      font-size: 22px;
+      line-height: 1.04;
+      letter-spacing: -0.03em;
+      max-width: 15ch;
+    }
+    .rail-sub {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .library-meta,
+    .search-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .meta-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.65);
+      border: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .toolbar {
+      display: grid;
+      gap: 10px;
+    }
+    .search-box {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 11px 12px;
+      border-radius: 16px;
+      border: 1px solid var(--line-strong);
+      background: rgba(255,255,255,0.78);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.6), var(--shadow-soft);
+    }
+    .search-box input {
+      flex: 1;
+      min-width: 0;
+      background: transparent;
+      border: 0;
+      color: var(--ink);
+      outline: none;
+      font-size: 15px;
+      font-weight: 500;
+    }
+    .search-box input::placeholder { color: var(--muted-2); }
+    .search-box button,
+    .filter-chip,
+    .jump,
+    .transcript-toggle,
+    .action {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      cursor: pointer;
+      transition: transform 0.16s ease, border-color 0.16s ease, background 0.16s ease;
+    }
+    .search-box button {
+      padding: 8px 12px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-weight: 700;
+    }
+    .search-box button:hover,
+    .filter-chip:hover,
+    .jump:hover,
+    .transcript-toggle:hover,
+    .action:hover {
+      transform: translateY(-1px);
+      border-color: var(--line-strong);
+    }
+
+    .filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .filter-chip {
+      padding: 8px 12px;
+      background: rgba(255,255,255,0.66);
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .filter-chip.active {
+      background: rgba(35,70,92,0.11);
+      color: var(--accent-2);
+      border-color: rgba(35,70,92,0.22);
+    }
+
+    .scroll-region {
+      min-height: 0;
+      overflow: auto;
+      padding-right: 4px;
+      display: grid;
+      gap: 10px;
+      align-content: start;
+    }
+    .scroll-region::-webkit-scrollbar,
+    .transcript-chunks::-webkit-scrollbar { width: 10px; }
+    .scroll-region::-webkit-scrollbar-thumb,
+    .transcript-chunks::-webkit-scrollbar-thumb {
+      background: rgba(90,72,57,0.18);
+      border-radius: 999px;
+      border: 2px solid transparent;
+      background-clip: padding-box;
+    }
+
+    .video-row,
+    .result-card,
+    .chunk {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.64), rgba(255,255,255,0.42));
+      padding: 12px;
+      transition: transform 0.16s ease, border-color 0.16s ease, background 0.16s ease, box-shadow 0.16s ease;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.5);
+    }
+    .video-row,
+    .result-card { cursor: pointer; }
+    .video-row:hover,
+    .result-card:hover,
+    .chunk:hover {
+      transform: translateY(-1px);
+      border-color: var(--line-strong);
+      background: linear-gradient(180deg, rgba(255,255,255,0.78), rgba(255,255,255,0.58));
+    }
+    .video-row.active,
+    .result-card.active {
+      border-color: rgba(35,70,92,0.32);
+      background: linear-gradient(180deg, rgba(35,70,92,0.12), rgba(255,255,255,0.78));
+      box-shadow: inset 0 0 0 1px rgba(35,70,92,0.08), var(--shadow-soft);
+    }
+    .result-card.active { border-color: rgba(141,71,17,0.34); }
+
+    .card-top,
+    .chunk-head,
+    .detail-meta {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: flex-start;
+    }
+    .video-title,
+    .result-title {
+      font-family: var(--serif);
+      font-size: 17px;
+      line-height: 1.15;
+      letter-spacing: -0.02em;
+      margin-bottom: 4px;
+    }
+    .tiny { font-size: 11px; }
+    .muted { color: var(--muted); }
+    .muted-2 { color: var(--muted-2); }
+    .video-desc,
+    .result-preview {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 12.5px;
+      line-height: 1.5;
+    }
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 10px;
+    }
+    .chip {
+      padding: 5px 8px;
+      border-radius: 999px;
+      background: var(--accent-2-soft);
+      color: var(--accent-2);
+      font-size: 11px;
+      white-space: nowrap;
+    }
+    .chip--warm {
+      background: var(--accent-soft);
+      color: var(--accent);
+    }
+
+    .detail-shell {
+      min-height: 0;
+      display: grid;
+      grid-template-rows: auto auto minmax(0, 1fr);
+      gap: 12px;
+    }
+    .detail-card {
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.74), rgba(255,255,255,0.55));
+      overflow: hidden;
+      box-shadow: var(--shadow-soft);
+    }
+    .detail-head {
+      padding: 18px 18px 16px;
+      display: grid;
+      gap: 12px;
+      border-bottom: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(255,255,255,0.45), rgba(255,255,255,0.18));
+    }
+    .detail-head h2 {
+      margin: 0;
+      font-family: var(--serif);
+      font-size: clamp(26px, 2.5vw, 38px);
+      line-height: 0.98;
+      letter-spacing: -0.04em;
+      font-weight: 600;
+      max-width: 16ch;
+    }
+    .detail-summary {
+      color: var(--muted);
+      max-width: 78ch;
+      line-height: 1.55;
+      font-size: 14px;
+    }
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .action {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      text-decoration: none;
+      padding: 9px 12px;
+      background: rgba(255,255,255,0.72);
+      color: var(--ink);
+      font-size: 12.5px;
+    }
+    .action--warm {
+      background: var(--accent-soft);
+      color: var(--accent);
+      border-color: rgba(141,71,17,0.16);
+    }
+    .player-wrap {
+      aspect-ratio: 16 / 9;
+      background: #000;
+      border-bottom: 1px solid var(--line);
+    }
+    .player-wrap iframe {
+      width: 100%;
+      height: 100%;
+      border: 0;
+    }
+
+    .transcript-panel {
+      min-height: 0;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      gap: 12px;
+    }
+    .transcript-toolbar {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: end;
+      padding: 0 4px;
+    }
+    .transcript-title {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--accent-2);
+      margin-bottom: 6px;
+    }
+    .transcript-copy {
+      color: var(--muted);
+      font-size: 12.5px;
+      line-height: 1.45;
+      max-width: 58ch;
+    }
+    .transcript-toggle {
+      padding: 8px 12px;
+      background: rgba(255,255,255,0.72);
+      color: var(--muted);
+      font-size: 12px;
+      white-space: nowrap;
+    }
+    .transcript-toggle.active {
+      color: var(--accent-2);
+      background: rgba(35,70,92,0.11);
+      border-color: rgba(35,70,92,0.22);
+    }
+    .transcript-chunks {
+      min-height: 0;
+      overflow: auto;
+      padding-right: 4px;
+      display: grid;
+      gap: 10px;
+    }
+    .chunk.active {
+      border-color: rgba(141,71,17,0.34);
+      background: linear-gradient(180deg, rgba(141,71,17,0.08), rgba(255,255,255,0.72));
+    }
+    .chunk-time {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--warn);
+    }
+    .chunk button { cursor: pointer; }
+    .jump {
+      padding: 7px 11px;
+      background: rgba(35,70,92,0.08);
+      color: var(--accent-2);
+      font-size: 12px;
+    }
+    .chunk-body {
+      font-size: 14px;
+      line-height: 1.6;
+      color: #2b231f;
+      margin-top: 10px;
+    }
+
+    .empty {
+      min-height: 64vh;
+      display: grid;
+      place-items: center;
+      text-align: center;
+      color: var(--muted);
+      padding: 30px;
+    }
+    .empty-card {
+      max-width: 520px;
+      padding: 28px;
+      border-radius: 24px;
+      border: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(255,255,255,0.7), rgba(255,255,255,0.46));
+      box-shadow: var(--shadow-soft);
+    }
+    .empty-card h2 {
+      margin: 0 0 12px;
+      font-family: var(--serif);
+      font-size: 30px;
+      letter-spacing: -0.04em;
+      color: var(--ink);
+    }
+
+    mark {
+      background: rgba(141,71,17,0.17);
+      color: #4f2810;
+      padding: 0 0.15em;
+      border-radius: 4px;
+    }
+
+    @media (max-width: 1380px) {
+      .workspace { grid-template-columns: minmax(260px, 0.9fr) minmax(300px, 1fr) minmax(420px, 1.5fr); }
+      h1 { max-width: 14ch; }
+      .detail-head h2 { max-width: 18ch; }
+    }
+
+    @media (max-width: 1120px) {
+      .app { padding: 16px; }
+      .masthead {
+        align-items: start;
+        grid-template-columns: 1fr;
+        display: grid;
+      }
+      .masthead-meta { justify-items: start; }
+      .stats { justify-content: start; }
+      .mode-note { text-align: left; }
+      .workspace { grid-template-columns: 1fr; min-height: auto; }
+      .rail,
+      .rail--detail { min-height: auto; }
+      .scroll-region,
+      .transcript-chunks { max-height: none; }
+      h1,
+      .rail-copy,
+      .detail-head h2 { max-width: none; }
+      .empty { min-height: 360px; }
+    }
+
+    @media (max-width: 720px) {
+      .app { padding: 12px; }
+      .masthead,
+      .rail,
+      .rail--detail { border-radius: 18px; }
+      .masthead { padding: 16px; }
+      h1 { font-size: 26px; }
+      .detail-head { padding: 16px; }
+      .detail-head h2 { font-size: 28px; }
+      .video-title,
+      .result-title { font-size: 16px; }
+      .card-top,
+      .chunk-head,
+      .detail-meta,
+      .transcript-toolbar { flex-direction: column; align-items: flex-start; }
+      .search-box { flex-wrap: wrap; }
+      .search-box button { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="masthead">
+      <div>
+        <div class="eyebrow">StakeHound Research Archive</div>
+        <h1>Three working columns for library, search, and close reading.</h1>
+        <div class="lede">Editorial archive view for reviewing the full library, searching transcript evidence, and reading the active interview without collapsing everything into one crowded pane.</div>
+      </div>
+      <div class="masthead-meta">
+        <div id="stats" class="stats"></div>
+        <div id="modeNote" class="mode-note"></div>
+      </div>
+    </header>
+
+    <main class="workspace">
+      <aside class="rail rail--library">
+        <div class="rail-head">
+          <div class="rail-label">
+            <div class="rail-title">Column 1 · Library</div>
+            <div class="rail-kicker" id="libraryCountLabel">Archive</div>
+          </div>
+          <div class="rail-copy">Browse the archive as a real collection, not a collapsed dump.</div>
+          <div class="rail-sub">Scan episodes, compare metadata, and keep the selected video visually anchored while you work through search evidence.</div>
+        </div>
+        <div class="library-meta" id="libraryMeta"></div>
+        <div class="scroll-region" id="videoList"></div>
+      </aside>
+
+      <aside class="rail rail--search">
+        <div class="rail-head">
+          <div class="rail-label">
+            <div class="rail-title">Column 2 · Search</div>
+            <div class="rail-kicker" id="searchCountLabel">Evidence</div>
+          </div>
+          <div class="rail-copy">Find the moment, then move straight into the transcript.</div>
+          <div class="rail-sub">Search titles, descriptions, keywords, and chunked transcripts. Filters keep the middle rail useful even when the query is broad.</div>
+        </div>
+
+        <div class="toolbar">
+          <div class="search-box">
+            <input id="searchInput" type="search" placeholder="Search protocols, guests, themes, exact phrases, transcript text…" autocomplete="off" />
+            <button id="clearBtn" type="button">Clear</button>
+          </div>
+          <div class="filters" id="filterChips"></div>
+          <div class="search-meta" id="searchMeta"></div>
+        </div>
+
+        <div class="scroll-region" id="searchResults"></div>
+      </aside>
+
+      <section class="rail rail--detail">
+        <div class="detail-shell" id="detailPanel"></div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const APP_DATA_URL = './stakehound-archive.app-data.json';
+    const SEARCH_INDEX_URL = './stakehound-archive.search-index.json';
+    const FILTERS = [
+      { id: 'all', label: 'All videos' },
+      { id: 'transcript', label: 'Transcript ready' },
+      { id: 'matches', label: 'Matches only' },
+    ];
+
+    const state = {
+      appData: null,
+      searchIndex: null,
+      query: '',
+      selectedVideoId: null,
+      selectedChunkId: null,
+      results: [],
+      libraryFilter: 'all',
+      transcriptExpanded: true,
+    };
+
+    const els = {
+      stats: document.getElementById('stats'),
+      modeNote: document.getElementById('modeNote'),
+      libraryCountLabel: document.getElementById('libraryCountLabel'),
+      libraryMeta: document.getElementById('libraryMeta'),
+      searchCountLabel: document.getElementById('searchCountLabel'),
+      searchMeta: document.getElementById('searchMeta'),
+      searchInput: document.getElementById('searchInput'),
+      clearBtn: document.getElementById('clearBtn'),
+      filterChips: document.getElementById('filterChips'),
+      searchResults: document.getElementById('searchResults'),
+      videoList: document.getElementById('videoList'),
+      detailPanel: document.getElementById('detailPanel'),
+    };
+
+    const stopwords = new Set(['a','about','above','after','again','against','all','also','am','an','and','any','are','as','at','be','because','been','before','being','below','between','both','but','by','can','could','did','do','does','doing','down','during','each','few','for','from','further','had','has','have','having','he','her','here','hers','herself','him','himself','his','how','i','if','in','into','is','it','its','itself','just','me','more','most','my','myself','no','nor','not','now','of','off','on','once','only','or','other','our','ours','ourselves','out','over','own','same','she','should','so','some','such','than','that','the','their','theirs','them','themselves','then','there','these','they','this','those','through','to','too','under','until','up','very','was','we','were','what','when','where','which','while','who','whom','why','will','with','you','your','yours','yourself','yourselves','uh','um','yeah','like']);
+
+    function fmtDuration(seconds) {
+      if (!seconds && seconds !== 0) return '';
+      const total = Math.round(seconds);
+      const h = Math.floor(total / 3600);
+      const m = Math.floor((total % 3600) / 60);
+      const s = total % 60;
+      return h ? `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}` : `${m}:${String(s).padStart(2,'0')}`;
+    }
+
+    function tokenize(text) {
+      return (text.toLowerCase().match(/[a-z0-9][a-z0-9_\-/.]{1,}/g) || []).filter(token => !stopwords.has(token));
+    }
+
+    function escapeHtml(text) {
+      return String(text ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    function highlight(text, query) {
+      const safe = escapeHtml(text);
+      const terms = [...new Set(tokenize(query))].slice(0, 8);
+      if (!terms.length) return safe;
+      const pattern = new RegExp(`(${terms.map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`, 'ig');
+      return safe.replace(pattern, '<mark>$1</mark>');
+    }
+
+    function videoById(id) {
+      return state.appData?.videos.find(v => v.id === id) || null;
+    }
+
+    function flattenChunks() {
+      return state.appData?.videos.flatMap(v => v.chunks || []) || [];
+    }
+
+    function scoreDocument(doc, queryTokens) {
+      if (!queryTokens.length) return 0;
+      const tf = new Map();
+      for (const token of tokenize(`${doc.title} ${doc.text} ${(doc.keywords || []).join(' ')}`)) {
+        tf.set(token, (tf.get(token) || 0) + 1);
+      }
+      const totalTerms = Array.from(tf.values()).reduce((a, b) => a + b, 0) || 1;
+      const avgLen = state.searchIndex.stats.avgChunkChars || 600;
+      const docLen = (doc.text || '').length || 1;
+      const k1 = 1.4;
+      const b = 0.75;
+      let score = 0;
+      for (const token of queryTokens) {
+        const termFreq = tf.get(token) || 0;
+        if (!termFreq) continue;
+        const df = state.searchIndex.docFreq[token] || 0;
+        const N = state.searchIndex.documents.length || 1;
+        const idf = Math.log(1 + (N - df + 0.5) / (df + 0.5));
+        const denom = termFreq + k1 * (1 - b + b * (docLen / avgLen));
+        score += idf * ((termFreq * (k1 + 1)) / denom);
+      }
+      const titleBonus = queryTokens.filter(t => tokenize(doc.title).includes(t)).length * 1.2;
+      const keywordBonus = queryTokens.filter(t => (doc.keywords || []).includes(t)).length * 0.8;
+      return score + titleBonus + keywordBonus + (totalTerms > 0 ? 0.0001 : 0);
+    }
+
+    function runSearch(query) {
+      const trimmed = query.trim();
+      if (!trimmed) return [];
+      const queryTokens = [...new Set(tokenize(trimmed))];
+      if (!queryTokens.length) return [];
+      return state.searchIndex.documents
+        .map(doc => ({ ...doc, score: scoreDocument(doc, queryTokens) }))
+        .filter(doc => doc.score > 0)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 16);
+    }
+
+    function filteredVideos() {
+      const query = state.query.trim().toLowerCase();
+      const matchesVideoIds = new Set(state.results.map(r => r.videoId));
+      return [...state.appData.videos].filter(video => {
+        if (state.libraryFilter === 'transcript' && !video.hasTranscript) return false;
+        if (state.libraryFilter === 'matches' && !matchesVideoIds.has(video.id)) return false;
+        if (!query) return true;
+        const hay = `${video.title} ${video.description} ${(video.keywords || []).join(' ')}`.toLowerCase();
+        return hay.includes(query) || matchesVideoIds.has(video.id);
+      });
+    }
+
+    function renderStats() {
+      const { summary } = state.appData;
+      els.stats.innerHTML = [
+        `${summary.videoCount} videos`,
+        `${summary.transcriptCount} transcripts`,
+        `${summary.chunkCount} searchable chunks`,
+        state.searchIndex.hasEmbeddings ? `Embeddings staged (${state.searchIndex.embeddingModel})` : 'Keyword + BM25 search',
+      ].map(text => `<div class="stat">${escapeHtml(text)}</div>`).join('');
+      els.modeNote.textContent = state.searchIndex.hasEmbeddings
+        ? 'Archive is usable immediately; embeddings are already present for future reranking while local BM25 keeps this version fast.'
+        : 'Archive loads immediately. Search runs locally with BM25 + metadata scoring.';
+    }
+
+    function renderFilterChips() {
+      els.filterChips.innerHTML = FILTERS.map(filter => `
+        <button class="filter-chip ${state.libraryFilter === filter.id ? 'active' : ''}" data-filter="${filter.id}" type="button">${escapeHtml(filter.label)}</button>
+      `).join('');
+      els.filterChips.querySelectorAll('[data-filter]').forEach(el => {
+        el.addEventListener('click', () => {
+          state.libraryFilter = el.dataset.filter;
+          renderFilterChips();
+          renderVideoList();
+          renderSearchMeta();
+        });
+      });
+    }
+
+    function renderLibraryMeta(videos) {
+      const selected = videoById(state.selectedVideoId);
+      const transcriptReady = state.appData.videos.filter(v => v.hasTranscript).length;
+      els.libraryCountLabel.textContent = `${videos.length} visible`;
+      els.libraryMeta.innerHTML = [
+        `${state.appData.videos.length} total episodes`,
+        `${transcriptReady} with transcript`,
+        selected ? `Active: ${selected.title}` : 'No active episode',
+      ].map(text => `<div class="meta-pill">${escapeHtml(text)}</div>`).join('');
+    }
+
+    function renderSearchMeta() {
+      const query = state.query.trim();
+      const pieces = [];
+      if (query) {
+        pieces.push(`${state.results.length} result${state.results.length === 1 ? '' : 's'}`);
+      } else {
+        pieces.push('Transcript search idle');
+      }
+      if (state.libraryFilter === 'matches') pieces.push('Library narrowed to matched videos');
+      if (state.libraryFilter === 'transcript') pieces.push('Only transcript-ready episodes');
+      pieces.push(state.selectedChunkId ? 'A chunk is selected' : 'No chunk selected');
+      els.searchCountLabel.textContent = query ? `${state.results.length} hits` : 'Evidence';
+      els.searchMeta.innerHTML = pieces.map(text => `<div class="meta-pill">${escapeHtml(text)}</div>`).join('');
+    }
+
+    function renderVideoList() {
+      const videos = filteredVideos();
+      renderLibraryMeta(videos);
+      if (!videos.length) {
+        els.videoList.innerHTML = '<div class="video-row"><div class="video-title">No videos match this filter.</div><div class="video-desc">Try clearing the search or switching the middle-column filters.</div></div>';
+        return;
+      }
+      els.videoList.innerHTML = videos.map(video => {
+        const active = video.id === state.selectedVideoId ? 'active' : '';
+        const matched = state.results.some(r => r.videoId === video.id);
+        return `
+          <article class="video-row ${active}" data-video-id="${video.id}">
+            <div class="card-top">
+              <div>
+                <div class="video-title">${escapeHtml(video.title)}</div>
+                <div class="tiny muted">${escapeHtml(video.uploader || video.source || 'Unknown source')} · ${escapeHtml(fmtDuration(video.duration) || 'Unknown duration')}</div>
+              </div>
+              <div class="tiny muted-2">${video.chunkCount || 0} chunks</div>
+            </div>
+            <div class="video-desc">${escapeHtml((video.description || '').slice(0, 170) || 'No description available.')}</div>
+            <div class="chips">
+              ${video.hasTranscript ? '<span class="chip chip--warm">Transcript ready</span>' : ''}
+              ${matched ? '<span class="chip">Search match</span>' : ''}
+              ${(video.keywords || []).slice(0, 3).map(tag => `<span class="chip">${escapeHtml(tag)}</span>`).join('')}
+            </div>
+          </article>`;
+      }).join('');
+      els.videoList.querySelectorAll('[data-video-id]').forEach(el => {
+        el.addEventListener('click', () => openVideo(el.dataset.videoId));
+      });
+    }
+
+    function renderResults() {
+      const query = state.query.trim();
+      renderSearchMeta();
+      if (!query) {
+        els.searchResults.innerHTML = '<div class="result-card"><div class="result-title">Search the archive.</div><div class="result-preview">Use the middle column for names, protocols, themes, or exact phrases. Results will stay here while the selected video and transcript remain on the right.</div></div>';
+        return;
+      }
+      if (!state.results.length) {
+        els.searchResults.innerHTML = '<div class="result-card"><div class="result-title">No chunk-level matches.</div><div class="result-preview">Try a guest name, protocol term, broader keyword, or exact quote from the transcript.</div></div>';
+        return;
+      }
+      els.searchResults.innerHTML = state.results.map(result => `
+        <article class="result-card ${result.id === state.selectedChunkId ? 'active' : ''}" data-result-id="${result.id}">
+          <div class="card-top">
+            <div>
+              <div class="result-title">${escapeHtml(result.title)}</div>
+              <div class="tiny muted">${escapeHtml(result.start)} · ${escapeHtml((result.speakers || []).join(', ') || 'UNKNOWN')}</div>
+            </div>
+            <div class="tiny muted-2">score ${result.score.toFixed(2)}</div>
+          </div>
+          <div class="result-preview">${highlight(result.preview || result.text, state.query)}</div>
+          <div class="chips">
+            <span class="chip chip--warm">${escapeHtml(result.source || 'transcript')}</span>
+            ${(result.keywords || []).slice(0, 4).map(tag => `<span class="chip">${escapeHtml(tag)}</span>`).join('')}
+          </div>
+        </article>
+      `).join('');
+      els.searchResults.querySelectorAll('[data-result-id]').forEach(el => {
+        el.addEventListener('click', () => openChunk(el.dataset.resultId));
+      });
+    }
+
+    function renderDetail() {
+      const video = videoById(state.selectedVideoId);
+      if (!video) {
+        els.detailPanel.innerHTML = `
+          <div class="empty">
+            <div class="empty-card">
+              <div class="eyebrow">Column 3 · Detail</div>
+              <h2>No video selected</h2>
+              <p>Choose a video from the library or open a result from the middle column to load the player and transcript here.</p>
+            </div>
+          </div>`;
+        return;
+      }
+
+      const chunks = video.chunks || [];
+      const activeChunk = state.selectedChunkId ? chunks.find(c => c.id === state.selectedChunkId) : null;
+      const displayedChunks = state.query.trim() && !state.transcriptExpanded
+        ? chunks.filter(chunk => chunk.id === state.selectedChunkId || state.results.some(r => r.id === chunk.id)).slice(0, 16)
+        : chunks;
+
+      els.detailPanel.innerHTML = `
+        <div class="detail-card">
+          <div class="detail-head">
+            <div class="detail-meta">
+              <div>
+                <div class="eyebrow">${escapeHtml(video.source || 'Archive item')}</div>
+                <h2>${escapeHtml(video.title)}</h2>
+              </div>
+              <div class="chips" style="margin-top:2px; justify-content:flex-end;">
+                <span class="chip chip--warm">${escapeHtml(fmtDuration(video.duration) || 'Unknown duration')}</span>
+                <span class="chip">${video.chunkCount || 0} chunks</span>
+                ${video.transcriptSource ? `<span class="chip">${escapeHtml(video.transcriptSource)}</span>` : ''}
+              </div>
+            </div>
+            <div class="detail-summary">${escapeHtml(video.description || 'No description available.')}</div>
+            <div class="chips" style="margin-top:0;">
+              ${video.speakers?.host ? `<span class="chip">Host: ${escapeHtml(video.speakers.host)}</span>` : ''}
+              ${video.speakers?.guest ? `<span class="chip">Guest: ${escapeHtml(video.speakers.guest)}</span>` : ''}
+              ${(video.keywords || []).slice(0, 6).map(tag => `<span class="chip">${escapeHtml(tag)}</span>`).join('')}
+            </div>
+            <div class="actions">
+              <a class="action action--warm" href="${escapeHtml(video.url)}" target="_blank" rel="noopener noreferrer">↗ Open on YouTube</a>
+              ${activeChunk ? `<a class="action" href="${escapeHtml(activeChunk.url)}" target="_blank" rel="noopener noreferrer">⏱ Open current timestamp</a>` : ''}
+            </div>
+          </div>
+          <div class="player-wrap">
+            <iframe src="${escapeHtml(video.embedUrl)}${activeChunk ? `?start=${Math.max(0, Math.floor(activeChunk.startSec))}` : ''}" title="${escapeHtml(video.title)}" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+          </div>
+        </div>
+
+        <div class="transcript-panel">
+          <div class="transcript-toolbar">
+            <div>
+              <div class="transcript-title">Transcript panel</div>
+              <div class="transcript-copy">Read the full transcript on the right, or switch to a condensed match view when you want only the relevant evidence.</div>
+            </div>
+            ${chunks.length ? `<button class="transcript-toggle ${state.transcriptExpanded ? 'active' : ''}" id="transcriptToggle" type="button">${state.transcriptExpanded ? 'Showing full transcript' : 'Showing matched chunks'}</button>` : ''}
+          </div>
+          <div class="transcript-chunks" id="transcriptChunks">
+            ${chunks.length ? displayedChunks.map(chunk => `
+              <article class="chunk ${chunk.id === state.selectedChunkId ? 'active' : ''}" id="chunk-${chunk.id.replace(/[:]/g,'-')}">
+                <div class="chunk-head">
+                  <div>
+                    <div class="chunk-time">${escapeHtml(chunk.start)} → ${escapeHtml(chunk.end)}</div>
+                    <div class="tiny muted">${escapeHtml((chunk.speakers || []).join(', ') || 'UNKNOWN')} · ${chunk.segmentCount} segments</div>
+                  </div>
+                  <button class="jump" data-chunk-id="${chunk.id}" type="button">Open this moment</button>
+                </div>
+                <div class="chunk-body">${highlight(chunk.text, state.query)}</div>
+                <div class="chips">
+                  ${(chunk.keywords || []).slice(0, 6).map(tag => `<span class="chip">${escapeHtml(tag)}</span>`).join('')}
+                </div>
+              </article>
+            `).join('') : '<div class="chunk"><div class="result-title">No transcript available yet.</div><div class="result-preview">This video is still in the archive, but transcript chunks have not been added.</div></div>'}
+          </div>
+        </div>`;
+
+      els.detailPanel.querySelectorAll('[data-chunk-id]').forEach(btn => {
+        btn.addEventListener('click', () => openChunk(btn.dataset.chunkId));
+      });
+      const toggle = document.getElementById('transcriptToggle');
+      if (toggle) {
+        toggle.addEventListener('click', () => {
+          state.transcriptExpanded = !state.transcriptExpanded;
+          renderDetail();
+        });
+      }
+      if (state.selectedChunkId) {
+        const target = document.getElementById(`chunk-${state.selectedChunkId.replace(/[:]/g,'-')}`);
+        target?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      }
+    }
+
+    function updateHash() {
+      const params = new URLSearchParams();
+      if (state.selectedVideoId) params.set('video', state.selectedVideoId);
+      if (state.selectedChunkId) params.set('chunk', state.selectedChunkId);
+      if (state.query.trim()) params.set('q', state.query.trim());
+      if (state.libraryFilter !== 'all') params.set('filter', state.libraryFilter);
+      history.replaceState(null, '', `${location.pathname}${params.toString() ? `?${params}` : ''}`);
+    }
+
+    function openVideo(videoId) {
+      state.selectedVideoId = videoId;
+      const video = videoById(videoId);
+      if (state.selectedChunkId && !video?.chunks?.some(c => c.id === state.selectedChunkId)) {
+        state.selectedChunkId = null;
+      }
+      renderVideoList();
+      renderResults();
+      renderDetail();
+      updateHash();
+    }
+
+    function openChunk(chunkId) {
+      const doc = state.searchIndex.documents.find(d => d.id === chunkId) || flattenChunks().find(c => c.id === chunkId);
+      if (!doc) return;
+      state.selectedChunkId = chunkId;
+      state.selectedVideoId = doc.videoId;
+      renderVideoList();
+      renderResults();
+      renderDetail();
+      updateHash();
+    }
+
+    function applyQuery(query) {
+      state.query = query;
+      state.results = runSearch(query);
+      if (state.results.length) {
+        state.selectedVideoId = state.results[0].videoId;
+        state.selectedChunkId = state.results[0].id;
+      } else if (!query.trim()) {
+        state.selectedChunkId = null;
+      }
+      renderResults();
+      renderVideoList();
+      renderDetail();
+      updateHash();
+    }
+
+    async function init() {
+      const appRes = await fetch(APP_DATA_URL);
+      state.appData = await appRes.json();
+      state.searchIndex = { hasEmbeddings: false, embeddingModel: null, stats: { avgChunkChars: 600 }, docFreq: {}, documents: [] };
+
+      const params = new URLSearchParams(location.search);
+      state.query = params.get('q') || '';
+      state.selectedVideoId = params.get('video') || state.appData.videos[0]?.id || null;
+      state.selectedChunkId = params.get('chunk') || null;
+      state.libraryFilter = FILTERS.some(filter => filter.id === params.get('filter')) ? params.get('filter') : 'all';
+
+      els.searchInput.value = state.query;
+      renderFilterChips();
+      renderStats();
+      renderResults();
+      renderVideoList();
+      renderDetail();
+
+      els.searchInput.addEventListener('input', event => applyQuery(event.target.value));
+      els.clearBtn.addEventListener('click', () => {
+        els.searchInput.value = '';
+        applyQuery('');
+      });
+
+      fetch(SEARCH_INDEX_URL)
+        .then(r => r.json())
+        .then(index => {
+          state.searchIndex = index;
+          state.results = runSearch(state.query);
+          if (state.selectedChunkId && !flattenChunks().some(chunk => chunk.id === state.selectedChunkId)) {
+            state.selectedChunkId = null;
+          }
+          if (!state.selectedVideoId && state.results[0]) state.selectedVideoId = state.results[0].videoId;
+          if (state.query.trim() && state.results[0]) {
+            state.selectedVideoId = state.results[0].videoId;
+            if (!state.selectedChunkId) state.selectedChunkId = state.results[0].id;
+          }
+          renderStats();
+          renderResults();
+          renderVideoList();
+          renderDetail();
+        })
+        .catch(err => {
+          console.error('search index load failed', err);
+          els.modeNote.textContent = 'Archive loaded. Search index failed to load; library and detail views remain usable.';
+        });
+    }
+
+    init().catch(err => {
+      console.error(err);
+      els.detailPanel.innerHTML = `
+        <div class="empty">
+          <div class="empty-card">
+            <div class="eyebrow">Archive status</div>
+            <h2>Archive failed to load</h2>
+            <p>${escapeHtml(err.message || String(err))}</p>
+          </div>
+        </div>`;
+    });
+  </script>
+</body>
+</html>

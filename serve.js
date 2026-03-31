@@ -24,6 +24,7 @@ import { createChatIndex } from './lib/chat-index.js';
 import { createGoalsStore } from './clawcondos/condo-management/lib/goals-store.js';
 import { createGoalHandlers } from './clawcondos/condo-management/lib/goals-handlers.js';
 import { createCondoHandlers } from './clawcondos/condo-management/lib/condos-handlers.js';
+import { createAppLauncher } from './clawcondos/app-launcher/index.js';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 
@@ -37,6 +38,9 @@ if (existsSync(ENV_FILE)) {
 }
 
 const PORT = parseInt(process.argv[2]) || 9000;
+
+// ── App Launcher (on-demand app starter) ──
+const appLauncher = createAppLauncher();
 
 const MIME_TYPES = {
   '.html': 'text/html',
@@ -1225,6 +1229,9 @@ const server = createServer(async (req, res) => {
     res.end(JSON.stringify({ apps }));
     return;
   }
+
+  // ── App Launcher: handles /launcher, /launcher/status, /launcher/api/*, and app basePath proxying ──
+  if (await appLauncher.handle(req, res, pathname, url)) return;
 
   // API: /api/cron-recurring -> list enabled recurring cron jobs (server-side)
   if (pathname === '/api/cron-recurring' || pathname === '/api/cron-recurring/') {

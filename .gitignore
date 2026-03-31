@@ -48,3 +48,5 @@ __pycache__/
 # Env files
 .env
 pair-device.mjs
+public/stakehound-archive.app-data.json
+public/stakehound-archive.search-index.json

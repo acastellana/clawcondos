@@ -1,0 +1,51 @@
+{
+  "dimensions": [
+    {
+      "key": "problem_clarity",
+      "label": "Problem clarity",
+      "weight": 15,
+      "guide": "Is the pain point obvious and worth solving?"
+    },
+    {
+      "key": "demo_explainability",
+      "label": "Demo explainability",
+      "weight": 15,
+      "guide": "Can a judge understand the product quickly from the demo?"
+    },
+    {
+      "key": "technical_depth",
+      "label": "Technical depth",
+      "weight": 20,
+      "guide": "Does the implementation show real engineering substance?"
+    },
+    {
+      "key": "product_completeness",
+      "label": "Product completeness",
+      "weight": 15,
+      "guide": "Does it feel like a usable product rather than a concept?"
+    },
+    {
+      "key": "code_quality",
+      "label": "Code quality",
+      "weight": 15,
+      "guide": "Repo organization, docs, tests, maintainability signals."
+    },
+    {
+      "key": "innovation",
+      "label": "Innovation",
+      "weight": 10,
+      "guide": "Is there a differentiated insight or novel approach?"
+    },
+    {
+      "key": "genlayer_fit",
+      "label": "GenLayer / track fit",
+      "weight": 10,
+      "guide": "Is the project genuinely aligned to the GenLayer / entered tracks?"
+    }
+  ],
+  "scale": "0-10 per dimension",
+  "notes": [
+    "Automated signals help pre-score code quality and polish, but final judging should still include human review of demo and track fit.",
+    "Missing repo/demo assets should reduce confidence, not automatically zero the project."
+  ]
+}

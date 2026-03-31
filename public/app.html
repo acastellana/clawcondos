@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ClawCondos App</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0d1117;
+      --bg-panel: #161b22;
+      --bg-hover: #1c2128;
+      --bg-input: #0d1117;
+      --border: #30363d;
+      --text: #e6edf3;
+      --text-dim: #8b949e;
+      --accent: #58a6ff;
+      --green: #3fb950;
+      --yellow: #d29922;
+      --red: #f85149;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .header {
+      height: 48px;
+      background: var(--bg-panel);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+      gap: 16px;
+      flex-shrink: 0;
+    }
+    .back-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--text-dim);
+      padding: 6px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      text-decoration: none;
+    }
+    .back-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .app-info { display: flex; align-items: center; gap: 10px; }
+    .app-icon { font-size: 1.3rem; }
+    .app-name { font-weight: 600; font-size: 1rem; }
+    .app-status { display: flex; align-items: center; gap: 6px; font-size: 0.75rem; color: var(--text-dim); }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; }
+    .status-dot.online { background: var(--green); }
+    .status-dot.offline { background: var(--red); }
+    .copy-error-btn {
+      display: none;
+      align-items: center;
+      gap: 4px;
+      background: var(--red);
+      border: none;
+      color: white;
+      padding: 4px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.75rem;
+      margin-left: 8px;
+    }
+    .copy-error-btn:hover { opacity: 0.8; }
+    .copy-error-btn.visible { display: inline-flex; }
+    .header-spacer { flex: 1; }
+    .toggle-assistant {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--accent);
+      border: none;
+      color: white;
+      padding: 6px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.85rem;
+    }
+    .toggle-assistant.active { background: var(--bg); border: 1px solid var(--accent); color: var(--accent); }
+    .main-container { flex: 1; display: flex; overflow: hidden; }
+    .app-frame-container { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+    .app-frame { flex: 1; border: none; background: white; width: 100%; height: 100%; }
+    .assistant-panel {
+      width: 0;
+      background: var(--bg-panel);
+      border-left: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      transition: width 0.3s ease;
+    }
+    .assistant-panel.open { width: 400px; min-width: 350px; }
+    .assistant-header {
+      height: 48px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+    .assistant-header h3 { font-size: 0.95rem; font-weight: 600; }
+    .assistant-controls {
+      display: flex;
+      gap: 6px;
+      padding: 8px 16px;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg);
+    }
+    .control-btn {
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      color: var(--text-dim);
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      cursor: pointer;
+    }
+    .control-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .control-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .control-btn.stop { border-color: var(--red); color: var(--red); }
+    .control-btn.stop:hover:not(:disabled) { background: var(--red); color: white; }
+    .chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .message {
+      max-width: 90%;
+      padding: 10px 14px;
+      border-radius: 12px;
+      font-size: 0.9rem;
+      line-height: 1.5;
+      word-break: break-word;
+    }
+    .message.user { align-self: flex-end; background: #1f3a5f; }
+    .message.assistant { align-self: flex-start; background: var(--bg); border: 1px solid var(--border); }
+    .message.system { align-self: center; background: transparent; color: var(--text-dim); font-size: 0.8rem; }
+    .message.thinking { color: var(--text-dim); font-style: italic; }
+    .message pre { background: var(--bg-panel); padding: 10px; border-radius: 6px; overflow-x: auto; margin: 8px 0; font-size: 0.85em; }
+    .message code { background: var(--bg-panel); padding: 2px 6px; border-radius: 4px; font-size: 0.85em; }
+    .chat-input-area { padding: 12px; border-top: 1px solid var(--border); flex-shrink: 0; }
+    .chat-input-wrapper { display: flex; gap: 8px; }
+    .chat-input {
+      flex: 1;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      color: var(--text);
+      font-size: 0.9rem;
+      resize: none;
+      min-height: 42px;
+      max-height: 150px;
+      font-family: inherit;
+    }
+    .chat-input:focus { outline: none; border-color: var(--accent); }
+    .send-btn {
+      background: var(--accent);
+      border: none;
+      border-radius: 8px;
+      width: 42px;
+      height: 42px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .send-btn svg { width: 20px; height: 20px; fill: white; }
+    .quick-actions { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+    .quick-btn {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text-dim);
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 0.75rem;
+      cursor: pointer;
+    }
+    .quick-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .quick-btn.escalate { border-color: var(--yellow); color: var(--yellow); }
+    .quick-btn.escalate:hover { background: var(--yellow); color: var(--bg); }
+    .loading-overlay { position: absolute; inset: 0; background: var(--bg); display: flex; align-items: center; justify-content: center; z-index: 100; }
+    .loading-overlay.hidden { display: none; }
+    .spinner { width: 40px; height: 40px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div class="loading-overlay" id="loading"><div class="spinner"></div></div>
+  <header class="header">
+    <a href="/" class="back-btn">← Dashboard</a>
+    <div class="app-info">
+      <span class="app-icon" id="appIcon">📦</span>
+      <span class="app-name" id="appName">Loading...</span>
+      <div class="app-status">
+        <span class="status-dot online" id="appStatus"></span>
+        <span id="appStatusText">online</span>
+        <button class="copy-error-btn" id="copyErrorBtn" onclick="copyErrorToClipboard()" title="Copy error details to clipboard">📋 Copy Error</button>
+      </div>
+    </div>
+    <div class="header-spacer"></div>
+    <button class="toggle-assistant" id="toggleAssistant" onclick="toggleAssistant()">🤖 Assistant</button>
+  </header>
+  <div class="main-container">
+    <div class="app-frame-container">
+      <iframe id="appFrame" class="app-frame" src="about:blank" sandbox="allow-scripts allow-forms allow-popups allow-same-origin" onload="window.handleFrameLoad && window.handleFrameLoad()" onerror="window.handleFrameError && window.handleFrameError(event)"></iframe>
+    </div>
+    <aside class="assistant-panel" id="assistantPanel">
+      <div class="assistant-header">
+        <span>🛠️</span>
+        <h3>App Assistant</h3>
+      </div>
+      <div class="assistant-controls">
+        <button class="control-btn stop" id="stopBtn" onclick="stopAgent()" disabled>⏹ Stop</button>
+        <button class="control-btn" onclick="clearHistory()">🗑️ Clear</button>
+      </div>
+      <div class="chat-messages" id="messages">
+        <div class="message system">Ask me anything about this app...</div>
+      </div>
+      <div class="chat-input-area">
+        <div class="chat-input-wrapper">
+          <textarea class="chat-input" id="chatInput" placeholder="Ask about this app..." rows="1" onkeydown="handleKeyDown(event)" oninput="autoResize(this)"></textarea>
+          <button class="send-btn" id="sendBtn" onclick="sendMessage()">
+            <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+          </button>
+        </div>
+        <div class="quick-actions">
+          <button class="quick-btn" onclick="quickAction('check logs for errors')">📋 Logs</button>
+          <button class="quick-btn" onclick="quickAction('what does this app do?')">❓ About</button>
+          <button class="quick-btn" onclick="quickAction('how can I improve this?')">✨ Improve</button>
+          <button class="quick-btn escalate" onclick="escalateToMain()">📤 Send to Main</button>
+        </div>
+      </div>
+    </aside>
+  </div>
+  <script src="/lib/message-shaping.js"></script>
+  <script>
+    let app = null;
+    let assistantOpen = false;
+    let sessionKey = null;
+    let isThinking = false;
+    let chatHistory = [];
+    let lastErrorDetails = null;
+
+    function showToast(message, type = 'info', durationMs = 4000) {
+      const existing = document.getElementById('toastContainer') || (() => {
+        const c = document.createElement('div');
+        c.id = 'toastContainer';
+        c.style.cssText = 'position:fixed;bottom:18px;right:18px;z-index:9999;display:flex;flex-direction:column;gap:10px;max-width:420px;';
+        document.body.appendChild(c);
+        return c;
+      })();
+
+      const toast = document.createElement('div');
+      const bg = type === 'error' ? '#B91C1C' : type === 'success' ? '#15803D' : type === 'warning' ? '#B45309' : '#0F172A';
+      toast.style.cssText = `background:${bg};color:#fff;padding:10px 12px;border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,0.25);font:14px/1.35 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;`;
+      toast.textContent = String(message || '');
+      existing.appendChild(toast);
+
+      const t = setTimeout(() => {
+        try { toast.remove(); } catch {}
+      }, durationMs);
+      toast.addEventListener('click', () => {
+        clearTimeout(t);
+        try { toast.remove(); } catch {}
+      });
+    }
+
+    async function copyToClipboard(text) {
+      await navigator.clipboard.writeText(text);
+    }
+
+    async function init() {
+      const params = new URLSearchParams(window.location.search);
+      const appId = params.get('id');
+      if (!appId) { window.location.href = '/'; return; }
+      
+      try {
+        const res = await fetch('/api/apps');
+        const data = await res.json();
+        app = data.apps.find(a => a.id === appId);
+        if (!app) { showToast(`App "${appId}" not found`, 'error', 6000); window.location.href = '/'; return; }
+        
+        document.title = `${app.name} | ClawCondos`;
+        document.getElementById('appIcon').textContent = app.icon || '📦';
+        document.getElementById('appName').textContent = app.name;
+        // Support custom URL/route: app.url for external, app.route for path, default to /{id}/
+        // SECURITY: do not allow javascript:/data: etc. Only allow relative paths or allowlisted http(s).
+        const rawFrameUrl = app.url || app.route || `/${app.id}/`;
+        const frameUrl = sanitizeAppFrameUrl(rawFrameUrl, app.id);
+        if (!frameUrl) {
+          showToast('Blocked unsafe app URL in registry.', 'error', 8000);
+          window.location.href = '/';
+          return;
+        }
+
+        // Apps that require crossOriginIsolated (e.g. WebVM/CheerpX) can't run in iframes.
+        // Open them in a new tab and show a placeholder instead.
+        if (app.openInNewTab) {
+          // NOTE: window.open() from async init is often blocked by popup blockers.
+          // So we render an explicit user-click link instead.
+          document.getElementById('appFrame').style.display = 'none';
+          const placeholder = document.createElement('div');
+          placeholder.style.cssText = 'flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;color:#6b6560;font-family:monospace;font-size:13px;background:#080808;padding:24px;';
+          placeholder.innerHTML = `
+            <div style="font-size:32px">${app.icon || '📦'}</div>
+            <div><strong style="color:#e7dfd4">${app.name}</strong> must run in a top-level tab (not inside an iframe).</div>
+            <a href="${frameUrl}" target="_blank" rel="noopener" style="color:#d4a843;text-decoration:none;border:1px solid #d4a843;padding:8px 20px;border-radius:4px;">Open in new tab ↗</a>
+            <div style="opacity:.85;max-width:560px;text-align:center;line-height:1.45">
+              This is required for SharedArrayBuffer (CheerpX/WebVM), which browsers block in sandboxed/embedded iframes.
+            </div>
+          `;
+          document.getElementById('appFrame').parentNode.insertBefore(placeholder, document.getElementById('appFrame'));
+          showToast('This app must be opened in a new tab. Click “Open in new tab ↗”.', 'warning', 8000);
+        } else {
+          document.getElementById('appFrame').src = frameUrl;
+        }
+        sessionKey = `agent:app-assistant:app:${app.id}`;
+        
+        loadHistory();
+        if (localStorage.getItem(`assistant_open_${appId}`) === 'true') toggleAssistant();
+        document.getElementById('loading').classList.add('hidden');
+        checkAppStatus();
+        setInterval(checkAppStatus, 30000);
+      } catch (err) {
+        console.error('Init error:', err);
+        showToast('Failed to load app: ' + err.message, 'error', 8000);
+      }
+    }
+
+    function sanitizeAppFrameUrl(rawUrl, appId) {
+      if (!rawUrl) return null;
+      const trimmed = String(rawUrl).trim();
+
+      // Allow only local relative paths (preferred)
+      if (trimmed.startsWith('/')) {
+        // Optionally enforce the app is served under /<appId>/
+        // but allow absolute /apps/... or other reverse-proxy routes.
+        // Block protocol-relative URLs (//evil.com)
+        if (trimmed.startsWith('//')) return null;
+        return trimmed;
+      }
+
+      // Allow external http(s) only if explicitly allowlisted in the app registry
+      // (default deny)
+      if (/^https?:\/\//i.test(trimmed)) {
+        // Minimal allowlist hook: app.allowExternal === true
+        if (app && app.allowExternal === true) return trimmed;
+        return null;
+      }
+
+      return null;
+    }
+
+    async function checkAppStatus() {
+      const dot = document.getElementById('appStatus');
+      const text = document.getElementById('appStatusText');
+      const copyBtn = document.getElementById('copyErrorBtn');
+      
+      try {
+        const appUrl = `/${app.id}/`;
+        const res = await fetch(appUrl);
+        const isOk = res.ok || res.status === 401;
+        
+        dot.className = 'status-dot ' + (isOk ? 'online' : 'offline');
+        text.textContent = isOk ? 'online' : 'error';
+        
+        if (!isOk) {
+          // Capture error details
+          let responseBody = '';
+          try {
+            responseBody = await res.text();
+          } catch (e) {
+            responseBody = `[Failed to read body: ${e.message}]`;
+          }
+          
+          lastErrorDetails = {
+            timestamp: new Date().toISOString(),
+            app: {
+              id: app.id,
+              name: app.name,
+              port: app.port,
+              path: app.path,
+              stack: app.stack || 'Unknown'
+            },
+            request: {
+              url: window.location.origin + appUrl,
+              method: 'GET'
+            },
+            response: {
+              status: res.status,
+              statusText: res.statusText,
+              headers: Object.fromEntries(res.headers.entries()),
+              body: responseBody.slice(0, 10000) // Limit body size
+            },
+            userAgent: navigator.userAgent
+          };
+          copyBtn.classList.add('visible');
+        } else {
+          lastErrorDetails = null;
+          copyBtn.classList.remove('visible');
+        }
+      } catch (err) {
+        dot.className = 'status-dot offline';
+        text.textContent = 'offline';
+        
+        lastErrorDetails = {
+          timestamp: new Date().toISOString(),
+          app: {
+            id: app?.id,
+            name: app?.name,
+            port: app?.port,
+            path: app?.path,
+            stack: app?.stack || 'Unknown'
+          },
+          error: {
+            type: 'NetworkError',
+            message: err.message,
+            stack: err.stack
+          },
+          userAgent: navigator.userAgent
+        };
+        copyBtn.classList.add('visible');
+      }
+    }
+    
+    async function copyErrorToClipboard() {
+      if (!lastErrorDetails) {
+        showToast('No error details to copy', 'info');
+        return;
+      }
+      
+      const errorText = `=== ClawCondos App Error Report ===
+Timestamp: ${lastErrorDetails.timestamp}
+App: ${lastErrorDetails.app?.name || 'Unknown'} (${lastErrorDetails.app?.id || 'Unknown'})
+Port: ${lastErrorDetails.app?.port || 'N/A'}
+Path: ${lastErrorDetails.app?.path || 'N/A'}
+Stack: ${lastErrorDetails.app?.stack || 'Unknown'}
+
+${lastErrorDetails.request ? `--- Request ---
+URL: ${lastErrorDetails.request.url}
+Method: ${lastErrorDetails.request.method}` : ''}
+
+${lastErrorDetails.response ? `--- Response ---
+Status: ${lastErrorDetails.response.status} ${lastErrorDetails.response.statusText}
+Headers: ${JSON.stringify(lastErrorDetails.response.headers, null, 2)}
+
+Body:
+${lastErrorDetails.response.body}` : ''}
+
+${lastErrorDetails.error ? `--- Error ---
+Type: ${lastErrorDetails.error.type}
+Message: ${lastErrorDetails.error.message}
+Stack: ${lastErrorDetails.error.stack}` : ''}
+
+--- Environment ---
+UserAgent: ${lastErrorDetails.userAgent}
+Window URL: ${window.location.href}
+`;
+      
+      try {
+        await copyToClipboard(errorText);
+        const btn = document.getElementById('copyErrorBtn');
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '✅ Copied!';
+        setTimeout(() => { btn.innerHTML = originalText; }, 2000);
+      } catch (err) {
+        showToast('Clipboard copy failed', 'error');
+      }
+    }
+    
+    function handleFrameLoad() {
+      // Try to detect if the iframe loaded an error page
+      const frame = document.getElementById('appFrame');
+      try {
+        // Same-origin check - try to access frame content
+        const doc = frame.contentDocument || frame.contentWindow?.document;
+        if (doc) {
+          const title = doc.title || '';
+          const body = doc.body?.textContent || '';
+          
+          // Check for common error patterns
+          const errorPatterns = [
+            /404|not found/i,
+            /500|internal server error/i,
+            /503|service unavailable/i,
+            /502|bad gateway/i,
+            /error|exception|traceback/i,
+            /unhandled|uncaught/i
+          ];
+          
+          const hasError = errorPatterns.some(p => p.test(title) || p.test(body.slice(0, 500)));
+          
+          if (hasError) {
+            // Capture iframe error content
+            lastErrorDetails = {
+              timestamp: new Date().toISOString(),
+              app: {
+                id: app?.id,
+                name: app?.name,
+                port: app?.port,
+                path: app?.path,
+                stack: app?.stack || 'Unknown'
+              },
+              iframe: {
+                url: frame.src,
+                title: title,
+                bodyPreview: body.slice(0, 5000),
+                fullHtml: doc.documentElement?.outerHTML?.slice(0, 15000)
+              },
+              userAgent: navigator.userAgent
+            };
+            document.getElementById('copyErrorBtn').classList.add('visible');
+            document.getElementById('appStatus').className = 'status-dot offline';
+            document.getElementById('appStatusText').textContent = 'error';
+          }
+        }
+      } catch (e) {
+        // Cross-origin - can't access content, that's fine
+      }
+    }
+    
+    function handleFrameError(event) {
+      lastErrorDetails = {
+        timestamp: new Date().toISOString(),
+        app: {
+          id: app?.id,
+          name: app?.name,
+          port: app?.port,
+          path: app?.path,
+          stack: app?.stack || 'Unknown'
+        },
+        error: {
+          type: 'IframeLoadError',
+          message: 'Failed to load app in iframe',
+          event: event?.type || 'unknown'
+        },
+        userAgent: navigator.userAgent
+      };
+      document.getElementById('copyErrorBtn').classList.add('visible');
+      document.getElementById('appStatus').className = 'status-dot offline';
+      document.getElementById('appStatusText').textContent = 'error';
+    }
+
+    function toggleAssistant() {
+      assistantOpen = !assistantOpen;
+      document.getElementById('assistantPanel').classList.toggle('open', assistantOpen);
+      document.getElementById('toggleAssistant').classList.toggle('active', assistantOpen);
+      localStorage.setItem(`assistant_open_${app.id}`, assistantOpen);
+      if (assistantOpen) {
+        setTimeout(() => document.getElementById('chatInput').focus(), 300);
+        if (chatHistory.length === 0) sendContext();
+      }
+    }
+
+    async function sendContext() {
+      let filesSection = '';
+      if (app.files) {
+        filesSection = '\nKey files:\n';
+        for (const [role, file] of Object.entries(app.files)) {
+          filesSection += `- ${role}: ${app.path}/${file}\n`;
+        }
+      }
+      
+      // Include any captured errors
+      let errorSection = '';
+      if (lastErrorDetails) {
+        errorSection = `\n## ⚠️ Current Error
+- **Type:** ${lastErrorDetails.error?.type || 'Unknown'}
+- **Message:** ${lastErrorDetails.error?.message || 'N/A'}
+${lastErrorDetails.response ? `- **HTTP Status:** ${lastErrorDetails.response.status} ${lastErrorDetails.response.statusText}` : ''}
+${lastErrorDetails.response?.body ? `- **Response:** \`\`\`${lastErrorDetails.response.body.slice(0, 500)}\`\`\`` : ''}
+`;
+      }
+      
+      const contextMsg = `[SYSTEM] You are an app assistant for "${app.name}".
+
+## App Details
+- **ID:** ${app.id}
+- **Description:** ${app.description || 'N/A'}
+- **Port:** ${app.port}
+- **Path:** ${app.path}
+- **Stack:** ${app.stack || 'Unknown'}
+${app.startCommand ? `- **Start command:** ${app.startCommand}` : ''}
+${app.logs ? `- **Logs:** ${app.logs}` : ''}
+${app.docs ? `- **Docs:** ${app.path}/${app.docs}` : ''}
+${filesSection}${errorSection}
+## Your Capabilities
+- Read and edit source files in ${app.path}
+- Check logs${app.logs ? ` at ${app.logs}` : ''}
+- Debug issues and suggest improvements
+
+Be concise. ${errorSection ? 'An error has occurred - help debug it.' : 'Start by reading the entry file to understand the current state.'}`;
+      await callAgent(contextMsg, true);
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML.replace(/'/g, '&#39;').replace(/"/g, '&quot;');
+    }
+
+    function addMessage(role, content) {
+      const container = document.getElementById('messages');
+      const msg = document.createElement('div');
+      msg.className = `message ${role}`;
+
+      if (role === 'assistant') {
+        const shaper = window.messageShaping && window.messageShaping.shapeMessageText;
+        const shaped = shaper ? shaper(String(content || '')) : { text: String(content || ''), replyTo: null, suppressed: false };
+        if (shaped.suppressed) {
+          return null; // hide sentinel-only messages
+        }
+
+        msg.innerHTML = escapeHtml(shaped.text)
+          .replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>')
+          .replace(/`([^`]+)`/g, '<code>$1</code>')
+          .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+          .replace(/\n/g, '<br>');
+      } else {
+        msg.textContent = content;
+      }
+
+      container.appendChild(msg);
+      container.scrollTop = container.scrollHeight;
+      if (role !== 'system' && !role.includes('thinking')) {
+        chatHistory.push({ role, content });
+        saveHistory();
+      }
+      return msg;
+    }
+
+    async function sendMessage() {
+      const input = document.getElementById('chatInput');
+      const text = input.value.trim();
+      if (!text || isThinking) return;
+      input.value = '';
+      input.style.height = 'auto';
+      addMessage('user', text);
+      const thinkingMsg = addMessage('assistant thinking', 'Thinking...');
+      isThinking = true;
+      updateButtons();
+      try {
+        const response = await callAgent(text);
+        thinkingMsg.remove();
+        if (response) addMessage('assistant', response);
+      } catch (err) {
+        thinkingMsg.remove();
+        addMessage('system', `Error: ${err.message}`);
+      } finally {
+        isThinking = false;
+        updateButtons();
+      }
+    }
+
+    async function callAgent(message, silent = false) {
+      try {
+        const res = await fetch('/api/gateway/tools/invoke', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            tool: 'sessions_send',
+            args: { sessionKey, message, timeoutSeconds: 120 }
+          })
+        });
+        const data = await res.json();
+        if (data.ok && data.result?.details?.reply) {
+          return silent ? null : data.result.details.reply;
+        } else if (data.error) {
+          throw new Error(data.error.message);
+        }
+        return null;
+      } catch (err) {
+        throw err;
+      }
+    }
+
+    function quickAction(action) {
+      document.getElementById('chatInput').value = action;
+      sendMessage();
+    }
+
+    async function escalateToMain() {
+      const input = document.getElementById('chatInput');
+      let text = input.value.trim();
+      if (!text && chatHistory.length < 2) {
+        addMessage('system', 'Nothing to escalate. Type a message first.');
+        return;
+      }
+      if (!text) {
+        const lastUser = chatHistory.filter(m => m.role === 'user').pop();
+        const lastAssist = chatHistory.filter(m => m.role === 'assistant').pop();
+        text = `[From ${app.name} app]\n\nUser: ${lastUser?.content || 'N/A'}\n\nAssistant: ${lastAssist?.content?.slice(0, 500) || 'N/A'}...\n\nPlease review.`;
+      } else {
+        text = `[From ${app.name} app] ${text}`;
+      }
+      input.value = '';
+      addMessage('system', '📤 Sending to main agent...');
+      try {
+        const res = await fetch('/api/gateway/tools/invoke', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            tool: 'sessions_send',
+            args: { sessionKey: 'agent:main:main', message: text, timeoutSeconds: 30 }
+          })
+        });
+        const data = await res.json();
+        addMessage('system', data.ok ? '✅ Sent to main agent.' : `❌ Failed: ${data.error?.message || 'Unknown'}`);
+      } catch (err) {
+        addMessage('system', `❌ Error: ${err.message}`);
+      }
+    }
+
+    async function stopAgent() {
+      if (!isThinking) return;
+      try {
+        await fetch('/api/gateway/tools/invoke', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            tool: 'sessions_send',
+            args: { sessionKey, message: '/stop', timeoutSeconds: 5 }
+          })
+        });
+        addMessage('system', '⏹ Stop requested');
+      } catch (err) {
+        addMessage('system', `Failed to stop: ${err.message}`);
+      }
+    }
+
+    function clearHistory() {
+      if (!confirm('Clear chat history?')) return;
+      chatHistory = [];
+      saveHistory();
+      document.getElementById('messages').innerHTML = '<div class="message system">Chat cleared.</div>';
+    }
+
+    function saveHistory() {
+      if (app) localStorage.setItem(`chat_history_${app.id}`, JSON.stringify(chatHistory.slice(-50)));
+    }
+
+    function loadHistory() {
+      if (!app) return;
+      const saved = localStorage.getItem(`chat_history_${app.id}`);
+      if (saved) {
+        try {
+          const history = JSON.parse(saved);
+          const container = document.getElementById('messages');
+          container.innerHTML = '';
+          history.forEach(msg => addMessage(msg.role, msg.content));
+          if (history.length === 0) container.innerHTML = '<div class="message system">Ask me anything about this app...</div>';
+        } catch (e) { console.error('Failed to load history:', e); }
+      }
+    }
+
+    function handleKeyDown(e) {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+      if (e.key === 'Escape' && isThinking) { e.preventDefault(); stopAgent(); }
+    }
+
+    function autoResize(el) {
+      el.style.height = 'auto';
+      el.style.height = Math.min(el.scrollHeight, 150) + 'px';
+    }
+
+    function updateButtons() {
+      document.getElementById('sendBtn').disabled = isThinking;
+      document.getElementById('stopBtn').disabled = !isThinking;
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if (e.altKey && e.key === 'a') { e.preventDefault(); toggleAssistant(); }
+      if (e.key === 'Escape' && assistantOpen && !isThinking) toggleAssistant();
+    });
+
+    init();
+  </script>
+</body>
+</html>

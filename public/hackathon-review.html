@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hackathon Review Console</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/hackathon-review.css?v=20260322c" />
+</head>
+<body>
+  <div class="grain"></div>
+  <header class="topbar">
+    <div>
+      <p class="eyebrow">GenLayer Hackathon</p>
+      <h1>Review Console</h1>
+    </div>
+    <div class="topbar-actions">
+      <button id="prevBtn" class="ghost">← Prev</button>
+      <button id="nextBtn" class="ghost">Next →</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="sidebar panel">
+      <div class="control-block">
+        <label for="search">Search</label>
+        <input id="search" type="search" placeholder="Find a project..." />
+      </div>
+
+      <div class="control-block">
+        <label for="sort">Sort</label>
+        <select id="sort">
+          <option value="genlayer">GenLayer recommendation</option>
+          <option value="score">Highest score</option>
+          <option value="name">Name</option>
+          <option value="updated">Recent repo activity</option>
+          <option value="demo">Transcript availability</option>
+        </select>
+      </div>
+
+      <div class="control-block">
+        <label for="genlayerFilter">GenLayer</label>
+        <select id="genlayerFilter">
+          <option value="all">All</option>
+          <option value="core">Core</option>
+          <option value="meaningful">Meaningful</option>
+          <option value="weak/future">Weak / future</option>
+          <option value="unclear">Unclear</option>
+          <option value="yes">Serious only</option>
+          <option value="maybe">Maybe</option>
+          <option value="no">No</option>
+        </select>
+      </div>
+
+      <div class="control-block">
+        <div class="label-row">
+          <label>Tracks</label>
+          <button id="clearTracks" class="tiny">clear</button>
+        </div>
+        <div id="trackFilters" class="track-filters"></div>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat"><span id="statProjects">0</span><small>projects</small></div>
+        <div class="stat"><span id="statTranscripts">0</span><small>transcripts</small></div>
+        <div class="stat"><span id="statRepos">0</span><small>live repos</small></div>
+      </div>
+
+      <div id="projectList" class="project-list"></div>
+    </section>
+
+    <section class="detail panel">
+      <div id="detailEmpty" class="detail-empty">
+        <p>Select a project to inspect the demo, repo signals, and score breakdown.</p>
+      </div>
+      <div id="detailView" class="detail-view hidden">
+        <div class="detail-header">
+          <div>
+            <p id="detailId" class="eyebrow"></p>
+            <h2 id="detailTitle"></h2>
+          </div>
+          <div id="detailTotal" class="score-orb"></div>
+        </div>
+
+        <div id="detailTracks" class="tag-row"></div>
+
+        <div class="link-row">
+          <a id="linkDora" target="_blank" rel="noreferrer">DoraHacks ↗</a>
+          <a id="linkDemo" target="_blank" rel="noreferrer">Demo ↗</a>
+          <a id="linkGitHub" target="_blank" rel="noreferrer">GitHub ↗</a>
+        </div>
+
+        <div class="summary-grid">
+          <article class="summary-card">
+            <h3>What it is</h3>
+            <p id="detailSummary">No summary yet.</p>
+          </article>
+          <article class="summary-card">
+            <h3>Judge notes</h3>
+            <ul id="detailJudgeNotes" class="bullet-list"></ul>
+          </article>
+        </div>
+
+        <div class="score-section">
+          <div class="section-title-row">
+            <h3>Score breakdown</h3>
+            <small>0–10 per dimension</small>
+          </div>
+          <div id="scoreBars" class="score-bars"></div>
+        </div>
+
+        <div class="insights-grid">
+          <article class="insight-card">
+            <h3>Repo signals</h3>
+            <dl id="repoSignals" class="signal-list"></dl>
+          </article>
+          <article class="insight-card">
+            <h3>Transcript / demo</h3>
+            <div id="transcriptMeta" class="meta-list"></div>
+            <p id="transcriptPreview" class="transcript-preview"></p>
+          </article>
+        </div>
+
+        <div class="insights-grid">
+          <article class="insight-card">
+            <h3>Polish signals</h3>
+            <ul id="polishSignals" class="bullet-list"></ul>
+          </article>
+          <article class="insight-card danger">
+            <h3>Risk flags</h3>
+            <ul id="riskFlags" class="bullet-list"></ul>
+          </article>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="/hackathon-review.js?v=20260322c"></script>
+</body>
+</html>

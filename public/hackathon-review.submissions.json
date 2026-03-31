@@ -1,0 +1,432 @@
+[
+  {
+    "id": 1,
+    "projectName": "DevContractShield",
+    "dorahacksUrl": "https://dorahacks.io/buidl/41451",
+    "demoUrl": "https://youtu.be/_mJief87peM",
+    "githubUrl": "https://github.com/RoodrigoReyes/DevContractShield",
+    "tracks": [
+      "AI Agentics Track by GenLayer"
+    ],
+    "notes": []
+  },
+  {
+    "id": 2,
+    "projectName": "JUBIFY",
+    "dorahacksUrl": "https://dorahacks.io/buidl/41449",
+    "demoUrl": "https://youtu.be/5xYHpjFM5fk",
+    "githubUrl": "https://github.com/vvcc77/Jubify",
+    "tracks": [
+      "Best Projects by PL_Genesis",
+      "Avalanche Track",
+      "AI Agentics Track by GenLayer"
+    ],
+    "notes": []
+  },
+  {
+    "id": 3,
+    "projectName": "How2Pitch",
+    "dorahacksUrl": "https://dorahacks.io/buidl/41443",
+    "demoUrl": "https://www.youtube.com/watch?v=zClC9W3jXco",
+    "githubUrl": "https://github.com/Tobiik/HowToPitch",
+    "tracks": [
+      "Best Projects by PL_Genesis",
+      "Avalanche Track",
+      "AI Agentics Track by GenLayer"
+    ],
+    "notes": []
+  },
+  {
+    "id": 4,
+    "projectName": "DebateArena",
+    "dorahacksUrl": "https://dorahacks.io/buidl/41442",
+    "demoUrl": "https://youtu.be/58oMH2-dCBQ",
+    "githubUrl": "https://github.com/j3tjet/debateArena",
+    "tracks": [
+      "AI Agentics Track by GenLayer"
+    ],
+    "notes": []
+  },
+  {
+    "id": 5,
+    "projectName": "Prisma",
+    "dorahacksUrl": "https://dorahacks.io/buidl/41430",
+    "demoUrl": "https://www.youtube.com/watch?v=DcM9iRPa-Mk",
+    "githubUrl": "https://github.com/Kenyi001/ledgerlens.git",
+    "tracks": [
+      "Avalanche Track",
+      "AI Agentics Track by GenLayer"
+    ],
+    "notes": []
+  },
+  {
+    "id": 6,
+    "projectName": "TruthMarket",
+    "dorahacksUrl": "https://dorahacks.io/buidl/41377",
+    "demoUrl": "https://www.youtube.com/watch?v=GzpukDt_JnM",
+    "githubUrl": "https://github.com/kamalbuilds/truthmarket",
+    "tracks": [
+      "AI Agentics Track by GenLayer"
+    ],
+    "notes": []
+  },
+  {
+    "id": 7,
+    "projectName": "BuildersClaw",
+    "dorahacksUrl": "https://dorahacks.io/buidl/41425",
+    "demoUrl": "https://www.youtube.com/watch?v=p3NGRS7TzF8",
+    "githubUrl": "https://github.com/buildersclaw/buildersclaw",
+    "tracks": [
+      "Best Projects by PL_Genesis",
+      "Avalanche Track",
+      "AI Agentics Track by GenLayer"
+    ],
+    "notes": []
+  },
+  {
+    "id": 8,
+    "projectName": "PROCUDA - NO-CODE AI AGENT BUILDER AND ORCHESTRATOR FOR ON-CHAIN PREDICTION MARKETS",
+    "dorahacksUrl": "https://dorahacks.io/buidl/41422",
+    "demoUrl": "https://www.canva.com/design/DAHEqTd2Zr4/bAlFK23TueR_eFwu-2a26g/edit",
+    "githubUrl": "https://github.com/EROR404-hash/poly-agents.git",
+    "tracks": [
+      "Best Projects by PL_Genesis",
+      "Avalanche Track",
+      "AI Agentics Track by GenLayer"
+    ],
+    "notes": []
+  },
+  {
+    "id": 9,
+    "projectName": "AlephRob",
+    "dorahacksUrl": "https://dorahacks.io/buidl/41412",
+    "demoUrl": "https://www.canva.com/design/DAHEq2M0YzQ/geqKS2kSytuAwApdnDAU1Q/watch",
+    "githubUrl": "https://github.com/Gabrululu/AlephRob",
+    "tracks": [
+      "Best Projects by PL_Genesis",
+      "Robotics Track",
+      "AI Agentics Track by GenLayer"
+    ],
+    "notes": []
+  },
+  {
+    "id": 10,
+    "projectName": "Proven",
+    "dorahacksUrl": "https://dorahacks.io/buidl/41409",
+    "demoUrl": "https://www.youtube.com/watch?v=zcu2KuLowws",
+    "githubUrl": "https://www.github.com/proven-xyz/proven-app",
+    "tracks": [
+      "Best Projects by PL_Genesis",
+      "AI Agentics Track by GenLayer"
+    ],
+    "notes": []
+  },
+  {
+    "id": 11,
+    "projectName": "Space Runners",
+    "dorahacksUrl": "https://dorahacks.io/buidl/41407",
+    "demoUrl": "https://youtu.be/dNUHwnO3xUk",
+    "githubUrl": "https://github.com/robertointech/space-runners",
+    "tracks": [
+      "Avalanche Track",
+      "AI Agentics Track by GenLayer"
+    ],
+    "notes": []
+  },
+  {
+    "id": 12,
+    "projectName": "Securgov",
+    "dorahacksUrl": "https://dorahacks.io/buidl/41392",
+    "demoUrl": "https://youtu.be/B6Mz-TMUZwY",
+    "githubUrl": "https://github.com/giancalvo/Securgov",
+    "tracks": [
+      "AI Agentics Track by GenLayer"
+    ],
+    "notes": []
+  },
+  {
+    "id": 13,
+    "projectName": "Industries Verified",
+    "dorahacksUrl": "https://dorahacks.io/buidl/41381",
+    "demoUrl": "https://share.descript.com/view/Xmw3FRtB4zm",
+    "githubUrl": "https://github.com/DanteDia/argentina-green-panorama",
+    "tracks": [
+      "Best Projects by PL_Genesis",
+      "Biotech Track",
+      "AI Agentics Track by GenLayer"
+    ],
+    "notes": []
+  },
+  {
+    "id": 14,
+    "projectName": "HandLend",
+    "dorahacksUrl": "https://dorahacks.io/buidl/41373",
+    "demoUrl": "https://youtu.be/qkfDsjA7EVE",
+    "githubUrl": "https://github.com/RamsisDev/HandLend.git",
+    "tracks": [
+      "Avalanche Track",
+      "AI Agentics Track by GenLayer"
+    ],
+    "notes": []
+  },
+  {
+    "id": 15,
+    "projectName": "Autonomous FinOps Engine",
+    "dorahacksUrl": "https://dorahacks.io/buidl/41372",
+    "demoUrl": "https://www.loom.com/share/749af33b0fd1447884cd902cb1664bf2",
+    "githubUrl": "https://github.com/Fernandofarfan/Autonomous-FinOps-Engine",
+    "tracks": [
+      "AI Agentics Track by GenLayer"
+    ],
+    "notes": []
+  },
+  {
+    "id": 16,
+    "projectName": "Avalon",
+    "dorahacksUrl": "https://dorahacks.io/buidl/41368",
+    "demoUrl": "https://vimeo.com/1175890352",
+    "githubUrl": "https://github.com/barolivera/avalon",
+    "tracks": [
+      "Avalanche Track",
+      "AI Agentics Track by GenLayer"
+    ],
+    "notes": []
+  },
+  {
+    "id": 17,
+    "projectName": "SignalForce",
+    "dorahacksUrl": "https://dorahacks.io/buidl/41367",
+    "demoUrl": "https://www.youtube.com/watch?v=v-r1ZSiAxTU",
+    "githubUrl": "https://github.com/estosito999/SignalForce.git",
+    "tracks": [
+      "AI Agentics Track by GenLayer"
+    ],
+    "notes": [
+      "Ver repositorio"
+    ]
+  },
+  {
+    "id": 18,
+    "projectName": "Rebyt",
+    "dorahacksUrl": "https://dorahacks.io/buidl/41345",
+    "demoUrl": "https://youtu.be/Gt5c3X2K5D4",
+    "githubUrl": "https://github.com/DarienPerezGit/aleph-hackathon",
+    "tracks": [
+      "AI Agentics Track by GenLayer"
+    ],
+    "notes": []
+  },
+  {
+    "id": 19,
+    "projectName": "Miske",
+    "dorahacksUrl": "https://dorahacks.io/buidl/41327",
+    "demoUrl": "https://youtu.be/DegDhbVcyh8",
+    "githubUrl": "https://github.com/ligaverobusiness/mmts_hackaton",
+    "tracks": [
+      "Best Projects by PL_Genesis",
+      "AI Agentics Track by GenLayer"
+    ],
+    "notes": []
+  },
+  {
+    "id": 20,
+    "projectName": "Ai arbitration",
+    "dorahacksUrl": "https://dorahacks.io/buidl/41326",
+    "demoUrl": "https://youtu.be/9JwqjiRW-nA",
+    "githubUrl": "https://github.com/ValentinoCafu/ALEPH",
+    "tracks": [
+      "AI Agentics Track by GenLayer"
+    ],
+    "notes": []
+  },
+  {
+    "id": 21,
+    "projectName": "TreasuryPilot",
+    "dorahacksUrl": "https://dorahacks.io/buidl/41321",
+    "demoUrl": "https://youtu.be/Qi2RoeiSLNk",
+    "githubUrl": "https://github.com/sandragcarrillo/TreasuryPilot",
+    "tracks": [
+      "Best Projects by PL_Genesis",
+      "AI Agentics Track by GenLayer"
+    ],
+    "notes": []
+  },
+  {
+    "id": 22,
+    "projectName": "CRYPTO SAGE AI",
+    "dorahacksUrl": "https://dorahacks.io/buidl/41319",
+    "demoUrl": "https://youtu.be/1dpd-vTVpvc",
+    "githubUrl": "https://github.com/zoefunds/cryptosage",
+    "tracks": [
+      "AI Agentics Track by GenLayer"
+    ],
+    "notes": []
+  },
+  {
+    "id": 23,
+    "projectName": "PetCare",
+    "dorahacksUrl": "https://dorahacks.io/buidl/41318",
+    "demoUrl": "https://youtu.be/NGH86MvmmaA",
+    "githubUrl": "https://github.com/CarlosLP18/PetCare",
+    "tracks": [
+      "AI Agentics Track by GenLayer"
+    ],
+    "notes": []
+  },
+  {
+    "id": 24,
+    "projectName": "Darwinly",
+    "dorahacksUrl": "https://dorahacks.io/buidl/41312",
+    "demoUrl": "https://youtu.be/_n69bE1-LKI",
+    "githubUrl": "https://github.com/JuanBonadeo/Hackathon-Darwinly",
+    "tracks": [
+      "AI Agentics Track by GenLayer"
+    ],
+    "notes": []
+  },
+  {
+    "id": 25,
+    "projectName": "Hyphe",
+    "dorahacksUrl": "https://dorahacks.io/buidl/41309",
+    "demoUrl": "https://youtu.be/Rq7gs2nk9fA",
+    "githubUrl": "https://github.com/Odig0/aleph-hackaton-hyphe",
+    "tracks": [
+      "AI Agentics Track by GenLayer"
+    ],
+    "notes": []
+  },
+  {
+    "id": 26,
+    "projectName": "AutoBounty",
+    "dorahacksUrl": "https://dorahacks.io/buidl/41307",
+    "demoUrl": "https://www.youtube.com/watch?v=THBYivw17ig",
+    "githubUrl": "https://github.com/tomazzi14/AutoBounty",
+    "tracks": [
+      "Best Projects by PL_Genesis",
+      "Avalanche Track",
+      "AI Agentics Track by GenLayer"
+    ],
+    "notes": []
+  },
+  {
+    "id": 27,
+    "projectName": "RealFlow Studio",
+    "dorahacksUrl": "https://dorahacks.io/buidl/41306",
+    "demoUrl": "https://youtu.be/Toqk8ZJKJRY",
+    "githubUrl": "https://github.com/Moses-main/realflow-studio",
+    "tracks": [
+      "Best Projects by PL_Genesis",
+      "AI Agentics Track by GenLayer"
+    ],
+    "notes": []
+  },
+  {
+    "id": 28,
+    "projectName": "KuriPay",
+    "dorahacksUrl": "https://dorahacks.io/buidl/41304",
+    "demoUrl": "https://www.youtube.com/watch?v=6ztu4Fd5Uds",
+    "githubUrl": "https://github.com/kennypallchizaca-coder/KuriPay-frontend",
+    "tracks": [
+      "Fintech Track powered by Fiserv",
+      "AI Agentics Track by GenLayer"
+    ],
+    "notes": []
+  },
+  {
+    "id": 29,
+    "projectName": "Budget Republic",
+    "dorahacksUrl": "https://dorahacks.io/buidl/41302",
+    "demoUrl": "https://youtu.be/YHQjFz9Purc?si=HmAnIvW9v_NUW4vx",
+    "githubUrl": "https://github.com/jriverxc/Budget_Republic",
+    "tracks": [
+      "Best Projects by PL_Genesis",
+      "Avalanche Track",
+      "AI Agentics Track by GenLayer"
+    ],
+    "notes": []
+  },
+  {
+    "id": 30,
+    "projectName": "EarnWhile",
+    "dorahacksUrl": "https://dorahacks.io/buidl/41296",
+    "demoUrl": "https://youtu.be/wczAtN6Xb90",
+    "githubUrl": "https://github.com/fulegod/earnwhile",
+    "tracks": [
+      "Best Projects by PL_Genesis",
+      "Avalanche Track",
+      "AI Agentics Track by GenLayer"
+    ],
+    "notes": []
+  },
+  {
+    "id": 31,
+    "projectName": "VeriTask",
+    "dorahacksUrl": "https://dorahacks.io/buidl/41291",
+    "demoUrl": "https://youtube.com/shorts/q66p-6_a4Yk?si=xbahb8qMjXbmt_qN",
+    "githubUrl": "https://github.com/Stella112/veritask",
+    "tracks": [
+      "AI Agentics Track by GenLayer"
+    ],
+    "notes": []
+  },
+  {
+    "id": 32,
+    "projectName": "TrustWork",
+    "dorahacksUrl": "https://dorahacks.io/buidl/41287",
+    "demoUrl": "https://youtu.be/SQtIUgsr5MU",
+    "githubUrl": "https://github.com/lahdlahd/trustwork",
+    "tracks": [
+      "AI Agentics Track by GenLayer"
+    ],
+    "notes": []
+  },
+  {
+    "id": 33,
+    "projectName": "Proof of Audit",
+    "dorahacksUrl": "https://dorahacks.io/buidl/41224",
+    "demoUrl": "https://github.com/ghost-clio/proof-of-audit/releases/download/v1.0/demo_v2.mp4",
+    "githubUrl": "https://github.com/ghost-clio/proof-of-audit",
+    "tracks": [
+      "/releases/download/v1.0/demo_v2.mp4 https://github.com/ghost-clio/proof-of-audit AI Agentics Track by GenLayer"
+    ],
+    "notes": []
+  },
+  {
+    "id": 34,
+    "projectName": "PayScout",
+    "dorahacksUrl": "https://dorahacks.io/buidl/41219",
+    "demoUrl": "https://youtu.be/uSENTSgBQQI",
+    "githubUrl": "https://github.com/acyutaharidas-gif/aleph-payscout",
+    "tracks": [
+      "Fintech Track powered by Fiserv",
+      "AI Agentics Track by GenLayer"
+    ],
+    "notes": []
+  },
+  {
+    "id": 35,
+    "projectName": "Synergi",
+    "dorahacksUrl": "https://dorahacks.io/buidl/39513",
+    "demoUrl": "https://www.youtube.com/watch?v=9xkg8_zwBvs",
+    "githubUrl": "https://github.com/Mansi2007275/Synergi",
+    "tracks": [
+      "AI Agentics Track by GenLayer"
+    ],
+    "notes": [
+      "Video 1mes"
+    ]
+  },
+  {
+    "id": 36,
+    "projectName": "Proofed",
+    "dorahacksUrl": "https://dorahacks.io/buidl/41182",
+    "demoUrl": "https://youtu.be/qn2B1wMlQ0A?si=zNlIo2zKGaH_bgTF",
+    "githubUrl": "https://github.com/Proofed-skill-protocol/Proofed-Aleph-",
+    "tracks": [
+      "Best Projects by PL_Genesis",
+      "Avalanche Track",
+      "AI Agentics Track by GenLayer"
+    ],
+    "notes": []
+  }
+]

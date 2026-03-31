@@ -332,6 +332,9 @@
     
     <div class="sidebar-footer">
       <div class="sidebar-footer-row">
+        <a href="/launcher" class="control-ui-btn" title="App Launcher — start/stop apps on demand" style="margin-right:4px">
+          🚀 Apps
+        </a>
         <a href="/control/" class="control-ui-btn" title="Open Clawdbot Control UI">
           🤖 Clawdbot UI
         </a>
@@ -654,9 +657,9 @@
       multiSelectMode: false,
       selectedSessions: new Set(),
       
-      // Auth - loaded from config or localStorage
-      // Token should be set via config.json or login modal, NOT hardcoded
-      token: ((window.location.port === '9000' || window.location.hostname.endsWith('.ts.net')) ? 'grHNTjGAq1hFVI6CtuHpTiy1_nFNXF87tAYNtFpjS-0' : (localStorage.getItem('sharp_token') || null)),
+      // Auth - browser auth is only needed for non-trusted origins.
+      // On localhost/:9000/Tailscale, the server-side WS proxy injects gateway auth.
+      token: ((window.location.port === '9000' || window.location.hostname.endsWith('.ts.net')) ? null : (localStorage.getItem('sharp_token') || null)),
       gatewayUrl: (() => {
         // Priority: localStorage > config > auto-detect
         const saved = localStorage.getItem('sharp_gateway');
@@ -1360,11 +1363,10 @@
         }
       };
       
-      // Only include auth if we have a token/password
-      // NOTE: OpenClaw Gateway can use token or password auth depending on config.
+      // Only include browser-side auth on non-trusted origins.
+      // Trusted dashboards rely on the server-side WS proxy to inject gateway auth.
       if (state.token) {
-        const trustedDashboard = (window.location.port === '9000' || window.location.hostname.endsWith('.ts.net'));
-        connectParams.auth = trustedDashboard ? { token: state.token } : { password: state.token };
+        connectParams.auth = { password: state.token };
       }
       
       const connectFrame = {
