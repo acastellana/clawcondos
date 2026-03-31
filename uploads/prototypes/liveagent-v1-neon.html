@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LiveAgent Visualizer · Neon Command</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #04070d;
+      --grid: rgba(0, 231, 255, 0.12);
+      --cyan: #00e7ff;
+      --magenta: #ff3b9a;
+      --lime: #91ff00;
+      --ink: #b8f7ff;
+      --danger: #ff5f6d;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: radial-gradient(1400px circle at 80% -20%, rgba(255,59,154,.2), transparent 60%),
+                  radial-gradient(900px circle at 15% 120%, rgba(0,231,255,.18), transparent 55%),
+                  var(--bg);
+      color: var(--ink);
+      font-family: "IBM Plex Mono", monospace;
+      min-height: 100vh;
+      overflow: hidden;
+    }
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+      background-size: 42px 42px;
+      pointer-events: none;
+      opacity: .5;
+    }
+    .hud {
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      height: 100vh;
+      position: relative;
+      z-index: 1;
+    }
+    .panel {
+      border-right: 1px solid rgba(0,231,255,.25);
+      backdrop-filter: blur(3px);
+      padding: 24px;
+      background: rgba(4, 7, 13, .72);
+    }
+    .title {
+      font-family: Orbitron, sans-serif;
+      font-weight: 900;
+      font-size: 28px;
+      letter-spacing: .12em;
+      margin: 0 0 8px;
+      text-shadow: 0 0 18px rgba(0,231,255,.5);
+    }
+    .subtitle { color: rgba(184,247,255,.75); margin-bottom: 24px; }
+    .agent {
+      border: 1px solid rgba(145,255,0,.3);
+      padding: 12px;
+      margin-bottom: 10px;
+      position: relative;
+      background: rgba(145,255,0,.05);
+    }
+    .agent.active::after {
+      content: "";
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--lime);
+      box-shadow: 0 0 10px var(--lime);
+      animation: blink 1.2s infinite;
+    }
+    @keyframes blink { 50% { opacity: .2; } }
+    .metrics { margin-top: 16px; font-size: 13px; }
+    .metric { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px dashed rgba(0,231,255,.18); }
+    .stage {
+      position: relative;
+      padding: 28px;
+    }
+    .stream {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0,1fr));
+      gap: 16px;
+      height: calc(100vh - 100px);
+    }
+    .card {
+      border: 1px solid rgba(0,231,255,.32);
+      background: linear-gradient(180deg, rgba(0,231,255,.08), rgba(255,59,154,.06));
+      padding: 14px;
+      position: relative;
+      overflow: hidden;
+      animation: rise .45s ease both;
+    }
+    .card h3 {
+      margin: 0 0 6px;
+      font-family: Orbitron, sans-serif;
+      letter-spacing: .08em;
+      font-size: 14px;
+    }
+    .pulse {
+      height: 6px;
+      border-radius: 30px;
+      background: linear-gradient(90deg, var(--cyan), var(--magenta));
+      transform-origin: left;
+      animation: pulse 1.8s infinite;
+    }
+    .log {
+      margin-top: 10px;
+      font-size: 12px;
+      line-height: 1.45;
+      opacity: .9;
+      height: 78px;
+      overflow: auto;
+    }
+    @keyframes pulse { 50% { transform: scaleX(.35); opacity: .6; } }
+    @keyframes rise { from { opacity: 0; transform: translateY(12px);} to { opacity:1; transform:none;} }
+    .alert {
+      position: absolute;
+      right: 28px;
+      top: 20px;
+      border: 1px solid rgba(255,95,109,.5);
+      background: rgba(255,95,109,.12);
+      color: #ffd4d9;
+      padding: 8px 12px;
+      font-size: 12px;
+      animation: blink 1.4s infinite;
+    }
+  </style>
+</head>
+<body>
+  <main class="hud">
+    <aside class="panel">
+      <h1 class="title">LIVEAGENT</h1>
+      <div class="subtitle">Neon Command Grid</div>
+
+      <div class="agent active"><strong>Scout-A</strong><br/>Collecting ecosystem signals</div>
+      <div class="agent active"><strong>Librarian-B</strong><br/>Ingesting + deduping events</div>
+      <div class="agent"><strong>Closer-C</strong><br/>Idle, waiting on new tasks</div>
+
+      <div class="metrics">
+        <div class="metric"><span>Active Agents</span><strong>2 / 3</strong></div>
+        <div class="metric"><span>Events / min</span><strong>47</strong></div>
+        <div class="metric"><span>Error Rate</span><strong>0.8%</strong></div>
+        <div class="metric"><span>Queue Depth</span><strong>12</strong></div>
+      </div>
+    </aside>
+
+    <section class="stage">
+      <div class="alert">ATTN: 3 retries spiked in last 2m</div>
+      <div class="stream">
+        <article class="card" style="animation-delay: .05s">
+          <h3>INGEST PIPELINE</h3>
+          <div class="pulse"></div>
+          <div class="log">09:31:17  parsed 14 lines<br/>09:31:20  normalized urls<br/>09:31:22  merged 2 duplicates<br/>09:31:24  persisted tracker state</div>
+        </article>
+        <article class="card" style="animation-delay: .15s">
+          <h3>AGENT TIMELINE</h3>
+          <div class="pulse"></div>
+          <div class="log">Scout-A → discovered social URL<br/>Librarian-B → checked against index<br/>Closer-C → no action threshold met</div>
+        </article>
+        <article class="card" style="animation-delay: .25s">
+          <h3>HEALTH SIGNALS</h3>
+          <div class="pulse"></div>
+          <div class="log">Gateway: stable<br/>Browser relay: timeout x1<br/>telebiz-mcp: degraded<br/>Security port probe: clear</div>
+        </article>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

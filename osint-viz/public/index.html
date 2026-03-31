@@ -1,0 +1,2159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OSINT Registry // datasources-db</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg:       #060a0d;
+    --bg1:      #0c1118;
+    --bg2:      #111820;
+    --bg3:      #1a2330;
+    --green:    #00e676;
+    --green2:   #69f0ae;
+    --amber:    #ffb300;
+    --red:      #ff5252;
+    --blue:     #40c4ff;
+    --text:     #c9d8e8;
+    --muted:    #4a6072;
+    --border:   #1e2d3d;
+    --mono:     'JetBrains Mono', monospace;
+    --display:  'Syne', sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--mono); overflow: hidden; }
+
+  /* ── LAYOUT ── */
+  #app { display: grid; grid-template-rows: 56px 1fr; height: 100vh; }
+  #header { background: var(--bg1); border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 20px; gap: 24px; }
+  #body { display: grid; grid-template-columns: 240px 1fr; overflow: hidden; }
+  #sidebar { background: var(--bg1); border-right: 1px solid var(--border); overflow-y: auto; padding: 12px 0; }
+  #main { overflow: hidden; display: flex; flex-direction: column; }
+
+  /* ── HEADER ── */
+  .logo { font-family: var(--display); font-size: 15px; font-weight: 800; color: var(--green); letter-spacing: -0.5px; white-space: nowrap; }
+  .logo span { color: var(--muted); font-weight: 400; }
+  .stat-pill { background: var(--bg2); border: 1px solid var(--border); border-radius: 4px; padding: 3px 10px; font-size: 11px; color: var(--muted); }
+  .stat-pill b { color: var(--green); }
+  nav { display: flex; gap: 2px; margin-left: auto; }
+  .tab-btn { background: none; border: none; color: var(--muted); font-family: var(--mono); font-size: 11px; padding: 6px 12px; border-radius: 4px; cursor: pointer; letter-spacing: 1px; text-transform: uppercase; transition: all 0.15s; }
+  .tab-btn:hover { color: var(--text); background: var(--bg2); }
+  .tab-btn.active { color: var(--green); background: var(--bg2); border: 1px solid var(--border); }
+
+  /* ── SIDEBAR ── */
+  .sidebar-section { padding: 6px 0; }
+  .sidebar-title { font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); padding: 4px 16px 6px; }
+  .cat-item { display: flex; justify-content: space-between; align-items: center; padding: 4px 16px; cursor: pointer; font-size: 11px; border-left: 2px solid transparent; transition: all 0.1s; }
+  .cat-item:hover { background: var(--bg2); color: var(--text); border-left-color: var(--green); }
+  .cat-item.active { background: var(--bg2); color: var(--green); border-left-color: var(--green); }
+  .cat-item .cat-name { color: inherit; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
+  .cat-badge { font-size: 10px; color: var(--muted); background: var(--bg3); border-radius: 3px; padding: 1px 5px; flex-shrink: 0; margin-left: 6px; }
+
+  /* ── TABS ── */
+  .tab-panel { display: none; flex: 1; overflow: hidden; flex-direction: column; }
+  .tab-panel.active { display: flex; }
+
+  /* ── SEARCH TAB ── */
+  #search-bar-wrap { padding: 16px 20px 12px; border-bottom: 1px solid var(--border); display: flex; gap: 10px; align-items: center; }
+  #search-input { flex: 1; background: var(--bg2); border: 1px solid var(--border); border-radius: 6px; padding: 10px 14px 10px 36px; font-family: var(--mono); font-size: 13px; color: var(--text); outline: none; transition: border-color 0.2s; }
+  #search-input:focus { border-color: var(--green); }
+  .search-icon { position: absolute; left: 32px; color: var(--muted); font-size: 14px; }
+  #search-bar-wrap { position: relative; }
+  #search-count { font-size: 11px; color: var(--muted); white-space: nowrap; }
+  #results-grid { flex: 1; overflow-y: auto; padding: 12px 20px; display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 8px; align-content: start; }
+  .tool-card { background: var(--bg1); border: 1px solid var(--border); border-radius: 6px; padding: 12px 14px; cursor: pointer; transition: border-color 0.15s, background 0.15s; position: relative; }
+  .tool-card:hover { border-color: var(--green); background: var(--bg2); }
+  .tool-card .score { position: absolute; top: 10px; right: 12px; font-size: 10px; font-weight: 700; }
+  .score.hi { color: var(--green); }
+  .score.mid { color: var(--amber); }
+  .score.lo { color: var(--muted); }
+  .tool-name { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 4px; padding-right: 32px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tool-desc { font-size: 11px; color: var(--muted); line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-bottom: 6px; }
+  .tool-cats { display: flex; flex-wrap: wrap; gap: 4px; }
+  .tag { font-size: 9px; background: var(--bg3); border: 1px solid var(--border); border-radius: 3px; padding: 1px 6px; color: var(--muted); letter-spacing: 0.5px; }
+  .tag.primary { border-color: var(--green); color: var(--green2); }
+
+  /* ── TASK TAB ── */
+  #task-wrap { padding: 20px; border-bottom: 1px solid var(--border); }
+  .task-label { font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+  #task-input { width: 100%; background: var(--bg2); border: 1px solid var(--border); border-radius: 6px; padding: 12px 14px; font-family: var(--mono); font-size: 13px; color: var(--text); outline: none; resize: vertical; min-height: 60px; transition: border-color 0.2s; }
+  #task-input:focus { border-color: var(--amber); }
+  #task-go { margin-top: 10px; background: var(--amber); color: #000; border: none; border-radius: 4px; padding: 8px 20px; font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; cursor: pointer; transition: opacity 0.15s; }
+  #task-go:hover { opacity: 0.85; }
+  #task-go:disabled { opacity: 0.4; cursor: default; }
+  #task-results { flex: 1; overflow-y: auto; padding: 16px 20px; }
+  .task-tool { display: grid; grid-template-columns: 28px 1fr auto; gap: 10px; align-items: start; padding: 10px 12px; background: var(--bg1); border: 1px solid var(--border); border-radius: 6px; margin-bottom: 6px; transition: border-color 0.15s; }
+  .task-tool:hover { border-color: var(--amber); }
+  .task-rank { font-size: 13px; font-weight: 700; color: var(--amber); font-family: var(--display); }
+  .task-tool-name { font-size: 13px; font-weight: 700; color: var(--text); }
+  .task-tool-desc { font-size: 11px; color: var(--muted); margin-top: 3px; }
+  .task-tool-url { font-size: 10px; color: var(--blue); margin-top: 4px; word-break: break-all; }
+  .task-tool-cats { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px; }
+  .task-score { font-size: 11px; font-weight: 700; color: var(--green); white-space: nowrap; }
+  .spinner { color: var(--amber); font-size: 12px; animation: blink 0.8s infinite; }
+  @keyframes blink { 0%,100% { opacity: 1 } 50% { opacity: 0.2 } }
+
+  /* ── CATEGORIES TAB ── */
+  #cats-wrap { flex: 1; overflow-y: auto; padding: 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-content: start; }
+  .chart-box { background: var(--bg1); border: 1px solid var(--border); border-radius: 8px; padding: 16px; }
+  .chart-title { font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; }
+  .bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+  .bar-label { font-size: 10px; color: var(--muted); width: 140px; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex-shrink: 0; }
+  .bar-track { flex: 1; height: 14px; background: var(--bg3); border-radius: 2px; overflow: hidden; }
+  .bar-fill { height: 100%; background: var(--green); border-radius: 2px; transition: width 0.4s ease; }
+  .bar-count { font-size: 10px; color: var(--amber); width: 40px; flex-shrink: 0; }
+  .access-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .access-cell { background: var(--bg2); border: 1px solid var(--border); border-radius: 6px; padding: 10px; text-align: center; }
+  .access-n { font-size: 22px; font-weight: 800; font-family: var(--display); color: var(--green); }
+  .access-label { font-size: 9px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-top: 2px; }
+
+  /* ── BRIEF TAB ── */
+  #brief-form { padding: 20px; border-bottom: 1px solid var(--border); display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
+  .form-group { display: flex; flex-direction: column; gap: 6px; }
+  .form-label { font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); }
+  select, #brief-target { background: var(--bg2); border: 1px solid var(--border); border-radius: 6px; padding: 8px 12px; font-family: var(--mono); font-size: 12px; color: var(--text); outline: none; }
+  select { cursor: pointer; }
+  select:focus, #brief-target:focus { border-color: var(--blue); }
+  #brief-target { width: 280px; }
+  #brief-go { background: var(--blue); color: #000; border: none; border-radius: 4px; padding: 8px 18px; font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; cursor: pointer; }
+  #brief-go:hover { opacity: 0.85; }
+  #brief-output { flex: 1; overflow-y: auto; padding: 20px; }
+  .brief-section { background: var(--bg1); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 12px; overflow: hidden; }
+  .brief-section-header { background: var(--bg2); padding: 10px 16px; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--amber); border-bottom: 1px solid var(--border); }
+  .brief-step { padding: 12px 16px; border-bottom: 1px solid var(--border); }
+  .brief-step:last-child { border-bottom: none; }
+  .brief-step-num { font-size: 9px; color: var(--muted); margin-bottom: 4px; letter-spacing: 1px; }
+  .brief-step-action { font-size: 13px; color: var(--text); margin-bottom: 6px; }
+  .brief-step-tools { display: flex; gap: 6px; flex-wrap: wrap; }
+  .brief-tool-chip { background: var(--bg3); border: 1px solid var(--green); border-radius: 4px; padding: 2px 8px; font-size: 10px; color: var(--green2); }
+  pre.brief-raw { font-family: var(--mono); font-size: 11px; color: var(--muted); white-space: pre-wrap; padding: 16px; line-height: 1.6; }
+
+  /* ── TOOL DETAIL DRAWER ── */
+  #drawer { position: fixed; right: 0; top: 0; bottom: 0; width: 400px; background: var(--bg1); border-left: 1px solid var(--border); transform: translateX(100%); transition: transform 0.25s ease; z-index: 100; display: flex; flex-direction: column; overflow: hidden; }
+  #drawer.open { transform: translateX(0); }
+  #drawer-header { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: flex-start; }
+  #drawer-name { font-size: 16px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+  #drawer-close { background: none; border: none; color: var(--muted); font-size: 18px; cursor: pointer; padding: 4px; }
+  #drawer-close:hover { color: var(--text); }
+  #drawer-body { flex: 1; overflow-y: auto; padding: 16px 20px; }
+  .drawer-field { margin-bottom: 12px; }
+  .drawer-label { font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
+  .drawer-value { font-size: 12px; color: var(--text); line-height: 1.5; word-break: break-word; }
+  .drawer-link { color: var(--blue); text-decoration: none; }
+  .drawer-link:hover { text-decoration: underline; }
+  .score-bar { height: 6px; background: var(--bg3); border-radius: 3px; overflow: hidden; margin-top: 4px; }
+  .score-bar-fill { height: 100%; background: var(--green); border-radius: 3px; }
+
+  /* ── SCROLLBAR ── */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg1); }
+  ::-webkit-scrollbar-thumb { background: var(--bg3); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+
+  /* ── EMPTY STATE ── */
+  .empty { text-align: center; padding: 60px 20px; color: var(--muted); font-size: 12px; }
+  .empty .icon { font-size: 36px; margin-bottom: 12px; opacity: 0.4; }
+
+  /* ── CHAT TAB ── */
+  #tab-chat { display: none; flex-direction: column; height: 100%; overflow: hidden; }
+  #tab-chat.active { display: flex; }
+  #chat-messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+  .chat-msg { display: flex; gap: 10px; max-width: 92%; }
+  .chat-msg.user { align-self: flex-end; flex-direction: row-reverse; }
+  .chat-msg.agent { align-self: flex-start; }
+  .chat-avatar { width: 28px; height: 28px; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 12px; flex-shrink: 0; margin-top: 2px; }
+  .chat-msg.user .chat-avatar { background: var(--bg3); border: 1px solid var(--border); color: var(--muted); }
+  .chat-msg.agent .chat-avatar { background: var(--bg2); border: 1px solid var(--green); color: var(--green); font-weight: 700; }
+  .chat-content { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+  .chat-bubble { padding: 10px 14px; border-radius: 6px; font-size: 12px; line-height: 1.6; word-break: break-word; }
+  .chat-msg.user .chat-bubble { background: var(--bg3); border: 1px solid var(--border); color: var(--text); }
+  .chat-msg.agent .chat-bubble { background: var(--bg1); border: 1px solid var(--border); color: var(--text); }
+  .chat-tools { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 6px; }
+  .chat-tool { background: var(--bg2); border: 1px solid var(--border); border-radius: 4px; padding: 8px 10px; cursor: pointer; transition: border-color 0.15s; }
+  .chat-tool:hover { border-color: var(--green); }
+  .chat-tool-name { font-size: 12px; font-weight: 700; color: var(--text); }
+  .chat-tool-url { font-size: 10px; color: var(--blue); margin-top: 2px; word-break: break-all; }
+  .chat-tool-desc { font-size: 10px; color: var(--muted); margin-top: 3px; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  #chat-starters { padding: 10px 20px 0; display: flex; gap: 6px; flex-wrap: wrap; border-top: 1px solid var(--border); }
+  .chat-suggest { background: var(--bg2); border: 1px solid var(--border); border-radius: 4px; padding: 4px 10px; font-size: 11px; color: var(--muted); cursor: pointer; transition: all 0.1s; white-space: nowrap; }
+  .chat-suggest:hover { border-color: var(--green); color: var(--green2); }
+  #chat-input-wrap { padding: 12px 20px 14px; border-top: 1px solid var(--border); display: flex; gap: 8px; align-items: center; }
+  #chat-input { flex: 1; background: var(--bg2); border: 1px solid var(--border); border-radius: 6px; padding: 10px 14px; font-family: var(--mono); font-size: 13px; color: var(--text); outline: none; transition: border-color 0.2s; }
+  #chat-input:focus { border-color: var(--green); }
+  #chat-send { background: var(--green); color: #000; border: none; border-radius: 4px; padding: 10px 18px; font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; cursor: pointer; white-space: nowrap; transition: opacity 0.15s; }
+  #chat-send:hover { opacity: 0.85; }
+  #chat-send:disabled { opacity: 0.4; cursor: default; }
+  .chat-plan { margin-top: 4px; }
+  .chat-plan-step { display: flex; gap: 8px; padding: 5px 0; border-bottom: 1px solid var(--border); font-size: 11px; }
+  .chat-plan-step:last-child { border-bottom: none; }
+  .chat-plan-num { color: var(--amber); font-weight: 700; flex-shrink: 0; width: 18px; }
+  .chat-plan-phase { color: var(--green2); font-weight: 700; flex-shrink: 0; min-width: 120px; }
+  .chat-plan-tools { color: var(--muted); }
+
+  /* ── CHAT SPLIT LAYOUT ── */
+  #chat-topbar { padding: 6px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; background: var(--bg1); flex-shrink: 0; }
+  #chat-split  { display: grid; grid-template-columns: 55% 45%; flex: 1; overflow: hidden; }
+  #chat-left   { display: flex; flex-direction: column; overflow: hidden; border-right: 1px solid var(--border); }
+  #chat-right  { display: flex; flex-direction: column; overflow: hidden; background: var(--bg1); }
+  #case-panel-tabs { display: flex; gap: 1px; border-bottom: 1px solid var(--border); background: var(--bg); flex-shrink: 0; }
+  .case-ptab { flex: 1; background: none; border: none; padding: 7px 4px; font-family: var(--mono); font-size: 9px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); cursor: pointer; transition: all 0.15s; border-bottom: 2px solid transparent; }
+  .case-ptab:hover { color: var(--text); }
+  .case-ptab.active { color: var(--green); border-bottom-color: var(--green); }
+  /* file browser — persistent tree + content viewer */
+  #case-panel-content { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+  #case-panel-content.scroll-mode { overflow-y: auto; }
+  .case-section { padding: 10px 14px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+  .case-section-title { font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+
+  /* file tree (top pane — fixed height, scrollable) */
+  #case-file-tree-pane { flex-shrink: 0; overflow-y: auto; border-bottom: 2px solid var(--border); max-height: 38%; min-height: 60px; }
+  #case-file-tree-pane .tree-header { padding: 5px 12px; font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); background: var(--bg); position: sticky; top: 0; z-index: 1; display: flex; justify-content: space-between; align-items: center; }
+  .file-tree { font-size: 11px; padding: 4px 0; }
+  .file-item { display: flex; align-items: center; gap: 6px; padding: 4px 10px; cursor: pointer; transition: background 0.1s; border-left: 2px solid transparent; }
+  .file-item:hover { background: var(--bg3); }
+  .file-item.active { background: var(--bg3); border-left-color: var(--green); }
+  .file-item.active .file-name { color: var(--green); }
+  .file-item.is-dir { cursor: default; color: var(--amber); }
+  .file-item.is-dir .file-name { color: var(--amber); }
+  .file-icon { color: var(--muted); flex-shrink: 0; font-style: normal; width: 14px; text-align: center; }
+  .file-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .file-size { font-size: 9px; color: var(--muted); flex-shrink: 0; }
+
+  /* content viewer (bottom pane — grows to fill, scrollable) */
+  #case-file-viewer-pane { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+  #case-file-viewer-pane .viewer-empty { padding: 20px 12px; font-size: 10px; color: var(--muted); text-align: center; }
+  .viewer-header { padding: 6px 12px; background: var(--bg2); border-bottom: 1px solid var(--border); flex-shrink: 0; display: flex; flex-direction: column; gap: 2px; }
+  .vh-row1 { display: flex; align-items: center; gap: 8px; }
+  .viewer-header .vh-path { color: var(--blue); font-size: 11px; font-family: var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+  .viewer-header .vh-meta { font-size: 9px; color: var(--muted); letter-spacing: 0.5px; text-transform: uppercase; }
+  .viewer-body { flex: 1; overflow-y: auto; padding: 10px 12px; font-size: 11px; line-height: 1.65; font-family: var(--mono); }
+  .viewer-body.is-md  { line-height: 1.75; white-space: normal; padding: 12px 18px; }
+  .viewer-body.is-raw { white-space: pre-wrap; word-break: break-all; color: var(--green2); }
+  .viewer-body.is-json { white-space: pre-wrap; word-break: break-all; }
+
+  /* ── Report (REPORT tab full-pane viewer) ── */
+  #file-viewer { display: flex; flex-direction: column; height: 100%; overflow: hidden; }
+  #file-viewer-header {
+    padding: 6px 16px; background: var(--bg2); border-bottom: 1px solid var(--border);
+    flex-shrink: 0; font-family: var(--mono); display: flex; flex-direction: column; gap: 2px;
+  }
+  #file-viewer-content { flex: 1; overflow-y: auto; padding: 14px 22px; font-family: var(--mono); font-size: 12px; line-height: 1.8; color: var(--text); }
+  .viewer-dl-btn { background: none; border: 1px solid var(--border); border-radius: 3px; color: var(--muted); font-family: var(--mono); font-size: 9px; padding: 2px 7px; cursor: pointer; flex-shrink: 0; letter-spacing: 1px; }
+  .viewer-dl-btn:hover { color: var(--text); border-color: var(--green); }
+
+  /* Markdown document styles — used by renderMarkdown() */
+  .md-h1 { font-size: 17px; font-weight: 700; color: var(--amber); margin: 24px 0 8px; padding-bottom: 6px; border-bottom: 1px solid var(--border); display: block; }
+  .md-h2 { font-size: 14px; font-weight: 700; color: var(--amber); margin: 20px 0 6px; display: block; }
+  .md-h3 { font-size: 12px; font-weight: 700; color: var(--green2); margin: 14px 0 4px; display: block; }
+  .md-h4 { font-size: 11px; font-weight: 700; color: var(--blue); margin: 10px 0 4px; display: block; }
+  .md-p { margin: 3px 0; display: block; }
+  .md-spacer { height: 7px; }
+  .md-hr { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+  .md-code { background: var(--bg3); padding: 1px 5px; border-radius: 2px; font-size: 10.5px; color: var(--green2); }
+  .md-codeblock { background: var(--bg2); border: 1px solid var(--border); border-radius: 4px; padding: 12px 16px; font-size: 11px; color: var(--green2); overflow-x: auto; white-space: pre; margin: 10px 0; line-height: 1.5; display: block; }
+  .md-ul { margin: 4px 0 4px 18px; padding: 0; list-style: none; display: block; }
+  .md-ol { margin: 4px 0 4px 18px; padding: 0; list-style: decimal; display: block; padding-left: 16px; }
+  .md-ul li { margin: 2px 0; padding-left: 4px; }
+  .md-ul li::before { content: "▸ "; color: var(--green); }
+  .md-ol li { margin: 2px 0; }
+  .md-ol li::marker { color: var(--amber); }
+  .md-table { border-collapse: collapse; width: 100%; margin: 12px 0; font-size: 11px; display: table; }
+  .md-table th { background: var(--bg2); color: var(--amber); padding: 6px 12px; text-align: left; border: 1px solid var(--border); white-space: nowrap; font-weight: 700; }
+  .md-table td { padding: 5px 12px; border: 1px solid var(--border); vertical-align: top; }
+  .md-table tr:nth-child(even) td { background: rgba(255,255,255,0.02); }
+  .md-table tr:hover td { background: var(--bg2); }
+  .md-quote { border-left: 3px solid var(--amber); padding: 4px 14px; color: var(--muted); margin: 8px 0; display: block; font-style: italic; }
+  /* Inline spans in reports */
+  .md-strong { font-weight: 700; color: var(--text); }
+  .md-em { color: var(--muted); }
+  .md-link { color: var(--blue); text-decoration: none; }
+  .md-link:hover { text-decoration: underline; }
+  /* JSON syntax colours */
+  .j-key   { color: var(--amber); }
+  .j-str   { color: var(--green2); }
+  .j-num   { color: var(--blue); }
+  .j-bool  { color: #ce93d8; }
+  .j-null  { color: var(--muted); }
+  /* shell / python highlights */
+  .s-comment { color: var(--muted); font-style: italic; }
+  .s-keyword { color: var(--amber); font-weight: bold; }
+  .s-string  { color: var(--green2); }
+  .s-var     { color: var(--blue); }
+  .case-meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .case-meta-cell { background: var(--bg2); border: 1px solid var(--border); border-radius: 4px; padding: 6px 8px; }
+  .case-meta-label { font-size: 8px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); }
+  .case-meta-value { font-size: 11px; color: var(--text); margin-top: 2px; word-break: break-all; }
+  .turn-log-entry { padding: 5px 0; border-bottom: 1px solid var(--border); font-size: 10px; display: flex; gap: 8px; }
+  .turn-log-entry:last-child { border-bottom: none; }
+  .turn-role { font-weight: 700; flex-shrink: 0; width: 36px; }
+  .turn-role.user { color: var(--muted); }
+  .turn-role.agent { color: var(--green); }
+  .turn-time { color: var(--muted); flex-shrink: 0; }
+  .turn-preview { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+
+  /* ── CASEWORK TAB ── */
+  #cases-panel { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+  #cases-split { display: grid; grid-template-columns: 280px 1fr; flex: 1; overflow: hidden; }
+  #cases-list-panel { border-right: 1px solid var(--border); overflow-y: auto; }
+  #cases-detail-panel { overflow-y: auto; padding: 16px 20px; }
+  .case-list-item { padding: 10px 14px; border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.1s; }
+  .case-list-item:hover { background: var(--bg2); }
+  .case-list-item.active { background: var(--bg2); border-left: 2px solid var(--green); }
+  .case-list-target { font-size: 12px; font-weight: 700; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .case-list-meta { font-size: 9px; color: var(--muted); margin-top: 3px; }
+  .case-status { display: inline-block; font-size: 8px; letter-spacing: 1px; text-transform: uppercase; border-radius: 3px; padding: 1px 5px; }
+  .case-status.active { background: rgba(0,230,118,0.15); color: var(--green); border: 1px solid var(--green); }
+  .case-status.closed { background: var(--bg3); color: var(--muted); border: 1px solid var(--border); }
+
+  /* ── SCAN LINE OVERLAY ── */
+  body::after { content: ''; position: fixed; inset: 0; background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px); pointer-events: none; z-index: 9999; }
+
+  /* ══════════════════════════════════════════════════════
+     DENSITY PASS — tighten everything for information-
+     dense intelligence-terminal feel. All rules here
+     override defaults above via cascade order.
+     ══════════════════════════════════════════════════════ */
+
+  /* Base scale */
+  html { font-size: 11px; }
+
+  /* Shell */
+  #app    { grid-template-rows: 40px 1fr; }
+  #header { padding: 0 12px; gap: 12px; }
+  #body   { grid-template-columns: 196px 1fr; }
+  #sidebar { padding: 6px 0; }
+
+  /* Header */
+  .logo       { font-size: 13px; }
+  .stat-pill  { font-size: 9px; padding: 2px 7px; }
+  .tab-btn    { font-size: 9px; padding: 4px 9px; letter-spacing: 0.8px; }
+
+  /* Sidebar */
+  .sidebar-title { font-size: 8px; padding: 3px 10px 4px; letter-spacing: 1.5px; }
+  .cat-item      { padding: 3px 10px; font-size: 10px; }
+  .cat-badge     { font-size: 8px; padding: 1px 4px; }
+
+  /* Search */
+  #search-bar-wrap { padding: 8px 12px 7px; }
+  #search-input    { font-size: 11px; padding: 6px 10px 6px 28px; border-radius: 4px; }
+  .search-icon     { font-size: 12px; left: 24px; }
+  #search-count    { font-size: 9px; }
+  #results-grid    { padding: 6px 12px; gap: 5px;
+                     grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
+  .tool-card       { padding: 7px 9px; border-radius: 4px; }
+  .tool-card .score{ font-size: 9px; top: 6px; right: 8px; }
+  .tool-name       { font-size: 11px; margin-bottom: 2px; }
+  .tool-desc       { font-size: 10px; margin-bottom: 4px; line-height: 1.35; }
+  .tag             { font-size: 8px; padding: 1px 4px; }
+
+  /* Task planner */
+  #task-wrap     { padding: 10px 12px; }
+  .task-label    { font-size: 8px; letter-spacing: 1.5px; margin-bottom: 5px; }
+  #task-input    { font-size: 11px; padding: 7px 10px; min-height: 48px; border-radius: 4px; }
+  #task-go       { font-size: 9px; padding: 5px 13px; margin-top: 6px; letter-spacing: 1.5px; border-radius: 3px; }
+  #task-results  { padding: 8px 12px; }
+  .task-tool     { padding: 6px 9px; margin-bottom: 4px; gap: 7px;
+                   grid-template-columns: 20px 1fr auto; border-radius: 4px; }
+  .task-rank     { font-size: 11px; }
+  .task-tool-name{ font-size: 11px; }
+  .task-tool-desc{ font-size: 9px; margin-top: 2px; }
+  .task-tool-url { font-size: 9px; margin-top: 2px; }
+  .task-score    { font-size: 9px; }
+
+  /* Categories */
+  #cats-wrap      { padding: 10px 12px; gap: 10px; }
+  .chart-box      { padding: 9px 11px; border-radius: 5px; }
+  .chart-title    { font-size: 8px; margin-bottom: 7px; }
+  .bar-row        { margin-bottom: 3px; }
+  .bar-label      { font-size: 9px; width: 110px; }
+  .bar-track      { height: 10px; }
+  .bar-count      { font-size: 9px; width: 32px; }
+  .access-n       { font-size: 15px; }
+  .access-label   { font-size: 8px; }
+  .access-cell    { padding: 6px 8px; border-radius: 4px; }
+  .access-grid    { gap: 6px; }
+
+  /* Brief */
+  #brief-form        { padding: 10px 12px; gap: 8px; }
+  .form-label        { font-size: 8px; letter-spacing: 1.5px; }
+  .form-group        { gap: 4px; }
+  select, #brief-target { font-size: 11px; padding: 5px 9px; border-radius: 4px; }
+  #brief-target      { width: 200px; }
+  #brief-go          { font-size: 9px; padding: 5px 13px; letter-spacing: 1.5px; border-radius: 3px; }
+  #brief-output      { padding: 10px 12px; }
+  .brief-section     { border-radius: 5px; margin-bottom: 8px; }
+  .brief-section-header { padding: 6px 12px; font-size: 9px; }
+  .brief-step        { padding: 7px 12px; }
+  .brief-step-num    { font-size: 8px; margin-bottom: 2px; }
+  .brief-step-action { font-size: 11px; margin-bottom: 4px; }
+  .brief-tool-chip   { font-size: 9px; padding: 1px 6px; border-radius: 3px; }
+  pre.brief-raw      { font-size: 10px; padding: 10px 12px; }
+
+  /* Drawer */
+  #drawer        { width: 320px; }
+  #drawer-header { padding: 10px 13px; }
+  #drawer-name   { font-size: 13px; }
+  #drawer-close  { font-size: 14px; }
+  #drawer-body   { padding: 10px 13px; }
+  .drawer-field  { margin-bottom: 8px; }
+  .drawer-label  { font-size: 8px; letter-spacing: 1.5px; }
+  .drawer-value  { font-size: 11px; }
+
+  /* Empty states */
+  .empty       { padding: 28px 16px; font-size: 10px; }
+  .empty .icon { font-size: 22px; margin-bottom: 8px; }
+
+  /* Chat */
+  #chat-topbar      { padding: 3px 10px; }
+  #chat-messages    { padding: 8px 10px; gap: 7px; }
+  .chat-avatar      { width: 20px; height: 20px; font-size: 10px; border-radius: 3px; }
+  .chat-content     { gap: 5px; }
+  .chat-bubble      { padding: 6px 9px; font-size: 10px; line-height: 1.55; border-radius: 4px; }
+  .chat-tool        { padding: 5px 8px; border-radius: 3px; }
+  .chat-tool-name   { font-size: 11px; }
+  .chat-tool-url    { font-size: 9px; }
+  .chat-tool-desc   { font-size: 9px; }
+  .chat-suggest     { font-size: 9px; padding: 2px 7px; border-radius: 3px; }
+  #chat-starters    { padding: 5px 10px 0; gap: 4px; }
+  #chat-input-wrap  { padding: 6px 10px 8px; gap: 6px; }
+  #chat-input       { font-size: 11px; padding: 6px 9px; border-radius: 4px; }
+  #chat-send        { font-size: 9px; padding: 6px 11px; letter-spacing: 1.5px; border-radius: 3px; }
+  .case-ptab        { padding: 4px 3px; font-size: 8px; letter-spacing: 1px; }
+  #case-file-tree-pane .tree-header { padding: 3px 9px; font-size: 8px; }
+  .file-tree        { font-size: 10px; padding: 2px 0; }
+  .file-item        { padding: 2px 7px; gap: 5px; }
+  .file-size        { font-size: 8px; }
+  .viewer-header    { padding: 4px 9px; }
+  .viewer-body      { font-size: 10px; padding: 7px 9px; line-height: 1.55; }
+  .case-meta-cell   { padding: 4px 6px; border-radius: 3px; }
+  .case-meta-label  { font-size: 7px; letter-spacing: 1px; }
+  .case-meta-value  { font-size: 10px; }
+  .turn-log-entry   { padding: 3px 0; font-size: 9px; }
+
+  /* Casework tab */
+  #cases-split       { grid-template-columns: 220px 1fr; }
+  .case-list-item    { padding: 6px 10px; }
+  .case-list-target  { font-size: 10px; }
+  .case-list-meta    { font-size: 8px; margin-top: 2px; }
+  .case-status       { font-size: 7px; padding: 1px 4px; }
+  .chat-plan-step    { padding: 3px 0; font-size: 9px; }
+  .chat-plan-phase   { min-width: 100px; }
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- HEADER -->
+  <header id="header">
+    <div class="logo">OSINT<span>//</span>REGISTRY</div>
+    <div class="stat-pill">ENTRIES: <b id="stat-total">…</b></div>
+    <div class="stat-pill">CATEGORIES: <b id="stat-cats">…</b></div>
+    <div class="stat-pill">STATUS: <b style="color:var(--green)">LIVE</b></div>
+    <nav>
+      <button class="tab-btn active" data-tab="search">⌕ SEARCH</button>
+      <button class="tab-btn" data-tab="task">⚡ TASK PLANNER</button>
+      <button class="tab-btn" data-tab="cats">◫ CATEGORIES</button>
+      <button class="tab-btn" data-tab="brief">☰ BRIEF</button>
+      <button class="tab-btn" data-tab="chat">💬 CHAT</button>
+      <button class="tab-btn" data-tab="casework">📁 CASEWORK</button>
+    </nav>
+  </header>
+
+  <!-- BODY -->
+  <div id="body">
+
+    <!-- SIDEBAR -->
+    <aside id="sidebar">
+      <div class="sidebar-section">
+        <div class="sidebar-title">Top Categories</div>
+        <div id="sidebar-cats"></div>
+      </div>
+    </aside>
+
+    <!-- MAIN -->
+    <main id="main">
+
+      <!-- SEARCH TAB -->
+      <div class="tab-panel active" id="tab-search">
+        <div id="search-bar-wrap">
+          <span class="search-icon">⌕</span>
+          <input id="search-input" placeholder="Search 6,600+ OSINT tools… (shodan, virustotal, exif…)" autocomplete="off" spellcheck="false">
+          <span id="search-count"></span>
+        </div>
+        <div id="results-grid"></div>
+      </div>
+
+      <!-- TASK PLANNER TAB -->
+      <div class="tab-panel" id="tab-task">
+        <div id="task-wrap">
+          <div class="task-label">// Natural language investigation task</div>
+          <textarea id="task-input" placeholder="e.g. 'find infrastructure overlap between two APT groups sharing bulletproof hosting'&#10;     'verify if this conflict photo was taken in the claimed location'&#10;     'find exposed S3 buckets and cloud assets of target organization'"></textarea>
+          <button id="task-go">▶ RECOMMEND TOOLS</button>
+        </div>
+        <div id="task-results">
+          <div class="empty"><div class="icon">⚡</div>Enter an investigation task to get targeted tool recommendations</div>
+        </div>
+      </div>
+
+      <!-- CATEGORIES TAB -->
+      <div class="tab-panel" id="tab-cats">
+        <div id="cats-wrap">
+          <div class="chart-box" style="grid-column: span 2">
+            <div class="chart-title">// Top categories by entry count</div>
+            <div id="cat-bars"></div>
+          </div>
+          <div class="chart-box">
+            <div class="chart-title">// Access type distribution</div>
+            <div class="access-grid" id="access-grid"></div>
+          </div>
+          <div class="chart-box">
+            <div class="chart-title">// Top 10 tools by community score</div>
+            <div id="top-tools-list"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- BRIEF TAB -->
+      <div class="tab-panel" id="tab-brief">
+        <div id="brief-form">
+          <div class="form-group">
+            <div class="form-label">Target type</div>
+            <select id="brief-type">
+              <option value="ip_address">IP Address / C2</option>
+              <option value="domain">Domain / Website</option>
+              <option value="person">Person</option>
+              <option value="company">Company / Corp</option>
+              <option value="email">Email Address</option>
+              <option value="username">Username / Handle</option>
+              <option value="malware">Malware / Hash</option>
+              <option value="apt">APT / Threat Actor</option>
+              <option value="dark_web">Dark Web</option>
+              <option value="image">Image / Photo</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <div class="form-label">Target value</div>
+            <input id="brief-target" placeholder="185.220.101.45  /  lockbit3.onion  /  John Smith…">
+          </div>
+          <button id="brief-go">▶ GENERATE BRIEF</button>
+        </div>
+        <div id="brief-output">
+          <div class="empty"><div class="icon">☰</div>Select target type and value to generate a structured investigation brief</div>
+        </div>
+      </div>
+
+      <!-- CHAT TAB (split: conversation left + case workspace right) -->
+      <div class="tab-panel" id="tab-chat">
+        <!-- Top bar -->
+        <div id="chat-topbar">
+          <span style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--green)">⚡ OSINT AGENT</span>
+          <span id="chat-session-badge" style="font-size:9px;color:var(--muted);font-family:var(--mono)"></span>
+          <span style="font-size:9px;color:var(--muted)">· exec · web_search · free APIs · files</span>
+          <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
+            <button id="chat-open-case" style="display:none;background:none;border:1px solid var(--border);border-radius:4px;padding:3px 8px;font-family:var(--mono);font-size:9px;color:var(--muted);cursor:pointer;letter-spacing:1px">📁 OPEN CASE</button>
+            <button onclick="newChatSession()" style="background:none;border:1px solid var(--border);border-radius:4px;padding:3px 10px;font-family:var(--mono);font-size:9px;color:var(--muted);cursor:pointer;letter-spacing:1px">↺ NEW</button>
+          </div>
+        </div>
+        <!-- Split: conversation | case workspace -->
+        <div id="chat-split">
+          <!-- LEFT: conversation -->
+          <div id="chat-left">
+            <div id="chat-messages">
+              <div class="chat-msg agent">
+                <div class="chat-avatar">⚡</div>
+                <div class="chat-content">
+                  <div class="chat-bubble"><strong>OSINT Agent ready.</strong><br><br>Give me a target or task. I'll run actual tools, save results to files, and build an investigation report you can see on the right →</div>
+                </div>
+              </div>
+            </div>
+            <div id="chat-starters">
+              <span style="font-size:9px;color:var(--muted);letter-spacing:1px;margin-right:4px;align-self:center">TRY:</span>
+            </div>
+            <div id="chat-input-wrap">
+              <input id="chat-input" placeholder="Target or task — IP, domain, email, company…" autocomplete="off" spellcheck="false">
+              <button id="chat-send">▶ SEND</button>
+            </div>
+          </div>
+          <!-- RIGHT: case workspace -->
+          <div id="chat-right">
+            <div id="case-panel-tabs">
+              <button class="case-ptab active" data-cpanel="report">📋 REPORT</button>
+              <button class="case-ptab" data-cpanel="files">📂 FILES</button>
+              <button class="case-ptab" data-cpanel="log">🕐 TURN LOG</button>
+              <button class="case-ptab" data-cpanel="tools">🔧 TOOLS</button>
+            </div>
+            <div id="case-panel-content">
+              <div class="empty" style="padding:40px 20px">
+                <div class="icon">📋</div>
+                Start an investigation to see live case files here
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CASEWORK TAB -->
+      <div class="tab-panel" id="tab-casework">
+        <div id="cases-panel">
+          <div style="padding:10px 16px;border-bottom:1px solid var(--border);background:var(--bg1);display:flex;gap:10px;align-items:center;flex-shrink:0">
+            <span style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted)">📁 INVESTIGATION CASEWORK</span>
+            <button onclick="loadCasework()" style="margin-left:auto;background:none;border:1px solid var(--border);border-radius:4px;padding:2px 8px;font-family:var(--mono);font-size:9px;color:var(--muted);cursor:pointer">↺ REFRESH</button>
+          </div>
+          <div id="cases-split">
+            <div id="cases-list-panel">
+              <div id="cases-list"><div class="empty" style="padding:30px 10px"><div class="icon" style="font-size:24px">📁</div>No cases yet</div></div>
+            </div>
+            <div id="cases-detail-panel">
+              <div class="empty"><div class="icon">📋</div>Select a case to view</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<!-- TOOL DETAIL DRAWER -->
+<div id="drawer">
+  <div id="drawer-header">
+    <div>
+      <div id="drawer-name"></div>
+      <div id="drawer-url-header" style="font-size:11px;color:var(--muted)"></div>
+    </div>
+    <button id="drawer-close">✕</button>
+  </div>
+  <div id="drawer-body"></div>
+</div>
+
+<script>
+/* ── STATE ── */
+let currentCat = '';
+let searchTimer = null;
+let statsData = null;
+
+/* ── DEEP LINKING (hash-based) ──────────────────────────────────
+ * Format:  #tab[?key=val&key=val]
+ * Examples:
+ *   #search
+ *   #chat?session=case-ip-test-01
+ *   #chat?session=case-ip-test-01&file=raw/001_dig.txt
+ *   #casework?case=case-ip-test-01
+ *   #casework?case=case-ip-test-01&file=raw/001_dig.txt
+ */
+let _restoringHash = false;
+function setHash(tab, params={}) {
+  if (_restoringHash) return;
+  const p = new URLSearchParams();
+  Object.entries(params).forEach(([k,v]) => { if (v!=null && v!=='') p.set(k, v); });
+  const qs = p.toString();
+  const hash = '#' + tab + (qs ? '?' + qs : '');
+  if (window.location.hash !== hash) history.pushState(null, '', hash);
+}
+
+function getHash() {
+  const raw   = window.location.hash.slice(1) || 'search';
+  const qIdx  = raw.indexOf('?');
+  const tab   = qIdx >= 0 ? raw.slice(0, qIdx) : raw;
+  const params = new URLSearchParams(qIdx >= 0 ? raw.slice(qIdx+1) : '');
+  return { tab, params };
+}
+
+async function restoreFromHash() {
+  _restoringHash = true;
+  const { tab, params } = getHash();
+
+  // Activate the correct tab
+  const btn = document.querySelector(`[data-tab="${tab}"]`);
+  if (btn) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    const panel = document.getElementById('tab-' + tab);
+    if (panel) panel.classList.add('active');
+  }
+
+  if (tab === 'search' && params.get('q')) {
+    const inp = document.getElementById('search-input');
+    if (inp) { inp.value = params.get('q'); search(params.get('q')); }
+    if (params.get('cat')) { currentCat = params.get('cat'); }
+  }
+
+  if (tab === 'chat') {
+    const sid = params.get('session');
+    if (sid) {
+      chatSessionId   = sid;
+      chatIsFirst     = false;
+      lastReportMtime = '';
+      updateSessionBadge();
+      const file = params.get('file');
+      if (file) {
+        const fileBtn = document.querySelector('[data-cpanel="files"]');
+        if (fileBtn) { fileBtn.click(); }
+        setTimeout(() => loadCaseFile(sid, file, null), 300);
+      }
+      refreshCasePanel();
+      startCasePoll();
+      // Re-attach to a live session if the agent is still running
+      setTimeout(() => maybeReattachSession(sid), 200);
+    }
+  }
+
+  if (tab === 'casework') {
+    await loadCasework();
+    const caseId  = params.get('case');
+    const filePath = params.get('file');
+    if (caseId) {
+      setTimeout(() => openCaseDetail(caseId, filePath), 200);
+    }
+  }
+
+  if (tab === 'cats') loadCats();
+  // Unlock hash writing after a short delay (lets timeouts above settle first)
+  setTimeout(() => { _restoringHash = false; }, 600);
+}
+
+// Browser back/forward
+window.addEventListener('popstate', () => restoreFromHash());
+
+/* ── INIT ── */
+document.addEventListener('DOMContentLoaded', async () => {
+  setupTabs();
+  loadStats();
+  loadSidebar();
+  // Restore state from URL hash, or default to search
+  if (window.location.hash && window.location.hash !== '#') {
+    await restoreFromHash();
+  } else {
+    search('');
+  }
+  document.getElementById('search-input').addEventListener('input', e => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => search(e.target.value), 220);
+  });
+  document.getElementById('task-go').addEventListener('click', runTask);
+  document.getElementById('task-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter' && e.ctrlKey) runTask();
+  });
+  document.getElementById('brief-go').addEventListener('click', runBrief);
+  document.getElementById('drawer-close').addEventListener('click', closeDrawer);
+  setupChat();
+  setupCasePanelTabs();
+
+  // Open case in CASEWORK tab
+  const openCaseBtn = document.getElementById('chat-open-case');
+  if (openCaseBtn) openCaseBtn.addEventListener('click', () => {
+    document.querySelector('[data-tab="casework"]').click();
+    if (chatSessionId) setTimeout(() => openCaseDetail(chatSessionId), 200);
+  });
+
+  // Load casework list when switching to that tab
+  document.querySelector('[data-tab="casework"]').addEventListener('click', () => {
+    setTimeout(loadCasework, 100);
+  });
+
+  // ── Event delegation for all clickable tool cards ──
+  document.addEventListener('click', e => {
+    const card = e.target.closest('[data-tool-id]');
+    if (card) {
+      const id = card.getAttribute('data-tool-id');
+      if (id) openDrawer(id);
+    }
+  });
+});
+
+/* ── TABS ── */
+function setupTabs() {
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+      const t = btn.dataset.tab;
+      if (t === 'cats') loadCats();
+      if (t === 'chat' && chatSessionId) { refreshCasePanel(); startCasePoll(); }
+      else stopCasePoll();
+      // Update hash — preserve sub-state where relevant
+      if (t === 'chat' && chatSessionId) setHash('chat', { session: chatSessionId });
+      else if (t !== 'chat') setHash(t);
+    });
+  });
+}
+
+/* ── STATS ── */
+async function loadStats() {
+  try {
+    const r = await fetch('api/stats');
+    statsData = await r.json();
+    document.getElementById('stat-total').textContent = statsData.total.toLocaleString();
+    document.getElementById('stat-cats').textContent = statsData.topCats.length + '+';
+    renderCats();
+    renderAccessGrid();
+    renderTopTools();
+  } catch(e) { console.error(e); }
+}
+
+async function loadSidebar() {
+  try {
+    const r = await fetch('api/categories');
+    const cats = await r.json();
+    document.getElementById('stat-cats').textContent = cats.length.toLocaleString();
+    const container = document.getElementById('sidebar-cats');
+    // Group by top-level
+    const groups = {};
+    cats.forEach(({category, count}) => {
+      const top = category.split('/')[0];
+      if (!groups[top]) groups[top] = { total: 0, subs: [] };
+      groups[top].total += count;
+      groups[top].subs.push({category, count});
+    });
+    Object.entries(groups).sort((a,b)=>b[1].total-a[1].total).slice(0,30).forEach(([top, g]) => {
+      const item = document.createElement('div');
+      item.className = 'cat-item';
+      item.innerHTML = `<span class="cat-name">${top}</span><span class="cat-badge">${g.total}</span>`;
+      item.addEventListener('click', () => {
+        document.querySelectorAll('.cat-item').forEach(i=>i.classList.remove('active'));
+        if (currentCat === top) {
+          currentCat = '';
+          search(document.getElementById('search-input').value);
+        } else {
+          item.classList.add('active');
+          currentCat = top;
+          search(document.getElementById('search-input').value);
+          // Switch to search tab
+          document.querySelector('[data-tab="search"]').click();
+        }
+      });
+      container.appendChild(item);
+    });
+  } catch(e) {}
+}
+
+/* ── SEARCH ── */
+async function search(q) {
+  try {
+    const params = new URLSearchParams({ q, limit: 60 });
+    if (currentCat) params.append('category', currentCat);
+    const r = await fetch('api/search?' + params);
+    const tools = await r.json();
+    document.getElementById('search-count').textContent = tools.length + ' results';
+    renderResults(tools);
+    // Update hash with current search state
+    const hp = {};
+    if (q) hp.q = q;
+    if (currentCat) hp.cat = currentCat;
+    setHash('search', hp);
+  } catch(e) {}
+}
+
+function renderResults(tools) {
+  const grid = document.getElementById('results-grid');
+  if (!tools.length) {
+    grid.innerHTML = '<div class="empty" style="grid-column:1/-1"><div class="icon">⌕</div>No results found</div>';
+    return;
+  }
+  grid.innerHTML = tools.map(t => {
+    const score = t.community_score || 5;
+    const scoreClass = score >= 8 ? 'hi' : score >= 6 ? 'mid' : 'lo';
+    const cats = Array.isArray(t.categories) ? t.categories : (JSON.parse(t.categories||'[]'));
+    const primaryCat = cats[0] || '';
+    return `
+      <div class="tool-card" data-tool-id="${escAttr(t.id)}">
+        <div class="score ${scoreClass}">${score}/10</div>
+        <div class="tool-name">${escHtml(t.name)}</div>
+        <div class="tool-desc">${escHtml(t.description || '—')}</div>
+        <div class="tool-cats">
+          ${cats.slice(0,3).map((c,i) => `<span class="tag${i===0?' primary':''}">${escHtml(c)}</span>`).join('')}
+          ${cats.length > 3 ? `<span class="tag">+${cats.length-3}</span>` : ''}
+          <span class="tag" style="margin-left:auto;color:var(--green);border-color:var(--green);opacity:0.6">→ details</span>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+/* ── TASK PLANNER ── */
+async function runTask() {
+  const task = document.getElementById('task-input').value.trim();
+  if (!task) return;
+  const btn = document.getElementById('task-go');
+  const out = document.getElementById('task-results');
+  btn.disabled = true;
+  btn.textContent = '…';
+  out.innerHTML = '<div class="empty"><div class="spinner">█</div> Routing task to intent engine…</div>';
+  try {
+    const r = await fetch('api/task', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({task})
+    });
+    const tools = await r.json();
+    if (!tools.length) {
+      out.innerHTML = '<div class="empty">No tools found. Try a more specific task.</div>';
+      return;
+    }
+    out.innerHTML = tools.map((t, i) => {
+      const score = t.community_score || (t.quality && t.quality.community_score) || 5;
+      const cats = (t.categories || []).slice(0, 3);
+      return `
+        <div class="task-tool" data-tool-id="${escAttr(t.id || t.name)}">
+          <div class="task-rank">${i+1}</div>
+          <div>
+            <div class="task-tool-name">${escHtml(t.name)} <span style="font-size:9px;color:var(--amber);opacity:0.7">→ click for details</span></div>
+            <div class="task-tool-desc">${escHtml((t.description||'').slice(0,120))}</div>
+            <div class="task-tool-cats">${cats.map(c=>`<span class="tag">${escHtml(c)}</span>`).join('')}</div>
+            <div class="task-tool-url">${escHtml(t.url||'')}</div>
+          </div>
+          <div class="task-score">${score}/10</div>
+        </div>`;
+    }).join('');
+  } catch(e) {
+    out.innerHTML = `<div class="empty">Error: ${escHtml(e.message)}</div>`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '▶ RECOMMEND TOOLS';
+  }
+}
+
+/* ── CATEGORIES ── */
+function renderCats() {
+  if (!statsData) return;
+  const container = document.getElementById('cat-bars');
+  const max = statsData.topCats[0]?.count || 1;
+  container.innerHTML = statsData.topCats.map(({cat, count}) => `
+    <div class="bar-row">
+      <div class="bar-label">${escHtml(cat)}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${Math.round(count/max*100)}%"></div></div>
+      <div class="bar-count">${count}</div>
+    </div>`).join('');
+}
+
+function renderAccessGrid() {
+  if (!statsData) return;
+  const grid = document.getElementById('access-grid');
+  const ac = statsData.accessCounts || {};
+  const order = ['free','freemium','paid','api','unknown'];
+  const labels = {free:'Free',freemium:'Freemium',paid:'Paid',api:'API Only',unknown:'Unknown'};
+  grid.innerHTML = order.map(k => {
+    const n = ac[k] || 0;
+    if (!n) return '';
+    return `<div class="access-cell"><div class="access-n">${n}</div><div class="access-label">${labels[k]||k}</div></div>`;
+  }).filter(Boolean).join('');
+}
+
+function renderTopTools() {
+  if (!statsData) return;
+  const list = document.getElementById('top-tools-list');
+  list.innerHTML = statsData.topTools.map((t, i) => `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border)">
+      <div>
+        <span style="color:var(--muted);font-size:10px">${i+1}. </span>
+        <span style="font-size:12px">${escHtml(t.name)}</span>
+      </div>
+      <span style="font-size:11px;font-weight:700;color:var(--green)">${t.community_score}/10</span>
+    </div>`).join('');
+}
+
+function loadCats() {
+  renderCats();
+  renderAccessGrid();
+  renderTopTools();
+}
+
+/* ── BRIEF ── */
+// Store the last brief for "Investigate in Chat"
+let lastBriefText = '';
+let lastBriefType = '';
+let lastBriefTarget = '';
+
+async function runBrief() {
+  const target_type = document.getElementById('brief-type').value;
+  const target_value = document.getElementById('brief-target').value.trim();
+  if (!target_value) { document.getElementById('brief-target').focus(); return; }
+  const btn = document.getElementById('brief-go');
+  const out = document.getElementById('brief-output');
+  btn.disabled = true;
+  out.innerHTML = '<div class="empty"><div class="spinner">█</div> Generating investigation brief…</div>';
+  try {
+    const r = await fetch('api/brief', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({target_type, target_value})
+    });
+    const {brief, error} = await r.json();
+    if (error) throw new Error(error);
+    lastBriefText   = brief;
+    lastBriefType   = target_type;
+    lastBriefTarget = target_value;
+    // Render brief + action bar
+    out.innerHTML = `
+      <div style="display:flex;gap:8px;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--border)">
+        <button onclick="openBriefInChat()" style="background:var(--green);color:#000;border:none;border-radius:4px;padding:7px 18px;font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;">▶ INVESTIGATE IN CHAT</button>
+        <span style="font-size:11px;color:var(--muted);align-self:center">${escHtml(target_type)}: <strong style="color:var(--text)">${escHtml(target_value)}</strong></span>
+      </div>
+      ${renderBrief(brief)}`;
+  } catch(e) {
+    out.innerHTML = `<div class="empty">Error: ${escHtml(e.message)}</div>`;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function openBriefInChat() {
+  if (!lastBriefText) return;
+
+  // Switch to CHAT tab
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  const chatBtn = document.querySelector('[data-tab="chat"]');
+  if (chatBtn) chatBtn.classList.add('active');
+  const chatPanel = document.getElementById('tab-chat');
+  if (chatPanel) chatPanel.classList.add('active');
+
+  // Reset to a fresh session
+  chatSessionId = 'osint-' + Date.now() + '-' + Math.random().toString(36).slice(2,8);
+  chatIsFirst   = false;  // We handle isFirst manually below
+  updateSessionBadge();
+  setHash('chat', { session: chatSessionId });
+
+  // Reset UI
+  document.getElementById('chat-messages').innerHTML = '';
+  document.getElementById('chat-starters').style.display = 'none';
+  document.getElementById('case-panel-content').innerHTML =
+    '<div class="empty" style="padding:40px 20px"><div class="icon">📋</div>Starting investigation from brief…</div>';
+
+  // Show user message in chat
+  appendChatMsg('user', `[Investigation Brief] ${lastBriefType}: ${lastBriefTarget}`, null, null);
+  const tid = appendThinking(true);
+  document.getElementById('chat-send').disabled = true;
+
+  try {
+    const r = await fetch('api/chat', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        message:      lastBriefTarget,
+        sessionId:    chatSessionId,
+        isFirst:      true,
+        briefContent: lastBriefText,
+        briefTarget:  lastBriefType + ': ' + lastBriefTarget
+      })
+    });
+    const startData = await r.json();
+    if (startData.error) throw new Error(startData.error);
+
+    chatSessionId = startData.sessionId || chatSessionId;
+    updateSessionBadge();
+    refreshCasePanel();
+    startCasePoll();
+
+    // Poll until done
+    let finalData = null;
+    for (let attempt = 0; attempt < 300; attempt++) {
+      await new Promise(ok => setTimeout(ok, 2000));
+      let sd;
+      try {
+        const sr = await fetch(`api/chat/status/${encodeURIComponent(chatSessionId)}`);
+        sd = await sr.json();
+      } catch { continue; }
+      updateThinkingLive(tid, sd);
+      if (sd.status === 'done' || sd.status === 'error') { finalData = sd; break; }
+    }
+
+    removeThinking(tid);
+    if (!finalData) {
+      appendChatMsg('agent', '⚠ Investigation timed out. Check the REPORT tab for partial findings.', null, null, null);
+    } else if (finalData.status === 'error') {
+      appendChatMsg('agent', `⚠ ${finalData.error}`, null, null, null);
+    } else {
+      appendChatMsg('agent', finalData.response || '(Investigation complete — see REPORT tab)', null, null, finalData.durationMs);
+    }
+    refreshCasePanel();
+  } catch(e) {
+    removeThinking(tid);
+    appendChatMsg('agent', `⚠ ${e.message}`, null, null, null);
+  } finally {
+    document.getElementById('chat-send').disabled = false;
+    document.getElementById('chat-input').focus();
+  }
+}
+
+function renderBrief(md) {
+  // Parse the markdown brief into structured sections
+  const lines = md.split('\n');
+  let html = '';
+  let inSection = false;
+  let stepBuf = null;
+
+  function flushStep() {
+    if (!stepBuf) return;
+    html += `<div class="brief-step">
+      <div class="brief-step-num">STEP ${stepBuf.num}</div>
+      <div class="brief-step-action">${escHtml(stepBuf.action)}</div>
+      <div class="brief-step-tools">${stepBuf.tools.map(t=>`<span class="brief-tool-chip">${escHtml(t)}</span>`).join('')}</div>
+    </div>`;
+    stepBuf = null;
+  }
+
+  lines.forEach(line => {
+    const trim = line.trim();
+    if (trim.startsWith('# ')) {
+      html += `<div class="brief-section"><div class="brief-section-header">// ${escHtml(trim.slice(2))}</div>`;
+      inSection = true;
+    } else if (trim.startsWith('## ') && trim.toLowerCase().includes('workflow')) {
+      flushStep();
+      if (inSection) html += '</div>';
+      html += `<div class="brief-section"><div class="brief-section-header">// INVESTIGATION WORKFLOW</div>`;
+      inSection = true;
+    } else if (trim.startsWith('### Step ')) {
+      flushStep();
+      const m = trim.match(/### Step (\d+): (.+)/);
+      if (m) stepBuf = {num: m[1], action: m[2], tools: []};
+    } else if (stepBuf && trim.startsWith('- **Tools:**')) {
+      const toolStr = trim.replace('- **Tools:**', '').trim();
+      stepBuf.tools = toolStr.split(',').map(s=>s.trim().replace(/\[([^\]]+)\]\([^)]+\)/,'$1'));
+    } else if (trim.startsWith('## Expected') || trim.startsWith('## Operational')) {
+      flushStep();
+      if (inSection) html += '</div>';
+      const title = trim.startsWith('## Expected') ? 'EXPECTED OUTPUTS' : 'OPERATIONAL SECURITY';
+      html += `<div class="brief-section"><div class="brief-section-header">// ${title}</div><pre class="brief-raw">`;
+      inSection = true;
+    } else if (inSection && trim && !trim.startsWith('**')) {
+      if (!stepBuf) html += escHtml(trim) + '\n';
+    }
+  });
+  flushStep();
+  if (inSection) html += '</div>';
+  return html || `<pre class="brief-raw">${escHtml(md)}</pre>`;
+}
+
+/* ── TOOL DRAWER ── */
+async function openDrawer(id) {
+  const drawer = document.getElementById('drawer');
+  drawer.classList.add('open');
+  document.getElementById('drawer-name').textContent = 'Loading…';
+  document.getElementById('drawer-body').innerHTML = '';
+  try {
+    const r = await fetch('api/tool/' + encodeURIComponent(id));
+    if (!r.ok) throw new Error('Not found');
+    const tool = await r.json();
+    document.getElementById('drawer-name').textContent = tool.name || id;
+    document.getElementById('drawer-url-header').textContent = tool.url || '';
+    const score = (tool.quality && tool.quality.community_score) || 5;
+    const cats = (tool.categories || []).join(', ');
+    const tags = (tool.tags || []).join(', ');
+    const access = tool.access || {};
+    document.getElementById('drawer-body').innerHTML = `
+      <div class="drawer-field">
+        <div class="drawer-label">Community Score</div>
+        <div class="drawer-value">${score}/10</div>
+        <div class="score-bar"><div class="score-bar-fill" style="width:${score*10}%"></div></div>
+      </div>
+      <div class="drawer-field">
+        <div class="drawer-label">URL</div>
+        <div class="drawer-value"><a href="${escAttr(tool.url)}" target="_blank" class="drawer-link">${escHtml(tool.url||'—')}</a></div>
+      </div>
+      <div class="drawer-field">
+        <div class="drawer-label">Description</div>
+        <div class="drawer-value">${escHtml(tool.description||'—')}</div>
+      </div>
+      <div class="drawer-field">
+        <div class="drawer-label">Categories</div>
+        <div class="drawer-value">${escHtml(cats||'—')}</div>
+      </div>
+      ${tags ? `<div class="drawer-field"><div class="drawer-label">Tags</div><div class="drawer-value">${escHtml(tags)}</div></div>` : ''}
+      <div class="drawer-field">
+        <div class="drawer-label">Access Type</div>
+        <div class="drawer-value">${escHtml(access.type||'unknown')} ${access.api ? '· API available' : ''}</div>
+      </div>
+      ${access.price_usd_month ? `<div class="drawer-field"><div class="drawer-label">Price</div><div class="drawer-value">$${access.price_usd_month}/mo</div></div>` : ''}
+      <div class="drawer-field">
+        <div class="drawer-label">Geo Scope</div>
+        <div class="drawer-value">${escHtml(tool.geo_scope||'—')}</div>
+      </div>
+      <div class="drawer-field">
+        <div class="drawer-label">Platforms</div>
+        <div class="drawer-value">${escHtml((tool.platforms||[]).join(', ')||'—')}</div>
+      </div>
+      ${(tool.provenance||[]).length ? `<div class="drawer-field"><div class="drawer-label">Sources</div><div class="drawer-value" style="font-size:10px;color:var(--muted)">${escHtml(tool.provenance.join(', '))}</div></div>` : ''}
+    `;
+  } catch(e) {
+    document.getElementById('drawer-body').innerHTML = `<div style="color:var(--muted);font-size:12px;padding:10px">Failed to load tool detail</div>`;
+  }
+}
+
+function closeDrawer() {
+  document.getElementById('drawer').classList.remove('open');
+}
+
+/* ── CHAT ── */
+const CHAT_STARTERS = [
+  'Investigate IP 185.220.101.45',
+  'Run WHOIS and DNS on github.com',
+  'Map infrastructure of a ransomware operator',
+  'Find exposed S3 buckets for a target company',
+  'Lookup certificate history for tesla.com',
+  'Investigate BGP/ASN for 8.8.8.8',
+  'Track a username across social platforms',
+  'Find subdomains of a domain using cert transparency',
+];
+let chatSessionId  = null;   // null = start new session on next send
+let chatIsFirst    = true;   // first message in current session?
+let thinkingCounter = 0;
+
+function setupChat() {
+  const btn  = document.getElementById('chat-send');
+  const inp  = document.getElementById('chat-input');
+  const sugg = document.getElementById('chat-starters');
+  btn.addEventListener('click', sendChat);
+  inp.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); }
+  });
+  CHAT_STARTERS.forEach(s => {
+    const chip = document.createElement('div');
+    chip.className = 'chat-suggest';
+    chip.textContent = s;
+    chip.addEventListener('click', () => {
+      inp.value = s;
+      sugg.style.display = 'none';
+      sendChat();
+    });
+    sugg.appendChild(chip);
+  });
+}
+
+function newChatSession() {
+  stopCasePoll();
+  chatSessionId    = null;
+  chatIsFirst      = true;
+  lastReportMtime  = '';
+  setHash('chat');
+  document.getElementById('chat-messages').innerHTML = `
+    <div class="chat-msg agent">
+      <div class="chat-avatar">⚡</div>
+      <div class="chat-content">
+        <div class="chat-bubble"><strong>New investigation session started.</strong><br><br>Give me a target or task — I'll run real tools and write findings to a case file you can see on the right →</div>
+      </div>
+    </div>`;
+  document.getElementById('chat-starters').style.display = 'flex';
+  document.getElementById('case-panel-content').innerHTML =
+    '<div class="empty" style="padding:40px 20px"><div class="icon">📋</div>Waiting for investigation to start…</div>';
+  updateSessionBadge();
+  document.getElementById('chat-input').focus();
+}
+
+async function sendChat() {
+  const inp  = document.getElementById('chat-input');
+  const btn  = document.getElementById('chat-send');
+  const message = inp.value.trim();
+  if (!message || btn.disabled) return;
+  inp.value = '';
+  document.getElementById('chat-starters').style.display = 'none';
+
+  const isFirst = chatIsFirst;
+  chatIsFirst = false;
+
+  if (!chatSessionId) {
+    chatSessionId = 'osint-' + Date.now() + '-' + Math.random().toString(36).slice(2,8);
+  }
+  updateSessionBadge();
+  setHash('chat', { session: chatSessionId });
+
+  appendChatMsg('user', message, null, null);
+  const tid = appendThinking(isFirst);
+  btn.disabled = true;
+
+  try {
+    // Step 1: fire off investigation (returns immediately with {sessionId, status:'running'})
+    const r = await fetch('api/chat', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ message, sessionId: chatSessionId, isFirst })
+    });
+    const startData = await r.json();
+    if (startData.error) throw new Error(startData.error);
+
+    const pollSid = startData.sessionId || chatSessionId;
+    chatSessionId = pollSid;
+    updateSessionBadge();
+
+    // Step 2: poll until done
+    refreshCasePanel();
+    startCasePoll();
+
+    let finalData = null;
+    for (let attempt = 0; attempt < 300; attempt++) {   // max ~10 min
+      await new Promise(ok => setTimeout(ok, 2000));
+      let statusData;
+      try {
+        const sr = await fetch(`api/chat/status/${encodeURIComponent(pollSid)}`);
+        statusData = await sr.json();
+      } catch(pe) { continue; }  // network blip — keep polling
+
+      // Update thinking indicator with live stats
+      updateThinkingLive(tid, statusData);
+
+      if (statusData.status === 'done') { finalData = statusData; break; }
+      if (statusData.status === 'error') { finalData = statusData; break; }
+      // not_found: result file deleted for new turn; keep polling — agent may still be starting up
+      // Only bail after 60 attempts (~2 min) with no result file AND no running agent
+      if (statusData.status === 'not_found' && attempt > 60) break;
+    }
+
+    removeThinking(tid);
+    if (!finalData) {
+      appendChatMsg('agent', '⚠ Investigation timed out or never started. Check the REPORT tab for partial findings.', null, null, null);
+    } else if (finalData.status === 'error') {
+      const errDetail = finalData.error || 'unknown error';
+      appendChatMsg('agent',
+        `⚠ Agent failed: ${errDetail}\n\nPartial findings may be in the REPORT tab. Try rephrasing or starting fresh.`,
+        null, null, null);
+    } else {
+      appendChatMsg('agent', finalData.response || '(Investigation complete — see REPORT tab)', null, null, finalData.durationMs);
+    }
+    refreshCasePanel();
+
+  } catch(e) {
+    removeThinking(tid);
+    appendChatMsg('agent', `⚠ ${e.message}`, null, null, null);
+  } finally {
+    btn.disabled = false;
+    inp.focus();
+  }
+}
+
+function updateThinkingLive(tid, statusData) {
+  const phaseEl = document.getElementById(tid + '-phase');
+  const timerEl = document.getElementById(tid + '-timer');
+  if (!phaseEl || !timerEl) return;
+  const rawCount = statusData.rawCount || 0;
+  const elapsed  = Math.round((statusData.elapsed || 0) / 1000);
+  if (rawCount > 0) {
+    phaseEl.textContent = `⚡ Running tools… ${rawCount} file${rawCount!==1?'s':''} saved`;
+  }
+  timerEl.textContent = elapsed > 0 ? elapsed + 's' : timerEl.textContent;
+}
+
+function updateSessionBadge() {
+  const badge = document.getElementById('chat-session-badge');
+  if (!badge) return;
+  badge.textContent = chatSessionId ? ('· ' + chatSessionId) : '';
+  const openBtn = document.getElementById('chat-open-case');
+  if (openBtn) openBtn.style.display = chatSessionId ? '' : 'none';
+}
+
+/* ── CASE PANEL (right side of CHAT tab) ── */
+let activeCasePanel  = 'report';
+let casePollInterval = null;
+let selectedCaseFile = null;
+let lastReportMtime  = '';   // prevents scroll-reset on unchanged polls
+
+function setupCasePanelTabs() {
+  document.querySelectorAll('.case-ptab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.case-ptab').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      activeCasePanel = btn.dataset.cpanel;
+      refreshCasePanel();
+    });
+  });
+}
+
+function startCasePoll() {
+  stopCasePoll();
+  casePollInterval = setInterval(() => refreshCasePanel(), 4000);
+}
+function stopCasePoll() {
+  if (casePollInterval) { clearInterval(casePollInterval); casePollInterval = null; }
+}
+
+async function refreshCasePanel() {
+  if (!chatSessionId) return;
+  const container = document.getElementById('case-panel-content');
+  if (!container) return;
+  try {
+    if (activeCasePanel === 'report') {
+      const r = await fetch(`api/cases/${chatSessionId}/file?path=report.md`);
+      if (!r.ok) return;
+      const { content, mtime } = await r.json();
+
+      // Only rebuild DOM when content actually changed — prevents scroll-jump on polls
+      if (mtime === lastReportMtime && document.getElementById('file-viewer-content')) return;
+      lastReportMtime = mtime;
+
+      const scrollEl = document.getElementById('file-viewer-content');
+      const savedScroll = scrollEl ? scrollEl.scrollTop : 0;
+
+      const sid = chatSessionId;
+      container.innerHTML = `
+        <div id="file-viewer">
+          <div id="file-viewer-header">
+            <div class="vh-row1">
+              <span class="vh-path">report.md</span>
+              <button class="viewer-dl-btn" onclick="dlFile(${JSON.stringify('report.md')},${JSON.stringify(content)})">⬇ DL</button>
+            </div>
+            <span class="vh-meta">MARKDOWN · ${(content.length/1024).toFixed(1)}k · ${new Date(mtime).toLocaleTimeString()}</span>
+          </div>
+          <div id="file-viewer-content">${renderMarkdown(content)}</div>
+        </div>`;
+
+      // Restore scroll after re-render (content grew at bottom, not top)
+      const newEl = document.getElementById('file-viewer-content');
+      if (newEl && savedScroll > 0) newEl.scrollTop = savedScroll;
+    } else if (activeCasePanel === 'files') {
+      const r = await fetch(`api/cases/${chatSessionId}`);
+      if (!r.ok) return;
+      const data = await r.json();
+      // Build two-pane layout if not already present
+      if (!document.getElementById('case-file-tree-pane')) {
+        container.innerHTML = `
+          <div id="case-file-tree-pane">
+            <div class="tree-header"><span>📂 CASE FILES</span><span id="tree-file-count"></span></div>
+            <div id="case-file-tree-body"></div>
+          </div>
+          <div id="case-file-viewer-pane">
+            <div class="viewer-empty">← click a file to view its contents</div>
+          </div>`;
+      }
+      const files = data.files || [];
+      const count = countFiles(files);
+      const countEl = document.getElementById('tree-file-count');
+      if (countEl) countEl.textContent = count + ' file' + (count!==1?'s':'');
+      document.getElementById('case-file-tree-body').innerHTML = renderFileTree(files, chatSessionId);
+    } else if (activeCasePanel === 'log') {
+      const r = await fetch(`api/cases/${chatSessionId}`);
+      if (!r.ok) return;
+      const { turns = [], target, startedAt, filesLog = [] } = await r.json();
+      container.innerHTML = `
+        <div class="case-section">
+          <div class="case-section-title">Case Info</div>
+          <div class="case-meta-grid">
+            <div class="case-meta-cell"><div class="case-meta-label">Target</div><div class="case-meta-value">${escHtml(target||'—')}</div></div>
+            <div class="case-meta-cell"><div class="case-meta-label">Started</div><div class="case-meta-value">${new Date(startedAt).toLocaleString()}</div></div>
+            <div class="case-meta-cell"><div class="case-meta-label">Turns</div><div class="case-meta-value">${turns.length}</div></div>
+            <div class="case-meta-cell"><div class="case-meta-label">Files Saved</div><div class="case-meta-value">${filesLog.length}</div></div>
+          </div>
+        </div>
+        <div class="case-section">
+          <div class="case-section-title">Turn Log</div>
+          ${turns.map(t => `
+            <div class="turn-log-entry">
+              <span class="turn-role ${t.role}">${t.role}</span>
+              <span class="turn-time">${new Date(t.timestamp).toLocaleTimeString()}</span>
+              <span class="turn-preview">${escHtml((t.messagePreview||t.message||'').slice(0,120))}</span>
+              ${t.durationMs ? `<span style="font-size:9px;color:var(--muted);flex-shrink:0">${(t.durationMs/1000).toFixed(1)}s</span>` : ''}
+            </div>`).join('')}
+        </div>
+        ${filesLog.length ? `
+        <div class="case-section">
+          <div class="case-section-title">Saved Files (detected)</div>
+          ${filesLog.map(f => `<div style="font-size:10px;color:var(--blue);padding:2px 0">${escHtml(f)}</div>`).join('')}
+        </div>` : ''}`;
+    } else if (activeCasePanel === 'tools') {
+      const r = await fetch('api/tools-library');
+      if (!r.ok) return;
+      const { files } = await r.json();
+      if (!document.getElementById('case-file-tree-pane')) {
+        container.innerHTML = `
+          <div id="case-file-tree-pane">
+            <div class="tree-header"><span>🔧 TOOL LIBRARY</span><span style="font-size:9px;color:var(--muted)">${TOOLS_DIR_HINT}</span></div>
+            <div id="case-file-tree-body"></div>
+          </div>
+          <div id="case-file-viewer-pane">
+            <div class="viewer-empty">← click a tool to view its source</div>
+          </div>`;
+      }
+      document.getElementById('case-file-tree-body').innerHTML = renderToolFiles(files);
+    }
+  } catch(e) { /* silently ignore poll errors */ }
+}
+
+const TOOLS_DIR_HINT = 'datasources-db/casework/tools/';
+
+/* ── File count helper ── */
+function countFiles(files) {
+  return (files||[]).reduce((n, f) => n + (f.type==='dir' ? countFiles(f.children) : 1), 0);
+}
+
+/* ── File type helpers ── */
+function fileIcon(name) {
+  const ext = name.split('.').pop().toLowerCase();
+  return {md:'📋', json:'{ }', sh:'⚙', py:'🐍', csv:'⊞', txt:'≡'}[ext] || '📄';
+}
+function fileType(name) {
+  const ext = name.split('.').pop().toLowerCase();
+  return {md:'markdown', json:'json', sh:'shell', py:'python', csv:'csv'}[ext] || 'text';
+}
+function fmtSize(b) { return b > 1024 ? (b/1024).toFixed(1)+'k' : b+'b'; }
+
+/* ── Syntax highlighters ── */
+function highlightJson(raw) {
+  try {
+    const pretty = JSON.stringify(JSON.parse(raw), null, 2);
+    return escHtml(pretty)
+      .replace(/"([^"]+)"(\s*:)/g, '<span class="j-key">"$1"</span>$2')
+      .replace(/:\s*"([^"]*)"/g, ': <span class="j-str">"$1"</span>')
+      .replace(/:\s*(-?\d+\.?\d*)/g, ': <span class="j-num">$1</span>')
+      .replace(/:\s*(true|false)/g, ': <span class="j-bool">$1</span>')
+      .replace(/:\s*(null)/g,       ': <span class="j-null">$1</span>');
+  } catch { return escHtml(raw); }
+}
+function highlightShell(raw) {
+  return escHtml(raw)
+    .replace(/(#[^\n]*)/g, '<span class="s-comment">$1</span>')
+    .replace(/\b(if|then|else|fi|for|while|do|done|case|esac|function|return|exit|echo|curl|dig|export|source)\b/g, '<span class="s-keyword">$1</span>')
+    .replace(/\$\{?[\w]+\}?/g, m => `<span class="s-var">${m}</span>`)
+    .replace(/"([^"]*)"/g, '<span class="s-string">"$1"</span>');
+}
+function highlightPython(raw) {
+  return escHtml(raw)
+    .replace(/(#[^\n]*)/g, '<span class="s-comment">$1</span>')
+    .replace(/\b(def|class|import|from|return|if|elif|else|for|while|in|not|and|or|True|False|None|with|as|try|except|raise|print)\b/g, '<span class="s-keyword">$1</span>')
+    .replace(/"([^"]*)"/g, '<span class="s-string">"$1"</span>')
+    .replace(/'([^']*)'/g, "<span class='s-string'>'$1'</span>");
+}
+function renderFileContent(content, filePath) {
+  const type = fileType(filePath.split('/').pop());
+  if (type === 'markdown') {
+    return { cls: 'is-md', html: renderMarkdown(content) };
+  }
+  if (type === 'json')   return { cls: 'is-json', html: highlightJson(content) };
+  if (type === 'shell')  return { cls: 'is-raw',  html: highlightShell(content) };
+  if (type === 'python') return { cls: 'is-raw',  html: highlightPython(content) };
+  return { cls: 'is-raw', html: escHtml(content) };
+}
+
+/* ── File tree renderer ── */
+function renderFileTree(files, sid, depth=0) {
+  if (!files || !files.length) {
+    return '<div style="padding:12px;font-size:11px;color:var(--muted)">No files yet</div>';
+  }
+  return files.map(f => {
+    const indent = depth * 14;
+    if (f.type === 'dir') {
+      return `<div class="file-item is-dir" style="padding-left:${10+indent}px">
+        <span class="file-icon">▸</span>
+        <span class="file-name">${escHtml(f.name)}/</span>
+      </div>` + renderFileTree(f.children||[], sid, depth+1);
+    }
+    const safeId = 'fi-' + btoa(f.path).replace(/[^a-zA-Z0-9]/g,'').slice(0,20);
+    return `<div class="file-item" id="${safeId}" style="padding-left:${10+indent}px"
+        data-sid="${escAttr(sid)}" data-path="${escAttr(f.path)}"
+        onclick="loadCaseFile('${escAttr(sid)}','${escAttr(f.path)}',this)">
+      <span class="file-icon">${escHtml(fileIcon(f.name))}</span>
+      <span class="file-name">${escHtml(f.name)}</span>
+      <span class="file-size">${fmtSize(f.size||0)}</span>
+    </div>`;
+  }).join('');
+}
+
+function renderToolFiles(files) {
+  if (!files || !files.length) {
+    return '<div style="padding:12px;font-size:11px;color:var(--muted)">No tools yet — the agent will save reusable scripts here.</div>';
+  }
+  return files.map(f => {
+    if (f.type === 'dir') return '';
+    return `<div class="file-item"
+        data-path="${escAttr(f.path)}"
+        onclick="loadToolFile('${escAttr(f.path)}',this)">
+      <span class="file-icon">${escHtml(fileIcon(f.name))}</span>
+      <span class="file-name">${escHtml(f.name)}</span>
+      <span class="file-size">${fmtSize(f.size||0)}</span>
+    </div>`;
+  }).join('');
+}
+
+/* ── File viewer — updates only the viewer pane ── */
+function showInViewer(filePath, content, context, mtime) {
+  const pane = document.getElementById('case-file-viewer-pane');
+  if (!pane) return;
+  const { cls, html } = renderFileContent(content, filePath);
+  const name = filePath.split('/').pop();
+  const ts   = mtime ? new Date(mtime).toLocaleTimeString() : context;
+  const size = content.length > 1024 ? (content.length/1024).toFixed(1)+'k' : content.length+'b';
+  pane.innerHTML = `
+    <div class="viewer-header">
+      <div class="vh-row1">
+        <span class="vh-path">${escHtml(filePath)}</span>
+        <button class="viewer-dl-btn" onclick="dlFile(${JSON.stringify(name)},${JSON.stringify(content)})">⬇ DL</button>
+      </div>
+      <span class="vh-meta">${escHtml(fileType(name))} · ${size} · ${ts}</span>
+    </div>
+    <div class="viewer-body ${cls}">${html}</div>`;
+}
+
+async function loadCaseFile(sid, filePath, el) {
+  // Mark active in tree
+  document.querySelectorAll('#case-file-tree-body .file-item').forEach(i => i.classList.remove('active'));
+  if (el) el.classList.add('active');
+
+  // Update viewer
+  const vp = document.getElementById('case-file-viewer-pane');
+  if (vp) vp.innerHTML = `<div class="viewer-empty"><span class="spinner">▌</span> loading…</div>`;
+
+  try {
+    const r = await fetch(`api/cases/${sid}/file?path=${encodeURIComponent(filePath)}`);
+    const { content, mtime } = await r.json();
+    showInViewer(filePath, content, 'case file', mtime);
+    setHash('chat', { session: sid, file: filePath });
+  } catch(e) {
+    if (vp) vp.innerHTML = `<div class="viewer-empty" style="color:var(--red)">Error loading file</div>`;
+  }
+}
+
+async function loadToolFile(filePath, el) {
+  document.querySelectorAll('#case-file-tree-body .file-item').forEach(i => i.classList.remove('active'));
+  if (el) el.classList.add('active');
+
+  const vp = document.getElementById('case-file-viewer-pane');
+  if (vp) vp.innerHTML = `<div class="viewer-empty"><span class="spinner">▌</span> loading…</div>`;
+
+  try {
+    const r = await fetch(`api/tools-library/file?path=${encodeURIComponent(filePath)}`);
+    const { content } = await r.json();
+    showInViewer(filePath, content, 'tool library');
+    setHash('chat', { file: 'tools/' + filePath });
+  } catch(e) {
+    if (vp) vp.innerHTML = `<div class="viewer-empty" style="color:var(--red)">Error loading file</div>`;
+  }
+}
+
+/* ── CASEWORK TAB ── */
+async function loadCasework() {
+  const list = document.getElementById('cases-list');
+  if (!list) return;
+  try {
+    const r = await fetch('api/cases');
+    const cases = await r.json();
+    if (!cases.length) {
+      list.innerHTML = '<div class="empty" style="padding:20px 10px"><div class="icon" style="font-size:20px">📁</div>No cases yet</div>';
+      return;
+    }
+    list.innerHTML = cases.map(c => `
+      <div class="case-list-item" data-sid="${escAttr(c.caseId)}" onclick="openCaseDetail('${escAttr(c.caseId)}')">
+        <div class="case-list-target">${escHtml(c.target||c.caseId)}</div>
+        <div class="case-list-meta">
+          <span class="case-status ${c.status||'active'}">${c.status||'active'}</span>
+          &nbsp;${new Date(c.startedAt).toLocaleDateString()} · ${c.turns?.length||0} turns
+        </div>
+      </div>`).join('');
+  } catch(e) { list.innerHTML = `<div style="padding:10px;color:var(--muted);font-size:11px">Error: ${escHtml(e.message)}</div>`; }
+}
+
+let cwActivePanel = 'report';
+let cwActiveSid   = null;
+let cwCaseData    = null;
+
+async function openCaseDetail(sid, initialFile) {
+  document.querySelectorAll('.case-list-item').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.case-list-item').forEach(el => {
+    if (el.getAttribute('data-sid') === sid) el.classList.add('active');
+  });
+  setHash('casework', initialFile ? { case: sid, file: initialFile } : { case: sid });
+
+  cwActiveSid   = sid;
+  cwActivePanel = initialFile ? 'files' : 'report';
+
+  const outerPanel = document.getElementById('cases-detail-panel');
+  outerPanel.style.cssText = 'overflow:hidden;display:flex;flex-direction:column;padding:0;';
+  outerPanel.innerHTML = '<div style="padding:20px;color:var(--muted);font-size:11px">Loading…</div>';
+
+  try {
+    const r = await fetch(`api/cases/${sid}`);
+    cwCaseData = await r.json();
+    const { target, startedAt, turns=[], files=[] } = cwCaseData;
+    const fc = countFiles(files);
+
+    outerPanel.innerHTML = `
+      <div style="padding:10px 14px;border-bottom:1px solid var(--border);flex-shrink:0;display:flex;flex-direction:column;gap:3px">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:14px;font-weight:700;color:var(--text)">${escHtml(target||sid)}</span>
+          <span style="font-size:10px;color:var(--amber);cursor:pointer" onclick="openChatForCase('${escAttr(sid)}')">→ open in chat</span>
+        </div>
+        <div style="display:flex;gap:12px;font-size:10px;color:var(--muted)">
+          <span>${new Date(startedAt).toLocaleString()}</span>
+          <span>·</span>
+          <span>${turns.length} turn${turns.length!==1?'s':''}</span>
+          <span>·</span>
+          <span>${fc} file${fc!==1?'s':''}</span>
+        </div>
+      </div>
+      <div id="cw-tabs" style="display:flex;gap:1px;border-bottom:1px solid var(--border);background:var(--bg);flex-shrink:0">
+        <button class="case-ptab ${cwActivePanel==='report'?'active':''}" data-cwpanel="report" onclick="setCwPanel('report')">📋 REPORT</button>
+        <button class="case-ptab ${cwActivePanel==='files'?'active':''}"  data-cwpanel="files"  onclick="setCwPanel('files')">📂 FILES</button>
+        <button class="case-ptab ${cwActivePanel==='log'?'active':''}"    data-cwpanel="log"    onclick="setCwPanel('log')">📜 LOG</button>
+      </div>
+      <div id="cw-panel-content" style="flex:1;overflow:hidden;display:flex;flex-direction:column;"></div>`;
+
+    await renderCwPanel();
+
+    if (initialFile && cwActivePanel === 'files') {
+      setTimeout(() => loadCaseworkFile(sid, initialFile, null), 150);
+    }
+  } catch(e) {
+    outerPanel.innerHTML = `<div style="padding:20px;color:var(--muted)">Error: ${escHtml(e.message)}</div>`;
+  }
+}
+
+async function setCwPanel(panel) {
+  cwActivePanel = panel;
+  document.querySelectorAll('#cw-tabs .case-ptab').forEach(b => {
+    b.classList.toggle('active', b.dataset.cwpanel === panel);
+  });
+  await renderCwPanel();
+}
+
+async function renderCwPanel() {
+  const content = document.getElementById('cw-panel-content');
+  if (!content || !cwActiveSid) return;
+  const { turns=[], files=[] } = cwCaseData || {};
+
+  if (cwActivePanel === 'report') {
+    content.innerHTML = '<div style="padding:14px;color:var(--muted);font-size:11px">Loading report…</div>';
+    try {
+      const r = await fetch(`api/cases/${cwActiveSid}/file?path=report.md`);
+      if (!r.ok) { content.innerHTML = '<div class="empty" style="padding:20px">No report yet</div>'; return; }
+      const { content: text, mtime } = await r.json();
+      const sz = (text.length/1024).toFixed(1);
+      content.innerHTML = `
+        <div id="cw-report-viewer" style="flex:1;overflow:hidden;display:flex;flex-direction:column;">
+          <div class="viewer-header">
+            <div class="vh-row1">
+              <span class="vh-path">report.md</span>
+              <button class="viewer-dl-btn" onclick="dlFile('report.md',${JSON.stringify(text)})">⬇ DL</button>
+            </div>
+            <span class="vh-meta">MARKDOWN · ${sz}k · ${new Date(mtime).toLocaleTimeString()}</span>
+          </div>
+          <div style="flex:1;overflow-y:auto;padding:14px 20px;font-family:var(--mono);font-size:12px;line-height:1.8;color:var(--text)">${renderMarkdown(text)}</div>
+        </div>`;
+    } catch { content.innerHTML = '<div class="empty" style="padding:20px">Failed to load report</div>'; }
+
+  } else if (cwActivePanel === 'files') {
+    content.style.cssText = 'flex:1;overflow:hidden;display:flex;flex-direction:column;';
+    if (!document.getElementById('cw-file-tree-pane')) {
+      content.innerHTML = `
+        <div id="cw-file-tree-pane" style="flex-shrink:0;overflow-y:auto;max-height:50%;border-bottom:1px solid var(--border);">
+          <div id="cw-file-tree">${renderCaseworkFileTree(files, cwActiveSid)}</div>
+        </div>
+        <div id="cw-viewer-pane" style="flex:1;overflow:hidden;display:flex;flex-direction:column;">
+          <div class="viewer-empty">← click a file to view</div>
+        </div>`;
+    }
+
+  } else if (cwActivePanel === 'log') {
+    content.innerHTML = `
+      <div style="flex:1;overflow-y:auto;padding:8px 0">
+        ${turns.length === 0
+          ? '<div class="empty" style="padding:20px">No turns yet</div>'
+          : turns.map(t => `
+            <div class="turn-log-entry">
+              <span class="turn-role ${t.role}">${t.role}</span>
+              <span class="turn-time">${new Date(t.timestamp).toLocaleTimeString()}</span>
+              <span class="turn-preview">${escHtml((t.messagePreview||t.message||'').slice(0,140))}</span>
+              ${t.durationMs ? `<span style="font-size:9px;color:var(--muted);flex-shrink:0">${(t.durationMs/1000).toFixed(1)}s</span>` : ''}
+            </div>`).join('')}
+      </div>`;
+  }
+}
+
+function renderCaseworkFileTree(files, sid, depth=0) {
+  return (files||[]).map(f => {
+    const indent = depth * 14;
+    if (f.type === 'dir') {
+      return `<div class="file-item is-dir" style="padding-left:${10+indent}px">
+        <span class="file-icon">▸</span><span class="file-name">${escHtml(f.name)}/</span>
+      </div>` + renderCaseworkFileTree(f.children||[], sid, depth+1);
+    }
+    const safeId = 'cw-' + btoa(f.path).replace(/[^a-zA-Z0-9]/g,'').slice(0,20);
+    return `<div class="file-item" id="${safeId}" style="padding-left:${10+indent}px"
+        onclick="loadCaseworkFile('${escAttr(sid)}','${escAttr(f.path)}',this)">
+      <span class="file-icon">${escHtml(fileIcon(f.name))}</span>
+      <span class="file-name">${escHtml(f.name)}</span>
+      <span class="file-size">${fmtSize(f.size||0)}</span>
+    </div>`;
+  }).join('');
+}
+
+async function loadCaseworkFile(sid, filePath, el) {
+  document.querySelectorAll('#cw-file-tree .file-item').forEach(i => i.classList.remove('active'));
+  if (el) el.classList.add('active');
+  const vp = document.getElementById('cw-viewer-pane');
+  if (vp) vp.innerHTML = `<div style="padding:20px;font-size:11px;color:var(--muted)"><span class="spinner">▌</span> loading…</div>`;
+  try {
+    const r = await fetch(`api/cases/${sid}/file?path=${encodeURIComponent(filePath)}`);
+    const { content, mtime } = await r.json();
+    const { cls, html } = renderFileContent(content, filePath);
+    const name = filePath.split('/').pop();
+    const ts   = new Date(mtime).toLocaleTimeString();
+    const size = content.length > 1024 ? (content.length/1024).toFixed(1)+'k' : content.length+'b';
+    if (vp) vp.innerHTML = `
+      <div class="viewer-header">
+        <div class="vh-row1">
+          <span class="vh-path">${escHtml(filePath)}</span>
+          <button class="viewer-dl-btn" onclick="dlFile(${JSON.stringify(name)},${JSON.stringify(content)})">⬇ DL</button>
+        </div>
+        <span class="vh-meta">${escHtml(fileType(name))} · ${size} · ${ts}</span>
+      </div>
+      <div class="viewer-body ${cls}" style="flex:1;overflow-y:auto;">${html}</div>`;
+    setHash('casework', { case: sid, file: filePath });
+  } catch(e) {
+    if (vp) vp.innerHTML = `<div style="padding:20px;color:var(--red)">Error loading file</div>`;
+  }
+}
+
+// Called on hash-restore: loads turn history into chat UI and re-attaches to live agent if running
+async function maybeReattachSession(sid) {
+  const msgs = document.getElementById('chat-messages');
+  if (!msgs) return;
+
+  // 1. Load case metadata + turn history
+  let meta = null;
+  try {
+    const mr = await fetch(`api/cases/${encodeURIComponent(sid)}`);
+    if (mr.ok) meta = await mr.json();
+  } catch {}
+
+  // 2. Rebuild chat history from turn log (user msgs + agent previews)
+  if (meta && meta.turns && meta.turns.length > 0) {
+    msgs.innerHTML = '';  // clear the default "give me a target" message
+    meta.turns.forEach(t => {
+      if (t.role === 'user') {
+        appendChatMsg('user', t.message || '(message)', null, null);
+      } else if (t.role === 'agent') {
+        const preview = t.messagePreview || '';
+        appendChatMsg('agent',
+          preview
+            ? preview + (preview.length >= 300 ? '\n\n*(full response in REPORT tab)*' : '')
+            : '*(response in REPORT tab)*',
+          null, null, t.durationMs);
+      }
+    });
+  }
+
+  // 3. Check live status
+  let statusData = null;
+  try {
+    const sr = await fetch(`api/chat/status/${encodeURIComponent(sid)}`);
+    if (sr.ok) statusData = await sr.json();
+  } catch {}
+
+  if (!statusData || statusData.status === 'not_found') return;
+
+  // 4. If done and last turn already in history — nothing more to do
+  if (statusData.status === 'done' || statusData.status === 'error') return;
+
+  // 5. Agent is still running — re-attach the polling loop
+  const tid = appendThinking(false);
+  document.getElementById('chat-send').disabled = true;
+
+  let finalData = null;
+  for (let attempt = 0; attempt < 300; attempt++) {
+    await new Promise(ok => setTimeout(ok, 2000));
+    let sd;
+    try {
+      const sr = await fetch(`api/chat/status/${encodeURIComponent(sid)}`);
+      sd = await sr.json();
+    } catch { continue; }
+    updateThinkingLive(tid, sd);
+    if (sd.status === 'done' || sd.status === 'error') { finalData = sd; break; }
+    if (sd.status === 'not_found' && attempt > 60) break;
+  }
+
+  removeThinking(tid);
+  document.getElementById('chat-send').disabled = false;
+  document.getElementById('chat-input').focus();
+
+  if (!finalData) {
+    appendChatMsg('agent', '⚠ Investigation timed out. Check the REPORT tab for partial findings.', null, null, null);
+  } else if (finalData.status === 'error') {
+    appendChatMsg('agent', `⚠ Agent failed: ${finalData.error || 'unknown'}`, null, null, null);
+  } else {
+    appendChatMsg('agent', finalData.response || '(Investigation complete — see REPORT tab)', null, null, finalData.durationMs);
+  }
+  refreshCasePanel();
+}
+
+async function openChatForCase(sid) {
+  chatSessionId   = sid;
+  chatIsFirst     = false;
+  lastReportMtime = '';
+  updateSessionBadge();
+  setHash('chat', { session: sid });
+
+  // Switch to CHAT tab
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  const chatBtn = document.querySelector('[data-tab="chat"]');
+  if (chatBtn) chatBtn.classList.add('active');
+  const chatPanel = document.getElementById('tab-chat');
+  if (chatPanel) chatPanel.classList.add('active');
+
+  // Clear chat + show case context card
+  document.getElementById('chat-messages').innerHTML = '';
+  document.getElementById('chat-starters').style.display = 'none';
+
+  // Load case meta to show context card
+  try {
+    const r = await fetch(`api/cases/${encodeURIComponent(sid)}`);
+    const data = await r.json();
+    const { target, startedAt, turns=[], files=[] } = data;
+    const fileCount = countFiles(files);
+    const turnCount = turns.filter(t => t.role === 'agent').length;
+    const lastTurn  = turns.filter(t => t.role === 'agent').pop();
+
+    const summary = lastTurn
+      ? `Last finding: ${escHtml((lastTurn.messagePreview || '').slice(0, 200))}`
+      : 'Investigation is in progress — raw files are being saved.';
+
+    document.getElementById('chat-messages').innerHTML = `
+      <div class="chat-msg agent">
+        <div class="chat-avatar">📁</div>
+        <div class="chat-content">
+          <div class="chat-bubble">
+            <strong>Case resumed: ${escHtml(target || sid)}</strong><br>
+            <span style="color:var(--muted);font-size:10px">
+              ${turnCount} agent turn${turnCount!==1?'s':''} · ${fileCount} file${fileCount!==1?'s':''} saved · started ${new Date(startedAt).toLocaleString()}
+            </span><br><br>
+            <span style="color:var(--muted)">${summary}</span><br><br>
+            <span style="color:var(--green2);font-size:10px">✓ Full report and all ${fileCount} raw files will be injected as context into your next message.</span>
+          </div>
+        </div>
+      </div>`;
+  } catch {
+    document.getElementById('chat-messages').innerHTML = `
+      <div class="chat-msg agent">
+        <div class="chat-avatar">📁</div>
+        <div class="chat-content">
+          <div class="chat-bubble"><strong>Case resumed: ${escHtml(sid)}</strong><br>
+          <span style="color:var(--green2);font-size:10px">✓ Investigation context will be injected into your next message.</span></div>
+        </div>
+      </div>`;
+  }
+
+  setTimeout(() => { refreshCasePanel(); startCasePoll(); }, 100);
+  document.getElementById('chat-input').focus();
+}
+
+function appendChatMsg(role, text, _tools, _plan, durationMs) {
+  const container = document.getElementById('chat-messages');
+  const wrap = document.createElement('div');
+  wrap.className = `chat-msg ${role}`;
+
+  const avatar = document.createElement('div');
+  avatar.className = 'chat-avatar';
+  avatar.textContent = role === 'user' ? '▲' : '⚡';
+
+  const content = document.createElement('div');
+  content.className = 'chat-content';
+
+  const bubble = document.createElement('div');
+  bubble.className = 'chat-bubble';
+  bubble.innerHTML = renderMarkdown(text);
+  content.appendChild(bubble);
+
+  // Duration badge for agent responses
+  if (role === 'agent' && durationMs) {
+    const badge = document.createElement('div');
+    badge.style.cssText = 'font-size:9px;color:var(--muted);text-align:right;margin-top:2px;';
+    badge.textContent = '⏱ ' + (durationMs / 1000).toFixed(1) + 's';
+    content.appendChild(badge);
+  }
+
+  wrap.appendChild(avatar);
+  wrap.appendChild(content);
+  container.appendChild(wrap);
+  container.scrollTop = container.scrollHeight;
+}
+
+function appendThinking(isFirst) {
+  const id = 'think-' + (++thinkingCounter);
+  const container = document.getElementById('chat-messages');
+  const wrap = document.createElement('div');
+  wrap.className = 'chat-msg agent';
+  wrap.id = id;
+  const phases = isFirst
+    ? ['Loading OSINT skill…', 'Running tools…', 'Querying APIs…', 'Analyzing results…']
+    : ['Running tools…', 'Querying APIs…', 'Analyzing results…', 'Synthesizing…'];
+  let phaseIdx = 0;
+  let secs = 0;
+  wrap.innerHTML = `<div class="chat-avatar">⚡</div>
+    <div class="chat-content">
+      <div class="chat-bubble" id="${id}-bubble">
+        <span class="spinner" style="font-size:11px;color:var(--green)" id="${id}-phase">${phases[0]}</span>
+        <span style="font-size:10px;color:var(--muted);margin-left:8px" id="${id}-timer">0s</span>
+      </div>
+    </div>`;
+  container.appendChild(wrap);
+  container.scrollTop = container.scrollHeight;
+  // Animate phase + timer
+  const iv = setInterval(() => {
+    secs++;
+    const el = document.getElementById(id + '-timer');
+    const ph = document.getElementById(id + '-phase');
+    if (!el) { clearInterval(iv); return; }
+    el.textContent = secs + 's';
+    if (secs % 8 === 0) {
+      phaseIdx = (phaseIdx + 1) % phases.length;
+      if (ph) ph.textContent = phases[phaseIdx];
+    }
+  }, 1000);
+  wrap._interval = iv;
+  return id;
+}
+
+function removeThinking(id) {
+  const el = document.getElementById(id);
+  if (el) {
+    clearInterval(el._interval);
+    el.remove();
+  }
+}
+
+function renderMarkdown(raw) {
+  if (!raw) return '';
+
+  // Inline processor — called on already-escaped text fragments
+  function inline(text) {
+    return escHtml(text)
+      .replace(/\*\*([^*\n]+)\*\*/g, '<span class="md-strong">$1</span>')
+      .replace(/\*([^*\n]+)\*/g,    '<span class="md-em">$1</span>')
+      .replace(/`([^`\n]+)`/g,      '<code class="md-code">$1</code>')
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a class="md-link" href="$2" target="_blank" rel="noopener">$1</a>');
+  }
+
+  // Table row parser: "| A | B | C |" → ["A","B","C"]
+  function parseRow(r) {
+    const cols = r.split('|');
+    // drop empty first/last cells from leading/trailing pipes
+    if (cols[0].trim() === '') cols.shift();
+    if (cols.length && cols[cols.length-1].trim() === '') cols.pop();
+    return cols.map(c => c.trim());
+  }
+  function isSepRow(r) { return /^\|?[\s\-:|]+\|[\s\-:|]*$/.test(r.trim()); }
+
+  const lines = raw.split('\n');
+  let html = '';
+  let i = 0;
+
+  while (i < lines.length) {
+    const line = lines[i];
+    const trim  = line.trimEnd();
+
+    // ── Fenced code block ─────────────────────────────────────
+    if (trim.startsWith('```')) {
+      const lang = trim.slice(3).trim();
+      let code = '';
+      i++;
+      while (i < lines.length && !lines[i].trimEnd().startsWith('```')) {
+        code += lines[i] + '\n';
+        i++;
+      }
+      html += `<pre class="md-codeblock${lang ? ' lang-'+escHtml(lang) : ''}">${escHtml(code.trimEnd())}</pre>`;
+      i++; continue;
+    }
+
+    // ── Heading ───────────────────────────────────────────────
+    const hm = trim.match(/^(#{1,4}) (.+)$/);
+    if (hm) {
+      const lvl = hm[1].length;
+      html += `<span class="md-h${lvl}">${inline(hm[2])}</span>`;
+      i++; continue;
+    }
+
+    // ── Horizontal rule ───────────────────────────────────────
+    if (/^(-{3,}|={3,}|\*{3,})$/.test(trim)) {
+      html += '<hr class="md-hr">'; i++; continue;
+    }
+
+    // ── Pipe table ────────────────────────────────────────────
+    if (trim.includes('|') && i + 1 < lines.length && isSepRow(lines[i+1])) {
+      const headers = parseRow(trim);
+      html += '<table class="md-table"><thead><tr>';
+      headers.forEach(h => { html += `<th>${inline(h)}</th>`; });
+      html += '</tr></thead><tbody>';
+      i += 2;  // skip header + separator
+      while (i < lines.length && lines[i].trim().includes('|')) {
+        const cells = parseRow(lines[i]);
+        html += '<tr>';
+        cells.forEach((c, ci) => {
+          // pad missing cells vs header count
+          if (ci < headers.length) html += `<td>${inline(c)}</td>`;
+        });
+        // pad if row has fewer cells
+        for (let ci = cells.length; ci < headers.length; ci++) html += '<td></td>';
+        html += '</tr>';
+        i++;
+      }
+      html += '</tbody></table>';
+      continue;
+    }
+
+    // ── Blockquote ────────────────────────────────────────────
+    if (trim.startsWith('> ')) {
+      html += '<blockquote class="md-quote">';
+      while (i < lines.length && lines[i].trimEnd().startsWith('> ')) {
+        html += inline(lines[i].trimEnd().slice(2)) + '<br>';
+        i++;
+      }
+      html += '</blockquote>'; continue;
+    }
+
+    // ── Unordered list ────────────────────────────────────────
+    if (/^[•\-\*] /.test(trim)) {
+      html += '<ul class="md-ul">';
+      while (i < lines.length && /^[•\-\*] /.test(lines[i].trimEnd())) {
+        html += `<li>${inline(lines[i].trimEnd().replace(/^[•\-\*] /, ''))}</li>`;
+        i++;
+      }
+      html += '</ul>'; continue;
+    }
+
+    // ── Ordered list ──────────────────────────────────────────
+    if (/^\d+[.)]\s/.test(trim)) {
+      html += '<ol class="md-ol">';
+      while (i < lines.length && /^\d+[.)]\s/.test(lines[i].trimEnd())) {
+        html += `<li>${inline(lines[i].trimEnd().replace(/^\d+[.)]\s/, ''))}</li>`;
+        i++;
+      }
+      html += '</ol>'; continue;
+    }
+
+    // ── Empty line ────────────────────────────────────────────
+    if (trim === '') {
+      html += '<div class="md-spacer"></div>'; i++; continue;
+    }
+
+    // ── Regular paragraph line ────────────────────────────────
+    html += `<p class="md-p">${inline(trim)}</p>`;
+    i++;
+  }
+  return html;
+}
+
+/* ── File download helper ── */
+function dlFile(filename, content) {
+  const mime = filename.endsWith('.json') ? 'application/json'
+             : filename.endsWith('.md')   ? 'text/markdown'
+             : 'text/plain';
+  const blob = new Blob([content], { type: mime });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = filename;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
+/* ── UTILS ── */
+function escHtml(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function escAttr(s) {
+  return String(s||'').replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>

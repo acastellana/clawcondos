@@ -1,0 +1,10 @@
+<!doctype html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>Agent UX V2</title>
+<link rel='preconnect' href='https://fonts.googleapis.com'><link rel='preconnect' href='https://fonts.gstatic.com' crossorigin>
+<link href='https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&display=swap' rel='stylesheet'>
+<style>body{margin:0;font-family:Outfit,sans-serif;background:#0e1118;color:#eef2ff}.top{padding:16px 20px;border-bottom:1px solid #263045}.board{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;padding:12px}.col{background:#151c2a;border:1px solid #2a3550;border-radius:12px;padding:10px}.card{background:#0f1523;border:1px solid #2a3550;border-radius:10px;padding:10px;margin-bottom:8px}.meta{font-size:12px;color:#9fb0d4}</style>
+</head><body><div class='top'><h2 style='margin:0'>Layout 2 · Status Swimlanes</h2><div style='color:#9fb0d4'>Fast triage by state + explicit session ownership</div></div>
+<div class='board'>
+<section class='col'><h3>Processing</h3><div class='card'><b>Librarian</b><p>Ingesting deltas now</p><div class='meta'>Thread 1467 · session d643be0e</div></div><div class='card'><b>Scout</b><p>Classifying discovered sites</p><div class='meta'>Thread 1467 · session 0cb68d36</div></div></section>
+<section class='col'><h3>Waiting</h3><div class='card'><b>Error Sweep</b><p>Next run at scheduled boundary</p><div class='meta'>Thread 36 · session e0a3a7c1</div></div><div class='card'><b>Ecosystem Monitor</b><p>No new release deltas</p><div class='meta'>Thread 1467 · session b48edfa1</div></div></section>
+<section class='col'><h3>Healthy / Idle</h3><div class='card'><b>Security Sentinel</b><p>Port exposure clear</p><div class='meta'>Thread 36 · session be9ebad7</div></div><div class='card'><b>Caffeine Reporter</b><p>Waiting for next summary window</p><div class='meta'>Thread 352 · session 85c6bac0</div></div></section>
+</div></body></html>

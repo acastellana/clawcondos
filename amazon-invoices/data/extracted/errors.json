@@ -1,0 +1,621 @@
+{
+  "171-1650307-8120300": {
+    "file": "20251209_Tax Invoice_171-1650307-8120300.pdf",
+    "order_id": "171-1650307-8120300",
+    "error": "JSON parse error: Extra data: line 33 column 4 (char 1088)",
+    "timestamp": "2026-02-08T15:31:28.892761"
+  },
+  "404-3408185-1509139": {
+    "file": "20251026_Printable Order Summary_404-3408185-1509139.pdf",
+    "order_id": "404-3408185-1509139",
+    "error": "JSON parse error: Expecting value: line 1 column 1 (char 0)",
+    "timestamp": "2026-02-08T15:51:47.803543"
+  },
+  "171-3846513-3547563": {
+    "file": "20251020_Tax Invoice_171-3846513-3547563.pdf",
+    "order_id": "171-3846513-3547563",
+    "error": "JSON parse error: Expecting property name enclosed in double quotes: line 1 column 2 (char 1)",
+    "timestamp": "2026-02-08T16:11:08.219589"
+  },
+  "171-3081155-1166704": {
+    "file": "20251014_Printable Order Summary_171-3081155-1166704.pdf",
+    "order_id": "171-3081155-1166704",
+    "error": "JSON parse error: Extra data: line 12 column 1 (char 515)",
+    "timestamp": "2026-02-08T16:14:45.203634"
+  },
+  "171-3329650-2281906": {
+    "file": "20251013_Printable Order Summary_171-3329650-2281906.pdf",
+    "order_id": "171-3329650-2281906",
+    "error": "JSON parse error: Expecting ',' delimiter: line 21 column 30 (char 531)",
+    "timestamp": "2026-02-08T16:15:40.310833"
+  },
+  "407-7356588-2385103": {
+    "file": "20251005_Printable Order Summary_407-7356588-2385103.pdf",
+    "order_id": "407-7356588-2385103",
+    "error": "JSON parse error: Expecting value: line 1 column 1 (char 0)",
+    "timestamp": "2026-02-08T16:19:16.704853"
+  },
+  "171-6347111-3196358": {
+    "file": "20251003_Printable Order Summary_171-6347111-3196358.pdf",
+    "order_id": "171-6347111-3196358",
+    "error": "JSON parse error: Expecting value: line 1 column 1 (char 0)",
+    "timestamp": "2026-02-08T16:20:26.006854"
+  },
+  "171-7153855-2865138": {
+    "file": "20250811_Tax Invoice_171-7153855-2865138.pdf",
+    "order_id": "171-7153855-2865138",
+    "error": "CLI error (code 1): Loaded cached credentials.\nHook registry initialized with 0 hook entries\nAttempt 1 failed with status 429. Retrying with backoff... GaxiosError: [{\n  \"error\": {\n    \"code\": 429,\n    \"message\": \"No cap",
+    "timestamp": "2026-02-08T16:46:28.126724"
+  },
+  "407-9386282-0337963": {
+    "file": "20250724_Tax Invoice_407-9386282-0337963_2.pdf",
+    "order_id": "407-9386282-0337963",
+    "error": "Timeout (60s)",
+    "timestamp": "2026-02-08T17:22:36.964614"
+  },
+  "407-2541061-9498742": {
+    "file": "20250722_Tax Invoice_407-2541061-9498742.pdf",
+    "order_id": "407-2541061-9498742",
+    "error": "JSON parse error: Unterminated string starting at: line 2 column 90 (char 219)",
+    "timestamp": "2026-02-08T16:59:13.670003"
+  },
+  "407-6456615-7918720": {
+    "file": "20250721_Tax Invoice_407-6456615-7918720.pdf",
+    "order_id": "407-6456615-7918720",
+    "error": "JSON parse error: Unterminated string starting at: line 3 column 3 (char 41)",
+    "timestamp": "2026-02-08T17:00:15.242679"
+  },
+  "171-0180770-2973165": {
+    "file": "20250612_Tax Invoice_171-0180770-2973165.pdf",
+    "order_id": "171-0180770-2973165",
+    "error": "Codex error (code 2): error: unexpected argument 'Extract from this Amazon invoice text and return ONLY valid JSON (no markdown, no explanation):\n\nFactura\n\n                                                                  ",
+    "timestamp": "2026-02-08T18:58:39.227539"
+  },
+  "406-5508380-1018720": {
+    "file": "20250610_Tax Invoice_406-5508380-1018720.pdf",
+    "order_id": "406-5508380-1018720",
+    "error": "Codex error (code 2): error: unexpected argument 'Extract from this Amazon invoice text and return ONLY valid JSON (no markdown, no explanation):\n\nFactura\n\n                                                                  ",
+    "timestamp": "2026-02-08T18:58:41.358664"
+  },
+  "406-4613785-8224346": {
+    "file": "20250517_Tax Invoice_406-4613785-8224346.pdf",
+    "order_id": "406-4613785-8224346",
+    "error": "Codex error (code 2): error: unexpected argument 'Extract from this Amazon invoice text and return ONLY valid JSON (no markdown, no explanation):\n\nRecibo\n\n                                                                   ",
+    "timestamp": "2026-02-08T18:58:43.451818"
+  },
+  "406-9073951-2149958": {
+    "file": "20250517_Tax Invoice_406-9073951-2149958.pdf",
+    "order_id": "406-9073951-2149958",
+    "error": "Codex error (code 2): error: unexpected argument 'Extract from this Amazon invoice text and return ONLY valid JSON (no markdown, no explanation):\n\nFactura\n\n                                                                  ",
+    "timestamp": "2026-02-08T18:58:45.544722"
+  },
+  "406-4356195-8149962": {
+    "file": "20250517_Tax Invoice_406-4356195-8149962.pdf",
+    "order_id": "406-4356195-8149962",
+    "error": "Codex error (code 2): error: unexpected argument 'Extract from this Amazon invoice text and return ONLY valid JSON (no markdown, no explanation):\n\nFactura\n\n                                                                  ",
+    "timestamp": "2026-02-08T18:58:47.635883"
+  },
+  "406-1758399-1568328": {
+    "file": "20250516_Tax Invoice_406-1758399-1568328.pdf",
+    "order_id": "406-1758399-1568328",
+    "error": "Codex error (code 2): error: unexpected argument 'Extract from this Amazon invoice text and return ONLY valid JSON (no markdown, no explanation):\n\nFactura\n\n                                                                  ",
+    "timestamp": "2026-02-08T18:58:49.733019"
+  },
+  "171-6412882-5175552": {
+    "file": "20250515_Tax Invoice_171-6412882-5175552.pdf",
+    "order_id": "171-6412882-5175552",
+    "error": "Codex error (code 2): error: unexpected argument 'Extract from this Amazon invoice text and return ONLY valid JSON (no markdown, no explanation):\n\nFactura\n\n                                                                  ",
+    "timestamp": "2026-02-08T18:58:51.829700"
+  },
+  "406-1367335-7071524": {
+    "file": "20250515_Tax Invoice_406-1367335-7071524.pdf",
+    "order_id": "406-1367335-7071524",
+    "error": "Codex error (code 2): error: unexpected argument 'Extract from this Amazon invoice text and return ONLY valid JSON (no markdown, no explanation):\n\nFactura\n\n                                                                  ",
+    "timestamp": "2026-02-08T18:58:53.922706"
+  },
+  "171-0221910-7314728": {
+    "file": "20250514_Tax Invoice_171-0221910-7314728.pdf",
+    "order_id": "171-0221910-7314728",
+    "error": "Codex error (code 2): error: unexpected argument 'Extract from this Amazon invoice text and return ONLY valid JSON (no markdown, no explanation):\n\nFactura\n\n                                                                  ",
+    "timestamp": "2026-02-08T18:58:56.011739"
+  },
+  "171-9642233-0377934": {
+    "file": "20250514_Tax Invoice_171-9642233-0377934.pdf",
+    "order_id": "171-9642233-0377934",
+    "error": "Codex error (code 2): error: unexpected argument 'Extract from this Amazon invoice text and return ONLY valid JSON (no markdown, no explanation):\n\nFactura\n\n                                                                  ",
+    "timestamp": "2026-02-08T18:58:58.107798"
+  },
+  "171-5861352-2094734": {
+    "file": "20250514_Tax Invoice_171-5861352-2094734.pdf",
+    "order_id": "171-5861352-2094734",
+    "error": "Oracle error (code 1): error: option '-e, --engine <mode>' argument 'gpt-5.1' is invalid. Allowed choices are api, browser.\n(use --help for usage)\n",
+    "timestamp": "2026-02-08T19:00:10.944286"
+  },
+  "171-8512212-2605924": {
+    "file": "20250514_Tax Invoice_171-8512212-2605924.pdf",
+    "order_id": "171-8512212-2605924",
+    "error": "Oracle error (code 1): error: option '-e, --engine <mode>' argument 'gpt-5.1' is invalid. Allowed choices are api, browser.\n(use --help for usage)\n",
+    "timestamp": "2026-02-08T19:00:13.670902"
+  },
+  "171-7739451-3376349": {
+    "file": "20250513_Tax Invoice_171-7739451-3376349.pdf",
+    "order_id": "171-7739451-3376349",
+    "error": "Oracle error (code 1): error: option '-e, --engine <mode>' argument 'gpt-5.1' is invalid. Allowed choices are api, browser.\n(use --help for usage)\n",
+    "timestamp": "2026-02-08T19:00:16.369335"
+  },
+  "408-1168063-8817942": {
+    "file": "20250513_Tax Invoice_408-1168063-8817942.pdf",
+    "order_id": "408-1168063-8817942",
+    "error": "Oracle error (code 1): error: option '-e, --engine <mode>' argument 'gpt-5.1' is invalid. Allowed choices are api, browser.\n(use --help for usage)\n",
+    "timestamp": "2026-02-08T19:00:19.093188"
+  },
+  "171-7078927-7929162": {
+    "file": "20250513_Tax Invoice_171-7078927-7929162.pdf",
+    "order_id": "171-7078927-7929162",
+    "error": "Oracle error (code 1): error: option '-e, --engine <mode>' argument 'gpt-5.1' is invalid. Allowed choices are api, browser.\n(use --help for usage)\n",
+    "timestamp": "2026-02-08T19:00:21.773710"
+  },
+  "406-7321877-8300352": {
+    "file": "20250513_Tax Invoice_406-7321877-8300352.pdf",
+    "order_id": "406-7321877-8300352",
+    "error": "Oracle error (code 1): error: option '-e, --engine <mode>' argument 'gpt-5.1' is invalid. Allowed choices are api, browser.\n(use --help for usage)\n",
+    "timestamp": "2026-02-08T19:00:24.461398"
+  },
+  "171-9916472-5618717": {
+    "file": "20250513_Tax Invoice_171-9916472-5618717.pdf",
+    "order_id": "171-9916472-5618717",
+    "error": "Oracle error (code 1): error: option '-e, --engine <mode>' argument 'gpt-5.1' is invalid. Allowed choices are api, browser.\n(use --help for usage)\n",
+    "timestamp": "2026-02-08T19:00:27.193360"
+  },
+  "406-1707382-5533928": {
+    "file": "20250512_Tax Invoice_406-1707382-5533928.pdf",
+    "order_id": "406-1707382-5533928",
+    "error": "Oracle error (code 1): error: option '-e, --engine <mode>' argument 'gpt-5.1' is invalid. Allowed choices are api, browser.\n(use --help for usage)\n",
+    "timestamp": "2026-02-08T19:00:29.900794"
+  },
+  "406-9282470-9729907": {
+    "file": "20250510_Tax Invoice_406-9282470-9729907.pdf",
+    "order_id": "406-9282470-9729907",
+    "error": "Oracle error (code 1): error: option '-e, --engine <mode>' argument 'gpt-5.1' is invalid. Allowed choices are api, browser.\n(use --help for usage)\n",
+    "timestamp": "2026-02-08T19:00:32.608987"
+  },
+  "406-1422664-5229130": {
+    "file": "20250510_Tax Invoice_406-1422664-5229130.pdf",
+    "order_id": "406-1422664-5229130",
+    "error": "Oracle error (code 1): error: option '-e, --engine <mode>' argument 'gpt-5.1' is invalid. Allowed choices are api, browser.\n(use --help for usage)\n",
+    "timestamp": "2026-02-08T19:00:35.322591"
+  },
+  "406-2130234-6308341": {
+    "file": "20250509_Tax Invoice_406-2130234-6308341.pdf",
+    "order_id": "406-2130234-6308341",
+    "error": "JSON parse error: Expecting value: line 1 column 1 (char 0)",
+    "timestamp": "2026-02-08T19:01:23.592918"
+  },
+  "406-1773849-5660347": {
+    "file": "20250509_Tax Invoice_406-1773849-5660347.pdf",
+    "order_id": "406-1773849-5660347",
+    "error": "JSON parse error: Expecting value: line 1 column 1 (char 0)",
+    "timestamp": "2026-02-08T19:01:15.085799"
+  },
+  "406-7186131-5739503": {
+    "file": "20250509_Tax Invoice_406-7186131-5739503.pdf",
+    "order_id": "406-7186131-5739503",
+    "error": "JSON parse error: Expecting value: line 1 column 1 (char 0)",
+    "timestamp": "2026-02-08T19:01:20.821069"
+  },
+  "406-8420923-3911569": {
+    "file": "20250509_Tax Invoice_406-8420923-3911569.pdf",
+    "order_id": "406-8420923-3911569",
+    "error": "JSON parse error: Expecting value: line 1 column 1 (char 0)",
+    "timestamp": "2026-02-08T19:01:26.362191"
+  },
+  "171-4013117-2252357": {
+    "file": "20250508_Tax Invoice_171-4013117-2252357_1.pdf",
+    "order_id": "171-4013117-2252357",
+    "error": "JSON parse error: Expecting value: line 1 column 1 (char 0)",
+    "timestamp": "2026-02-08T19:01:34.804521"
+  },
+  "171-3368631-7394737": {
+    "file": "20250508_Tax Invoice_171-3368631-7394737.pdf",
+    "order_id": "171-3368631-7394737",
+    "error": "JSON parse error: Expecting value: line 1 column 1 (char 0)",
+    "timestamp": "2026-02-08T19:01:31.976671"
+  },
+  "171-9777039-4034740": {
+    "file": "20250508_Tax Invoice_171-9777039-4034740.pdf",
+    "order_id": "171-9777039-4034740",
+    "error": "JSON parse error: Expecting value: line 1 column 1 (char 0)",
+    "timestamp": "2026-02-08T19:01:37.614078"
+  },
+  "408-7157330-8850767": {
+    "file": "20250502_Tax Invoice_408-7157330-8850767.pdf",
+    "order_id": "408-7157330-8850767",
+    "error": "CLI error (code 1): Loaded cached credentials.\nHook registry initialized with 0 hook entries\nError when talking to Gemini API Full report available at: /tmp/gemini-client-error-Turn.run-sendMessageStream-2026-02-08T17-31",
+    "timestamp": "2026-02-08T18:31:21.789511"
+  },
+  "406-4323919-3575538": {
+    "file": "20250506_Tax Invoice_406-4323919-3575538.pdf",
+    "order_id": "406-4323919-3575538",
+    "error": "CLI error (code 1): Loaded cached credentials.\nHook registry initialized with 0 hook entries\nError when talking to Gemini API Full report available at: /tmp/gemini-client-error-Turn.run-sendMessageStream-2026-02-08T17-30",
+    "timestamp": "2026-02-08T18:30:02.561395"
+  },
+  "171-2634830-5108341": {
+    "file": "20250504_Tax Invoice_171-2634830-5108341.pdf",
+    "order_id": "171-2634830-5108341",
+    "error": "CLI error (code 1): Loaded cached credentials.\nHook registry initialized with 0 hook entries\nError when talking to Gemini API Full report available at: /tmp/gemini-client-error-Turn.run-sendMessageStream-2026-02-08T17-30",
+    "timestamp": "2026-02-08T18:30:21.084074"
+  },
+  "171-8251833-6929927": {
+    "file": "20250502_Tax Invoice_171-8251833-6929927_1.pdf",
+    "order_id": "171-8251833-6929927",
+    "error": "CLI error (code 1): Loaded cached credentials.\nHook registry initialized with 0 hook entries\nError when talking to Gemini API Full report available at: /tmp/gemini-client-error-Turn.run-sendMessageStream-2026-02-08T17-31",
+    "timestamp": "2026-02-08T18:31:12.846374"
+  },
+  "171-0372311-2129131": {
+    "file": "20250504_Tax Invoice_171-0372311-2129131.pdf",
+    "order_id": "171-0372311-2129131",
+    "error": "CLI error (code 1): Loaded cached credentials.\nHook registry initialized with 0 hook entries\nError when talking to Gemini API Full report available at: /tmp/gemini-client-error-Turn.run-sendMessageStream-2026-02-08T17-30",
+    "timestamp": "2026-02-08T18:30:38.003201"
+  },
+  "171-8433543-0978722": {
+    "file": "20250502_Tax Invoice_171-8433543-0978722.pdf",
+    "order_id": "171-8433543-0978722",
+    "error": "CLI error (code 1): Loaded cached credentials.\nHook registry initialized with 0 hook entries\nError when talking to Gemini API Full report available at: /tmp/gemini-client-error-Turn.run-sendMessageStream-2026-02-08T17-30",
+    "timestamp": "2026-02-08T18:30:55.552979"
+  },
+  "406-6911100-8961118": {
+    "file": "406-6911100-8961118.pdf",
+    "error": "Too little text extracted",
+    "stage": "pdftotext"
+  },
+  "171-6502613-1151534": {
+    "file": "171-6502613-1151534.pdf",
+    "error": "Too little text extracted",
+    "stage": "pdftotext"
+  },
+  "402-9110778-1255548": {
+    "file": "402-9110778-1255548.pdf",
+    "error": "Too little text extracted",
+    "stage": "pdftotext"
+  },
+  "402-3310206-0801133": {
+    "file": "402-3310206-0801133.pdf",
+    "error": "Too little text extracted",
+    "stage": "pdftotext"
+  },
+  "171-7942575-9813111": {
+    "file": "171-7942575-9813111.pdf",
+    "error": "Too little text extracted",
+    "stage": "pdftotext"
+  },
+  "171-7886019-4266733": {
+    "file": "171-7886019-4266733.pdf",
+    "error": "Too little text extracted",
+    "stage": "pdftotext"
+  },
+  "407-0997549-3117110": {
+    "file": "407-0997549-3117110.pdf",
+    "error": "Too little text extracted",
+    "stage": "pdftotext"
+  },
+  "171-8540995-8290727": {
+    "file": "171-8540995-8290727.pdf",
+    "error": "Too little text extracted",
+    "stage": "pdftotext"
+  },
+  "408-7004114-7092315": {
+    "file": "408-7004114-7092315.pdf",
+    "error": "Too little text extracted",
+    "stage": "pdftotext"
+  },
+  "171-8042141-3881145": {
+    "file": "171-8042141-3881145.pdf",
+    "error": "Too little text extracted",
+    "stage": "pdftotext"
+  },
+  "171-8316738-0701950": {
+    "file": "171-8316738-0701950.pdf",
+    "error": "Too little text extracted",
+    "stage": "pdftotext"
+  },
+  "171-2779437-5376350": {
+    "file": "171-2779437-5376350.pdf",
+    "error": "Too little text extracted",
+    "stage": "pdftotext"
+  },
+  "406-5723414-2183556": {
+    "file": "406-5723414-2183556.pdf",
+    "error": "Too little text extracted",
+    "stage": "pdftotext"
+  },
+  "171-8296461-8062708": {
+    "file": "171-8296461-8062708.pdf",
+    "error": "Too little text extracted",
+    "stage": "pdftotext"
+  },
+  "171-2980684-2841941": {
+    "file": "171-2980684-2841941.pdf",
+    "error": "Too little text extracted",
+    "stage": "pdftotext"
+  },
+  "408-3374091-8283522": {
+    "file": "408-3374091-8283522.pdf",
+    "error": "Too little text extracted",
+    "stage": "pdftotext"
+  },
+  "404-5518134-8421942": {
+    "file": "404-5518134-8421942.pdf",
+    "error": "Too little text extracted",
+    "stage": "pdftotext"
+  },
+  "407-9793812-1246744": {
+    "file": "407-9793812-1246744.pdf",
+    "error": "Too little text extracted",
+    "stage": "pdftotext"
+  },
+  "407-5445711-8133101": {
+    "file": "407-5445711-8133101.pdf",
+    "error": "Too little text extracted",
+    "stage": "pdftotext"
+  },
+  "171-1328885-3169161": {
+    "file": "171-1328885-3169161.pdf",
+    "error": "Too little text extracted",
+    "stage": "pdftotext"
+  },
+  "171-8102961-3081928": {
+    "file": "171-8102961-3081928.pdf",
+    "error": "Too little text extracted",
+    "stage": "pdftotext"
+  },
+  "408-7497029-0282712": {
+    "file": "408-7497029-0282712.pdf",
+    "error": "Too little text extracted",
+    "stage": "pdftotext"
+  },
+  "171-2148445-2301118": {
+    "file": "171-2148445-2301118.pdf",
+    "error": "Too little text extracted",
+    "stage": "pdftotext"
+  },
+  "402-0752286-3718730": {
+    "file": "402-0752286-3718730.pdf",
+    "error": "Too little text extracted",
+    "stage": "pdftotext"
+  },
+  "408-8862163-9153917": {
+    "file": "408-8862163-9153917.pdf",
+    "error": "Too little text extracted",
+    "stage": "pdftotext"
+  },
+  "402-0005962-9310769": {
+    "file": "402-0005962-9310769.pdf",
+    "error": "Too little text extracted",
+    "stage": "pdftotext"
+  },
+  "171-3708288-3225133": {
+    "file": "171-3708288-3225133.pdf",
+    "error": "Too little text extracted",
+    "stage": "pdftotext"
+  },
+  "402-1917573-9629918": {
+    "file": "402-1917573-9629918.pdf",
+    "error": "Too little text extracted",
+    "stage": "pdftotext"
+  },
+  "407-9356194-6946761": {
+    "file": "407-9356194-6946761.pdf",
+    "error": "Too little text extracted",
+    "stage": "pdftotext"
+  },
+  "406-8275743-7664344": {
+    "file": "406-8275743-7664344.pdf",
+    "error": "Too little text extracted",
+    "stage": "pdftotext"
+  },
+  "406-1565305-5171513": {
+    "file": "406-1565305-5171513.pdf",
+    "error": "Too little text extracted",
+    "stage": "pdftotext"
+  },
+  "408-7163235-7941130": {
+    "file": "408-7163235-7941130.pdf",
+    "error": "Too little text extracted",
+    "stage": "pdftotext"
+  },
+  "406-8804573-5207533": {
+    "file": "406-8804573-5207533.pdf",
+    "error": "Too little text extracted",
+    "stage": "pdftotext"
+  },
+  "406-4269847-8929960": {
+    "file": "406-4269847-8929960.pdf",
+    "error": "Too little text extracted",
+    "stage": "pdftotext"
+  },
+  "408-4485907-1829131": {
+    "file": "408-4485907-1829131.pdf",
+    "error": "Too little text extracted",
+    "stage": "pdftotext"
+  },
+  "408-5014589-4690731": {
+    "file": "408-5014589-4690731.pdf",
+    "error": "Too little text extracted",
+    "stage": "pdftotext"
+  },
+  "406-7418676-5181900": {
+    "file": "406-7418676-5181900.pdf",
+    "error": "Too little text extracted",
+    "stage": "pdftotext"
+  },
+  "408-2235134-3298740": {
+    "file": "408-2235134-3298740.pdf",
+    "error": "Too little text extracted",
+    "stage": "pdftotext"
+  },
+  "171-9063289-1110733": {
+    "file": "171-9063289-1110733.pdf",
+    "error": "Too little text extracted",
+    "stage": "pdftotext"
+  },
+  "407-9781165-3169916": {
+    "file": "407-9781165-3169916.pdf",
+    "error": "Too little text extracted",
+    "stage": "pdftotext"
+  },
+  "171-2155016-9593947": {
+    "file": "171-2155016-9593947.pdf",
+    "error": "Too little text extracted",
+    "stage": "pdftotext"
+  },
+  "406-4309025-9243535": {
+    "file": "406-4309025-9243535.pdf",
+    "error": "Too little text extracted",
+    "stage": "pdftotext"
+  },
+  "408-9535333-7668321": {
+    "file": "408-9535333-7668321.pdf",
+    "error": "Too little text extracted",
+    "stage": "pdftotext"
+  },
+  "402-4544637-7249138": {
+    "file": "402-4544637-7249138.pdf",
+    "error": "Too little text extracted",
+    "stage": "pdftotext"
+  },
+  "406-8901255-5963529": {
+    "file": "406-8901255-5963529.pdf",
+    "error": "Too little text extracted",
+    "stage": "pdftotext"
+  },
+  "408-2121652-2670716": {
+    "file": "408-2121652-2670716.pdf",
+    "error": "Too little text extracted",
+    "stage": "pdftotext"
+  },
+  "408-2239818-4575553": {
+    "file": "408-2239818-4575553.pdf",
+    "error": "Too little text extracted",
+    "stage": "pdftotext"
+  },
+  "406-6363807-3713107": {
+    "file": "406-6363807-3713107.pdf",
+    "error": "Too little text extracted",
+    "stage": "pdftotext"
+  },
+  "171-8643837-1801101": {
+    "file": "171-8643837-1801101.pdf",
+    "error": "Too little text extracted",
+    "stage": "pdftotext"
+  },
+  "171-1342882-4535548": {
+    "file": "171-1342882-4535548.pdf",
+    "error": "Too little text extracted",
+    "stage": "pdftotext"
+  },
+  "171-0771539-4591537": {
+    "file": "171-0771539-4591537.pdf",
+    "error": "Too little text extracted",
+    "stage": "pdftotext"
+  },
+  "171-1037189-5397907": {
+    "file": "171-1037189-5397907.pdf",
+    "error": "Too little text extracted",
+    "stage": "pdftotext"
+  },
+  "171-2001482-0033922": {
+    "file": "171-2001482-0033922.pdf",
+    "error": "Too little text extracted",
+    "stage": "pdftotext"
+  },
+  "402-0448489-4030762": {
+    "file": "402-0448489-4030762.pdf",
+    "error": "Too little text extracted",
+    "stage": "pdftotext"
+  },
+  "408-2981027-2621944": {
+    "file": "408-2981027-2621944.pdf",
+    "error": "Too little text extracted",
+    "stage": "pdftotext"
+  },
+  "407-1777797-2017167": {
+    "file": "407-1777797-2017167.pdf",
+    "error": "Too little text extracted",
+    "stage": "pdftotext"
+  },
+  "406-1808544-5011510": {
+    "file": "406-1808544-5011510.pdf",
+    "error": "Too little text extracted",
+    "stage": "pdftotext"
+  },
+  "402-3963645-5663559": {
+    "file": "402-3963645-5663559.pdf",
+    "error": "Too little text extracted",
+    "stage": "pdftotext"
+  },
+  "171-7709528-5858711": {
+    "file": "171-7709528-5858711.pdf",
+    "error": "Too little text extracted",
+    "stage": "pdftotext"
+  },
+  "240592.pdf": {
+    "file": "240592.pdf",
+    "error": "Too little text extracted",
+    "stage": "pdftotext"
+  },
+  "171-5562352-1301935": {
+    "file": "171-5562352-1301935.pdf",
+    "error": "Too little text extracted",
+    "stage": "pdftotext"
+  },
+  "406-8102599-4941148": {
+    "file": "406-8102599-4941148.pdf",
+    "error": "Too little text extracted",
+    "stage": "pdftotext"
+  },
+  "171-0678485-3889116": {
+    "file": "171-0678485-3889116.pdf",
+    "error": "Too little text extracted",
+    "stage": "pdftotext"
+  },
+  "403-3281763-6151556": {
+    "file": "403-3281763-6151556.pdf",
+    "error": "Too little text extracted",
+    "stage": "pdftotext"
+  },
+  "171-0805430-6613959": {
+    "file": "171-0805430-6613959.pdf",
+    "error": "Too little text extracted",
+    "stage": "pdftotext"
+  },
+  "402-5599316-3340315": {
+    "file": "402-5599316-3340315.pdf",
+    "error": "Too little text extracted",
+    "stage": "pdftotext"
+  },
+  "406-5904945-2315510": {
+    "file": "406-5904945-2315510.pdf",
+    "error": "Too little text extracted",
+    "stage": "pdftotext"
+  },
+  "406-0818932-3145929": {
+    "file": "406-0818932-3145929.pdf",
+    "error": "Too little text extracted",
+    "stage": "pdftotext"
+  },
+  "408-6010642-2958703": {
+    "file": "408-6010642-2958703.pdf",
+    "error": "Too little text extracted",
+    "stage": "pdftotext"
+  },
+  "402-1193688-4637167": {
+    "file": "402-1193688-4637167.pdf",
+    "error": "Too little text extracted",
+    "stage": "pdftotext"
+  },
+  "408-5759522-3515552": {
+    "file": "408-5759522-3515552.pdf",
+    "error": "Too little text extracted",
+    "stage": "pdftotext"
+  }
+}

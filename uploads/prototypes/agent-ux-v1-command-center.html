@@ -1,0 +1,33 @@
+<!doctype html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>Agent UX V1</title>
+<link rel='preconnect' href='https://fonts.googleapis.com'><link rel='preconnect' href='https://fonts.gstatic.com' crossorigin>
+<link href='https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap' rel='stylesheet'>
+<style>
+:root{--bg:#0b1020;--panel:#121a2f;--line:#273252;--txt:#e8eeff;--mut:#9ba8c9;--ok:#42d392;--wait:#ffca6a;--work:#5db0ff}
+*{box-sizing:border-box}body{margin:0;font-family:Sora,sans-serif;background:radial-gradient(900px circle at 90% -10%,#1c2f5f44,transparent 60%),var(--bg);color:var(--txt)}
+.shell{display:grid;grid-template-columns:300px 1fr;min-height:100vh}.side{border-right:1px solid var(--line);padding:18px;background:#0d1426}.main{padding:18px}
+.h{font-size:22px;font-weight:700}.sub{color:var(--mut);font-size:13px;margin-top:6px}.kpis{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:14px 0}.k{background:var(--panel);border:1px solid var(--line);padding:10px;border-radius:10px}
+.list{display:grid;gap:8px}.a{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px}.a b{display:block}.tag{font-size:11px;letter-spacing:.06em}
+.ok{color:var(--ok)}.wait{color:var(--wait)}.work{color:var(--work)}.grid{display:grid;grid-template-columns:1.2fr 1fr;gap:12px}.p{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px}
+.ev{padding:9px;border:1px dashed #33406a;border-radius:8px;margin-bottom:8px}.mono{font-family:'JetBrains Mono',monospace;color:#a7b9e8;font-size:12px}
+.row{display:flex;justify-content:space-between;padding:9px;border:1px solid #2a3659;border-radius:8px;margin-bottom:8px}
+</style></head><body><div class='shell'>
+<aside class='side'><div class='h'>Agent Visualizer</div><div class='sub'>Who is doing what right now</div>
+<div class='kpis'><div class='k'>Active<br><b>3</b></div><div class='k'>Waiting<br><b>1</b></div><div class='k'>Healthy<br><b>1</b></div><div class='k'>Alerts<br><b>0</b></div></div>
+<div class='list'>
+<div class='a'><b>Librarian</b><span class='tag work'>PROCESSING</span><div>Ingesting inbox deltas</div></div>
+<div class='a'><b>Scout</b><span class='tag work'>PROCESSING</span><div>Evaluating new venues</div></div>
+<div class='a'><b>Error Sweep</b><span class='tag wait'>WAITING</span><div>Awaiting next sweep window</div></div>
+<div class='a'><b>Security Sentinel</b><span class='tag ok'>HEALTHY</span><div>No exposure alerts</div></div>
+</div></aside>
+<main class='main'><div class='grid'>
+<section class='p'><h3>Activity timeline</h3>
+<div class='ev'><div class='mono'>09:56:12</div>Librarian deduped candidate URL</div>
+<div class='ev'><div class='mono'>09:55:40</div>Security probe returned clean</div>
+<div class='ev'><div class='mono'>09:54:20</div>Scout classified ChatBIReport surface</div>
+<div class='ev'><div class='mono'>09:53:01</div>Error Sweep completed non-critical triage</div></section>
+<section class='p'><h3>Session mapping</h3>
+<div class='row'><span>Thread 1467</span><span>session:b48edfa1</span></div>
+<div class='row'><span>Thread 352</span><span>session:85c6bac0</span></div>
+<div class='row'><span>Thread 36</span><span>session:e0a3a7c1</span></div>
+<div class='row'><span>Thread 30</span><span>session:4ea1919d</span></div>
+</section></div></main></div></body></html>

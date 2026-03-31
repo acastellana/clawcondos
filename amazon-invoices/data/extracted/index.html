@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Amazon Invoice Extraction - Live</title>
+  <meta charset="utf-8">
+  <meta http-equiv="refresh" content="15">
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: -apple-system, system-ui, sans-serif; margin: 0; padding: 20px; background: #1a1a2e; color: #eee; }
+    h1 { color: #00d4ff; margin-top: 0; }
+    .stats { background: #16213e; padding: 15px; border-radius: 8px; margin-bottom: 20px; display: flex; gap: 30px; flex-wrap: wrap; }
+    .stat-value { font-size: 1.8em; font-weight: bold; color: #00d4ff; }
+    .stat-label { color: #888; font-size: 0.9em; }
+    .progress { background: #333; border-radius: 10px; height: 20px; margin: 10px 0 20px; }
+    .progress-bar { background: linear-gradient(90deg, #00d4ff, #00ff88); height: 100%; border-radius: 10px; transition: width 0.5s; }
+    .invoice { background: #16213e; border-radius: 8px; margin-bottom: 10px; overflow: hidden; }
+    .invoice-header { padding: 12px 15px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+    .invoice-header:hover { background: #1e2a4a; }
+    .invoice-id { font-family: monospace; color: #00d4ff; }
+    .invoice-total { font-family: monospace; font-weight: bold; font-size: 1.1em; }
+    .invoice-meta { color: #888; font-size: 0.85em; }
+    .invoice-details { display: none; padding: 15px; border-top: 1px solid #333; background: #0f1629; }
+    .invoice.expanded .invoice-details { display: block; }
+    .invoice.expanded .invoice-header { background: #1e2a4a; }
+    .detail-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+    .detail-section { background: #16213e; padding: 12px; border-radius: 6px; }
+    .detail-section h4 { margin: 0 0 10px; color: #00d4ff; font-size: 0.9em; text-transform: uppercase; }
+    .detail-row { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid #222; font-size: 0.9em; }
+    .detail-row:last-child { border-bottom: none; }
+    .detail-label { color: #888; }
+    .detail-value { color: #fff; text-align: right; max-width: 60%; }
+    .items-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.85em; }
+    .items-table th { text-align: left; padding: 8px; background: #1a1a2e; color: #888; }
+    .items-table td { padding: 8px; border-bottom: 1px solid #333; }
+    .items-table .amt { text-align: right; font-family: monospace; }
+    .tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.75em; margin-left: 10px; }
+    .tag-inv { background: #00d4ff33; color: #00d4ff; }
+    .tag-ord { background: #ff9f4333; color: #ff9f43; }
+    .expand-icon { color: #666; transition: transform 0.2s; }
+    .invoice.expanded .expand-icon { transform: rotate(90deg); }
+  </style>
+</head>
+<body>
+  <h1>📄 Amazon Invoice Extraction</h1>
+  <div class="stats" id="stats">Loading...</div>
+  <div class="progress"><div class="progress-bar" id="progress" style="width: 0%"></div></div>
+  <div id="invoices"></div>
+  
+  <script>
+    function toggleInvoice(el) {
+      el.closest('.invoice').classList.toggle('expanded');
+    }
+    
+    fetch('all_invoices.json?' + Date.now())
+      .then(r => r.json())
+      .then(data => {
+        const entries = Object.entries(data).sort((a,b) => 
+          (b[1].invoice_date || b[1].order_date || '').localeCompare(a[1].invoice_date || a[1].order_date || '')
+        );
+        
+        const total = 4049;
+        const done = entries.length;
+        const pct = ((done / total) * 100).toFixed(1);
+        const totalAmount = entries.reduce((sum, [,inv]) => sum + (inv.total_gross || 0), 0);
+        
+        document.getElementById('stats').innerHTML = `
+          <div><div class="stat-value">${done}</div><div class="stat-label">Extracted</div></div>
+          <div><div class="stat-value">${total - done}</div><div class="stat-label">Remaining</div></div>
+          <div><div class="stat-value">${pct}%</div><div class="stat-label">Complete</div></div>
+          <div><div class="stat-value">€${totalAmount.toLocaleString('es-ES', {minimumFractionDigits: 2})}</div><div class="stat-label">Total Value</div></div>
+        `;
+        document.getElementById('progress').style.width = pct + '%';
+        
+        document.getElementById('invoices').innerHTML = entries.slice(0, 200).map(([id, inv]) => {
+          const items = inv.items || [];
+          const isInvoice = inv.is_official_invoice;
+          const seller = inv.seller || {};
+          const buyer = inv.buyer || {};
+          
+          return `
+          <div class="invoice">
+            <div class="invoice-header" onclick="toggleInvoice(this)">
+              <div>
+                <span class="invoice-id">${inv.order_id || id}</span>
+                <span class="tag ${isInvoice ? 'tag-inv' : 'tag-ord'}">${isInvoice ? 'INVOICE' : 'ORDER'}</span>
+                <div class="invoice-meta">${inv.invoice_date || inv.order_date || '-'} · ${items.length} item${items.length !== 1 ? 's' : ''} · ${seller.name || 'Unknown seller'}</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:15px;">
+                <span class="invoice-total">€${(inv.total_gross || 0).toFixed(2)}</span>
+                <span class="expand-icon">▶</span>
+              </div>
+            </div>
+            <div class="invoice-details">
+              <div class="detail-grid">
+                <div class="detail-section">
+                  <h4>📋 Invoice Info</h4>
+                  <div class="detail-row"><span class="detail-label">Order ID</span><span class="detail-value">${inv.order_id || '-'}</span></div>
+                  <div class="detail-row"><span class="detail-label">Invoice #</span><span class="detail-value">${inv.invoice_number || '-'}</span></div>
+                  <div class="detail-row"><span class="detail-label">Invoice Date</span><span class="detail-value">${inv.invoice_date || '-'}</span></div>
+                  <div class="detail-row"><span class="detail-label">Order Date</span><span class="detail-value">${inv.order_date || '-'}</span></div>
+                  <div class="detail-row"><span class="detail-label">Source</span><span class="detail-value" style="font-size:0.8em">${inv._source_file || '-'}</span></div>
+                </div>
+                <div class="detail-section">
+                  <h4>🏢 Seller</h4>
+                  <div class="detail-row"><span class="detail-label">Name</span><span class="detail-value">${seller.name || '-'}</span></div>
+                  <div class="detail-row"><span class="detail-label">Tax ID</span><span class="detail-value">${seller.tax_id || '-'}</span></div>
+                  <div class="detail-row"><span class="detail-label">Address</span><span class="detail-value">${seller.address || '-'}</span></div>
+                </div>
+                <div class="detail-section">
+                  <h4>👤 Buyer</h4>
+                  <div class="detail-row"><span class="detail-label">Name</span><span class="detail-value">${buyer.name || '-'}</span></div>
+                  <div class="detail-row"><span class="detail-label">Tax ID</span><span class="detail-value">${buyer.tax_id || '-'}</span></div>
+                  <div class="detail-row"><span class="detail-label">Address</span><span class="detail-value">${buyer.address || '-'}</span></div>
+                </div>
+                <div class="detail-section">
+                  <h4>💰 Totals</h4>
+                  <div class="detail-row"><span class="detail-label">Subtotal (net)</span><span class="detail-value">€${(inv.subtotal_net || 0).toFixed(2)}</span></div>
+                  <div class="detail-row"><span class="detail-label">Shipping</span><span class="detail-value">€${(inv.shipping_net || 0).toFixed(2)}</span></div>
+                  <div class="detail-row"><span class="detail-label">VAT</span><span class="detail-value">€${(inv.total_vat || 0).toFixed(2)}</span></div>
+                  <div class="detail-row"><span class="detail-label"><strong>Total</strong></span><span class="detail-value"><strong>€${(inv.total_gross || 0).toFixed(2)}</strong></span></div>
+                </div>
+              </div>
+              ${items.length > 0 ? `
+              <div class="detail-section" style="margin-top:15px">
+                <h4>📦 Items</h4>
+                <table class="items-table">
+                  <thead><tr><th>Description</th><th>ASIN</th><th class="amt">Qty</th><th class="amt">Unit €</th><th class="amt">VAT %</th><th class="amt">Total €</th></tr></thead>
+                  <tbody>
+                    ${items.map(item => `
+                      <tr>
+                        <td>${item.description || '-'}</td>
+                        <td><code>${item.asin || '-'}</code></td>
+                        <td class="amt">${item.quantity || '-'}</td>
+                        <td class="amt">${item.unit_price_net ? '€' + item.unit_price_net.toFixed(2) : '-'}</td>
+                        <td class="amt">${item.vat_rate || '-'}%</td>
+                        <td class="amt">${item.total_gross ? '€' + item.total_gross.toFixed(2) : '-'}</td>
+                      </tr>
+                    `).join('')}
+                  </tbody>
+                </table>
+              </div>` : ''}
+            </div>
+          </div>`;
+        }).join('');
+      });
+  </script>
+</body>
+</html>

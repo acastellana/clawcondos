@@ -1,0 +1,871 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OpenClaw Ecosystem</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg:         #080809;
+      --bg1:        #0f0f11;
+      --bg2:        #141416;
+      --bg3:        #1c1c1f;
+      --bg4:        #242428;
+      --border:     #2a2a2e;
+      --border2:    #353539;
+      --text:       #e8e8ec;
+      --text-dim:   #6b6b78;
+      --text-mid:   #9898a8;
+      --red:        #e63022;
+      --red-dim:    rgba(230,48,34,0.12);
+      --red-glow:   rgba(230,48,34,0.25);
+      --star:       #f5a623;
+      --star-dim:   rgba(245,166,35,0.12);
+      --green:      #22c55e;
+      --green-dim:  rgba(34,197,94,0.12);
+      --blue:       #3b82f6;
+      --radius:     10px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Syne', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Subtle grid background */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── Layout ── */
+    .layout {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      grid-template-columns: 260px 1fr;
+      grid-template-rows: auto 1fr;
+      min-height: 100vh;
+    }
+
+    /* ── Topbar ── */
+    .topbar {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 18px 28px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(8,8,9,0.9);
+      backdrop-filter: blur(12px);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      gap: 20px;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-shrink: 0;
+    }
+
+    .logo-icon {
+      font-size: 1.6rem;
+      line-height: 1;
+    }
+
+    .logo-text {
+      font-size: 1.1rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      color: var(--text);
+    }
+
+    .logo-text span {
+      color: var(--red);
+    }
+
+    .topbar-stats {
+      display: flex;
+      gap: 28px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.75rem;
+      color: var(--text-dim);
+    }
+
+    .topbar-stat strong {
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    .search-wrap {
+      position: relative;
+      flex: 1;
+      max-width: 360px;
+    }
+
+    .search-icon {
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-dim);
+      font-size: 0.85rem;
+      pointer-events: none;
+    }
+
+    #searchInput {
+      width: 100%;
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 9px 14px 9px 36px;
+      border-radius: var(--radius);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    #searchInput:focus {
+      border-color: var(--red);
+    }
+
+    #searchInput::placeholder { color: var(--text-dim); }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      background: var(--bg1);
+      border-right: 1px solid var(--border);
+      padding: 24px 0;
+      height: calc(100vh - 61px);
+      position: sticky;
+      top: 61px;
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border2) transparent;
+    }
+
+    .sidebar-section {
+      margin-bottom: 28px;
+    }
+
+    .sidebar-label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.65rem;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      padding: 0 20px;
+      margin-bottom: 8px;
+    }
+
+    .filter-btn {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      padding: 7px 20px;
+      background: none;
+      border: none;
+      color: var(--text-mid);
+      font-family: 'Syne', sans-serif;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: all 0.15s;
+      text-align: left;
+      border-left: 2px solid transparent;
+    }
+
+    .filter-btn:hover {
+      color: var(--text);
+      background: var(--bg3);
+    }
+
+    .filter-btn.active {
+      color: var(--red);
+      border-left-color: var(--red);
+      background: var(--red-dim);
+      font-weight: 600;
+    }
+
+    .filter-btn .pill {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.7rem;
+      background: var(--bg4);
+      color: var(--text-dim);
+      padding: 1px 7px;
+      border-radius: 20px;
+    }
+
+    .filter-btn.active .pill {
+      background: var(--red-dim);
+      color: var(--red);
+    }
+
+    .filter-sub {
+      padding: 5px 28px;
+      font-size: 0.78rem;
+      color: var(--text-dim);
+      cursor: pointer;
+      border-left: 2px solid transparent;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      transition: all 0.15s;
+      font-family: 'Syne', sans-serif;
+    }
+
+    .filter-sub:hover { color: var(--text); }
+    .filter-sub.active {
+      color: var(--red);
+      border-left-color: var(--red);
+      font-weight: 600;
+    }
+
+    .sidebar-divider {
+      height: 1px;
+      background: var(--border);
+      margin: 8px 20px 16px;
+    }
+
+    /* Sort + status row */
+    .sidebar-controls {
+      padding: 0 16px;
+    }
+
+    select {
+      width: 100%;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      color: var(--text-mid);
+      padding: 7px 10px;
+      border-radius: 8px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.75rem;
+      outline: none;
+      cursor: pointer;
+      margin-bottom: 8px;
+    }
+
+    select:focus { border-color: var(--red); }
+
+    /* ── Main ── */
+    .main {
+      padding: 28px;
+      overflow-y: auto;
+    }
+
+    /* Starred section */
+    .starred-section {
+      margin-bottom: 36px;
+    }
+
+    .section-heading {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 16px;
+      font-size: 0.7rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+    }
+
+    .section-heading::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    .section-heading .icon { font-size: 0.9rem; }
+
+    /* Starred grid — larger cards */
+    .starred-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 14px;
+    }
+
+    /* Regular grid */
+    .items-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 12px;
+    }
+
+    /* ── Cards ── */
+    .card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px;
+      transition: border-color 0.2s, background 0.2s, transform 0.15s;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .card:hover {
+      border-color: var(--border2);
+      background: var(--bg3);
+      transform: translateY(-1px);
+    }
+
+    .card.starred {
+      border-color: rgba(245,166,35,0.3);
+    }
+
+    .card.starred:hover {
+      border-color: rgba(245,166,35,0.6);
+    }
+
+    .card.starred::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, var(--star), transparent);
+    }
+
+    .card-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .card-name {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: -0.01em;
+    }
+
+    .card-name a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    .card-name a:hover { color: var(--red); }
+
+    .card-star {
+      color: var(--star);
+      font-size: 0.8rem;
+      flex-shrink: 0;
+    }
+
+    .card-badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+    }
+
+    .badge {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.65rem;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-weight: 500;
+      letter-spacing: 0.02em;
+    }
+
+    .badge-cat {
+      background: var(--bg4);
+      color: var(--text-mid);
+    }
+
+    .badge-sub {
+      background: var(--bg3);
+      color: var(--text-dim);
+      border: 1px solid var(--border);
+    }
+
+    .badge-active {
+      background: var(--green-dim);
+      color: var(--green);
+    }
+
+    .badge-scam {
+      background: var(--red-dim);
+      color: var(--red);
+    }
+
+    .badge-unknown {
+      background: var(--bg4);
+      color: var(--text-dim);
+    }
+
+    .card-desc {
+      font-size: 0.82rem;
+      color: var(--text-mid);
+      line-height: 1.55;
+      flex: 1;
+    }
+
+    .card-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-top: 8px;
+      border-top: 1px solid var(--border);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.65rem;
+      color: var(--text-dim);
+    }
+
+    .card-footer a {
+      color: var(--text-dim);
+      text-decoration: none;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 200px;
+    }
+
+    .card-footer a:hover { color: var(--red); }
+
+    /* ── Empty / Loading ── */
+    .state-msg {
+      grid-column: 1 / -1;
+      text-align: center;
+      padding: 80px 20px;
+      color: var(--text-dim);
+    }
+
+    .state-msg .icon { font-size: 3rem; margin-bottom: 16px; }
+    .state-msg p { font-size: 0.9rem; }
+
+    /* ── Spinner ── */
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .spinner {
+      width: 32px; height: 32px;
+      border: 2px solid var(--border2);
+      border-top-color: var(--red);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      margin: 0 auto 16px;
+    }
+
+    /* ── Toggle Starred ── */
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 16px;
+      margin-bottom: 8px;
+    }
+
+    .toggle-label {
+      font-size: 0.78rem;
+      color: var(--text-mid);
+      font-family: 'Syne', sans-serif;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    input[type="checkbox"] {
+      accent-color: var(--star);
+      width: 13px; height: 13px;
+      cursor: pointer;
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 768px) {
+      .layout {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto auto 1fr;
+      }
+      .sidebar {
+        height: auto;
+        position: static;
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+        padding: 16px 0;
+      }
+      .topbar-stats { display: none; }
+      .main { padding: 16px; }
+    }
+
+    /* ── Results count line ── */
+    .results-bar {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.72rem;
+      color: var(--text-dim);
+      margin-bottom: 20px;
+      display: flex;
+      gap: 16px;
+      align-items: center;
+    }
+
+    .results-bar strong { color: var(--text-mid); }
+
+    /* category emoji map injected via JS */
+  </style>
+</head>
+<body>
+<div class="layout">
+
+  <!-- TOPBAR -->
+  <header class="topbar">
+    <div class="logo">
+      <div class="logo-icon">🦞</div>
+      <div class="logo-text">Open<span>Claw</span> Ecosystem</div>
+    </div>
+    <div class="search-wrap">
+      <span class="search-icon">⌕</span>
+      <input type="text" id="searchInput" placeholder="search tools, skills, projects..." autocomplete="off">
+    </div>
+    <div class="topbar-stats" id="topbarStats">
+      <span><strong id="statActive">–</strong> active</span>
+      <span><strong id="statStarred">–</strong> starred</span>
+      <span><strong id="statCategories">–</strong> categories</span>
+    </div>
+  </header>
+
+  <!-- SIDEBAR -->
+  <nav class="sidebar">
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">Filter</div>
+      <button class="filter-btn active" data-cat="" onclick="setCategory('')">
+        All items <span class="pill" id="pillAll">–</span>
+      </button>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">Category</div>
+      <div id="categoryList"></div>
+    </div>
+
+    <div class="sidebar-divider"></div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">Sort</div>
+      <div class="sidebar-controls">
+        <select id="sortSelect" onchange="renderAll()">
+          <option value="starred">⭐ Starred first</option>
+          <option value="name">A → Z name</option>
+          <option value="cat">Category</option>
+          <option value="newest">Newest first</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">Options</div>
+      <div class="toggle-row">
+        <input type="checkbox" id="showInactive" onchange="renderAll()">
+        <label class="toggle-label" for="showInactive">Show scam / unknown</label>
+      </div>
+      <div class="toggle-row">
+        <input type="checkbox" id="starredOnly" onchange="renderAll()">
+        <label class="toggle-label" for="starredOnly">Starred only</label>
+      </div>
+    </div>
+
+  </nav>
+
+  <!-- MAIN -->
+  <main class="main">
+    <div class="results-bar" id="resultsBar"></div>
+
+    <!-- Starred -->
+    <section class="starred-section" id="starredSection" style="display:none">
+      <div class="section-heading"><span class="icon">⭐</span> Notable &amp; starred</div>
+      <div class="starred-grid" id="starredGrid"></div>
+    </section>
+
+    <!-- All items -->
+    <section id="allSection">
+      <div class="section-heading" id="allHeading"><span class="icon">◈</span> All items</div>
+      <div class="items-grid" id="itemsGrid">
+        <div class="state-msg">
+          <div class="spinner"></div>
+          <p>Loading ecosystem…</p>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+</div>
+
+<script>
+const CAT_LABELS = {
+  official:       '📦 Official',
+  community:      '💬 Community',
+  tools:          '🔧 Tools',
+  apps:           '📱 Apps',
+  infrastructure: '☁️ Infrastructure',
+  alternatives:   '🔀 Alternatives',
+  skills:         '🧩 Skills',
+  documentation:  '📚 Docs',
+  security:       '🔒 Security',
+  monitoring:     '📊 Monitoring',
+  crypto:         '💰 Crypto',
+  finance:        '📈 Finance',
+  gaming:         '🎮 Gaming',
+  media:          '📡 Media',
+  research:       '🔬 Research',
+  social:         '🌐 Social',
+  marketplace:    '🏪 Marketplace',
+  other:          '· Other',
+};
+
+let allItems = [];
+let activeCategory = '';
+let activeSubcategory = '';
+
+// ── Fetch ──────────────────────────────────────────────────────────────────
+async function loadData() {
+  try {
+    const res = await fetch('/openclaw-ecosystem/api/items');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    allItems = (data.items || []).filter(i => i && i.name && i.url);
+    buildSidebar();
+    renderAll();
+  } catch (err) {
+    document.getElementById('itemsGrid').innerHTML = `
+      <div class="state-msg">
+        <div class="icon">⚠️</div>
+        <p>Failed to load: ${err.message}</p>
+      </div>`;
+  }
+}
+
+// ── Filtering ──────────────────────────────────────────────────────────────
+function getFiltered() {
+  const search = document.getElementById('searchInput').value.trim().toLowerCase();
+  const showInactive = document.getElementById('showInactive').checked;
+  const starredOnly  = document.getElementById('starredOnly').checked;
+
+  return allItems.filter(item => {
+    // status
+    if (!showInactive && (item.status === 'inactive' || item.status === 'scam')) return false;
+    // starred only
+    if (starredOnly && !item.starred) return false;
+    // category
+    if (activeCategory && item.category !== activeCategory) return false;
+    // subcategory
+    if (activeSubcategory && item.subcategory !== activeSubcategory) return false;
+    // search
+    if (search) {
+      const blob = [item.name, item.description, item.category, item.subcategory, item.url]
+        .filter(Boolean).join(' ').toLowerCase();
+      if (!blob.includes(search)) return false;
+    }
+    return true;
+  });
+}
+
+function getSorted(items) {
+  const sort = document.getElementById('sortSelect').value;
+  const copy = [...items];
+  if (sort === 'starred') {
+    copy.sort((a, b) => {
+      if (a.starred && !b.starred) return -1;
+      if (!a.starred && b.starred) return 1;
+      return (a.name || '').localeCompare(b.name || '');
+    });
+  } else if (sort === 'name') {
+    copy.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+  } else if (sort === 'cat') {
+    copy.sort((a, b) => {
+      const ca = (a.category || '').localeCompare(b.category || '');
+      if (ca !== 0) return ca;
+      return (a.name || '').localeCompare(b.name || '');
+    });
+  } else if (sort === 'newest') {
+    copy.sort((a, b) => {
+      const da = new Date(a.discoveredAt || 0).getTime();
+      const db = new Date(b.discoveredAt || 0).getTime();
+      return db - da;
+    });
+  }
+  return copy;
+}
+
+// ── Sidebar ────────────────────────────────────────────────────────────────
+function buildSidebar() {
+  const active = allItems.filter(i => i.status !== 'inactive' && i.status !== 'scam');
+  const counts = {};
+  const subcounts = {};
+  active.forEach(i => {
+    counts[i.category] = (counts[i.category] || 0) + 1;
+    const key = i.category + '/' + (i.subcategory || '');
+    subcounts[key] = (subcounts[key] || 0) + 1;
+  });
+
+  // Top stats
+  const starred = active.filter(i => i.starred).length;
+  document.getElementById('statActive').textContent = active.length;
+  document.getElementById('statStarred').textContent = starred;
+  document.getElementById('statCategories').textContent = Object.keys(counts).length;
+  document.getElementById('pillAll').textContent = active.length;
+
+  // Category list
+  const container = document.getElementById('categoryList');
+  container.innerHTML = Object.entries(counts)
+    .sort((a, b) => b[1] - a[1])
+    .map(([cat, count]) => {
+      const label = CAT_LABELS[cat] || cat;
+      // subcategories for this cat
+      const subs = Object.entries(subcounts)
+        .filter(([k]) => k.startsWith(cat + '/') && !k.endsWith('/'))
+        .sort((a, b) => b[1] - a[1]);
+
+      const subHtml = subs.length > 1 ? subs.map(([k, c]) => {
+        const sub = k.split('/')[1];
+        return `<div class="filter-sub" data-sub="${sub}" data-cat="${cat}" onclick="setSubcategory('${cat}','${sub}')">
+          ${sub} <span>${c}</span>
+        </div>`;
+      }).join('') : '';
+
+      return `
+        <button class="filter-btn" data-cat="${cat}" onclick="setCategory('${cat}')">
+          ${label} <span class="pill">${count}</span>
+        </button>
+        ${subHtml}`;
+    }).join('');
+}
+
+function setCategory(cat) {
+  activeCategory = cat;
+  activeSubcategory = '';
+  updateSidebarActive();
+  renderAll();
+}
+
+function setSubcategory(cat, sub) {
+  activeCategory = cat;
+  activeSubcategory = sub;
+  updateSidebarActive();
+  renderAll();
+}
+
+function updateSidebarActive() {
+  document.querySelectorAll('.filter-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.cat === activeCategory && !activeSubcategory);
+  });
+  document.querySelectorAll('.filter-sub').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.cat === activeCategory && btn.dataset.sub === activeSubcategory);
+  });
+}
+
+// ── Render ─────────────────────────────────────────────────────────────────
+function renderAll() {
+  const filtered = getSorted(getFiltered());
+  const starred  = filtered.filter(i => i.starred);
+  const rest     = filtered.filter(i => !i.starred);
+
+  // Results bar
+  const desc = [];
+  if (activeCategory) desc.push(CAT_LABELS[activeCategory] || activeCategory);
+  if (activeSubcategory) desc.push(activeSubcategory);
+  document.getElementById('resultsBar').innerHTML =
+    `<strong>${filtered.length}</strong> item${filtered.length !== 1 ? 's' : ''}` +
+    (desc.length ? ` in <strong>${desc.join(' › ')}</strong>` : '');
+
+  // Starred section
+  const starredSection = document.getElementById('starredSection');
+  const starredGrid    = document.getElementById('starredGrid');
+  if (starred.length && document.getElementById('sortSelect').value === 'starred') {
+    starredSection.style.display = '';
+    starredGrid.innerHTML = starred.map(item => cardHtml(item, true)).join('');
+  } else {
+    starredSection.style.display = 'none';
+  }
+
+  // All items (exclude starred if shown above)
+  const itemsToShow = (starred.length && document.getElementById('sortSelect').value === 'starred')
+    ? rest : filtered;
+
+  const allHeading = document.getElementById('allHeading');
+  const itemsGrid  = document.getElementById('itemsGrid');
+
+  if (filtered.length === 0) {
+    allHeading.style.display = 'none';
+    itemsGrid.innerHTML = `
+      <div class="state-msg">
+        <div class="icon">🔍</div>
+        <p>No items match your filter</p>
+      </div>`;
+    return;
+  }
+
+  allHeading.style.display = starred.length && document.getElementById('sortSelect').value === 'starred'
+    ? '' : 'none';
+
+  itemsGrid.innerHTML = itemsToShow.map(item => cardHtml(item, false)).join('');
+}
+
+function cardHtml(item, large) {
+  const name = item.name || 'Untitled';
+  const catLabel = CAT_LABELS[item.category] || item.category || '—';
+  const sub = item.subcategory || '';
+  const desc = item.description || '';
+  const url  = item.url || '';
+  const status = item.status || 'unknown';
+
+  const urlShort = url.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '').slice(0, 40);
+  const statusBadge = `<span class="badge badge-${status}">${status}</span>`;
+  const starred = item.starred ? '<span class="card-star" title="starred">⭐</span>' : '';
+
+  return `
+  <div class="card${item.starred ? ' starred' : ''}">
+    <div class="card-top">
+      <div class="card-name">
+        ${url ? `<a href="${url}" target="_blank" rel="noopener noreferrer">${name}</a>` : name}
+      </div>
+      ${starred}
+    </div>
+    <div class="card-badges">
+      <span class="badge badge-cat">${catLabel}</span>
+      ${sub ? `<span class="badge badge-sub">${sub}</span>` : ''}
+      ${statusBadge}
+    </div>
+    ${desc ? `<div class="card-desc">${desc}</div>` : ''}
+    <div class="card-footer">
+      ${url ? `<a href="${url}" target="_blank" rel="noopener noreferrer">${urlShort}</a>` : '<span>—</span>'}
+      <span>${item.curatedAt ? new Date(item.curatedAt).toLocaleDateString('en-GB',{month:'short',day:'numeric'}) : ''}</span>
+    </div>
+  </div>`;
+}
+
+// ── Events ─────────────────────────────────────────────────────────────────
+let searchTimer;
+document.getElementById('searchInput').addEventListener('input', () => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(renderAll, 180);
+});
+
+// ── Boot ───────────────────────────────────────────────────────────────────
+loadData();
+</script>
+</body>
+</html>
